@@ -1,0 +1,680 @@
+﻿--- FILE: README.md ---
+
+# Getting Started with Create React App
+
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+
+## Available Scripts
+
+In the project directory, you can run:
+
+### `npm start`
+
+Runs the app in the development mode.\
+Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+
+The page will reload when you make changes.\
+You may also see any lint errors in the console.
+
+### `npm test`
+
+Launches the test runner in the interactive watch mode.\
+See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+
+### `npm run build`
+
+Builds the app for production to the `build` folder.\
+It correctly bundles React in production mode and optimizes the build for the best performance.
+
+The build is minified and the filenames include the hashes.\
+Your app is ready to be deployed!
+
+See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+
+### `npm run eject`
+
+**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+
+If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+
+Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+
+You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+
+## Learn More
+
+You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+
+To learn React, check out the [React documentation](https://reactjs.org/).
+
+### Code Splitting
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+
+### Analyzing the Bundle Size
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+
+### Making a Progressive Web App
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+
+### Advanced Configuration
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+
+### Deployment
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+
+### `npm run build` fails to minify
+
+This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+
+
+--- FILE: public\favicon.ico ---
+
+         ã  F          )         9  5  @@     °  n  ‰PNG
+
+   
+IHDR         (-S   äPLTE""""""""""""""""""2PX=r€)7;*:>H¤-BGEˆš8do5Xb6[eK™®Kš¯1MU9gs3S\I“§:gt'03@{‹V¹ÔT´ÏA}V»Ö@y‰6\fH’¦-CII”¨Eˆ›+;@7_i7_jFŠJ–«K›°H£-BHaÚû,@FCƒ”L³&.0W½ÙN£ºI“¨$)+B‘J•ªR¯È?v†>s>u„S±Ê=qP©ÁP¨ÀP§¿,?D4U^%+-M ¶K˜®%+,2OX+<ALœ²#&&D†˜%,.I•©vôTö   tRNSIæçJäeÀe¦   ©IDATxMŽµZEA„ÿÙ³	îî%R¡ïßáTThÇG…»,Á®Å=²Òîmífímnf’A–$â‡>!¦gºôHg½EßÜµ}	Ý»ý‡º¼kdú§¯Jo—™Î3æL"J¹ ›ÌÕüQ‡$âçÄ¼ffµ,é€5i9ÌŸ¯H¨/mB†‡wÍÜw;D
+Ø+&‚W«ª¹¨Dôo@Ê´RI©ÐB¡om. Û³ À    IEND®B`‚‰PNG
+
+   
+IHDR         ×©ÍÊ  ePLTE""""""""""""""""""""""""2RZN¢¹J–«3R[J—¬)59YÁÞ0KS4W`Q«ÄLœ²%+-0JR)6::gtC‚“"##?v†U·Ñ?w†<n{&-/YÂß=q:iuBA}A{ŒB‘/IPP§¿=q€K™®_ÔóL³$();lzR¯ÉaÚûI“¨ZÆã3U^1MU3T]ZÅâI“§X¿ÜF‹ž-BGP¨À6[e,@E5ZdO§¿-BHX¿Û+=AW¾Ú,@FW¼ØQªÃ?v…W¼×+<A@yˆ"#$\Ìê4Wa\ÌëS²Ì$(*.EL^ÑñVºÕ6]h#$%GŽ¡#&';jwV¹Ô-CIL›±ZÄá^Ðï>u„S°Ê/HNM ·_Õõ\ËéM ¶8doD…—D†˜>tƒ+=B[Èæ,>C>t‚<o}@y‰0LS.EKT´Î$'(%,.A~ŽW½ÙC’%+,\ÊèC!ä    tRNS‘íîˆ‰œG¾Ö  OIDATxl‰ÃB¶Q…Ÿu´ß_È³<Ë¦Ýveê²óa6AÎ¾Œûv¢{ @Î  E' Þd IÕ!çží  ðC—ÔT‹
+þg  1ÂE(ÏñSQsâi
+Ä…Zÿ·V¹
+ Ð)ég!‰ªhÎùtéº-i}˜µµ<Õ?¶lBZaÄ´4{DÓâŒ»_e8¥yÇ­À3ž)Ÿ¥?°f;8.ã¤tÌ=å;	:ã52fKZìlù¨ØšÍ9.ž#ƒÒAÁqÌúÛ®£Vÿ`=$¬Â?_¶¾®ÔqMç.ïJ$
+?^q÷ñíÛï.},‚ìsæÝ_TttÔ¾ 1# ‰/(ì—-[è`è`ÌÚïÅðZd5’Ž™›?ÎebZ¿Þˆi.Ûæ™ìqÎ„+1°}ÂŒ5ù  ïçd¨G•Ïø    IEND®B`‚‰PNG
+
+   
+IHDR           D¤ŠÆ  APLTE   """""""""""""""""""""""""""2RZVºÖ_ÔôU·Ñ=r€$()'25]ÎíCƒ•0LS<o}XÀÜX¿Û0JQ=p~D„–<n{VºÕE‡™8do_ÔóEˆšF‹žH‘¥9dp_ÕõH¤I“¨FŒŸ6[e`Ö÷`×øL³/GM_ÓòU¸Ó'02P©Á/IPPªÂX¿Ü&/1;ly3R[`ØøGŽ¡T³Í\ÌêaÚû1OW"##Q«ÄaÙúR®Ç=q€`Öö.EL+=ATµÐ-CIK˜®#&'C‚“^ÐïI”¨&.04U^^Ñð@yˆZÇä$(*[Éç^Ññ,?DR¯É"#$1NV1MTD…—>u„;kxG R¯È/HN&-/@y‰>s>t‚@zŠ]ÍìP¨À$'(D†—]Ïî<n|0JRU·Ò×\¼   	tRNS %­ñ'ïó(ò~ÑÝè  žIDATx“šC1F_Ý¿MmÛ¶4¶m{ÿ
+˜¤n†çáÓ	®A$–à $b‘ Heø™TãWÄÂh•šh´:PtZ
+Q«0@.`€Þ`4™-V`³Zì&‡A#ÁébkÝÄãñúØ>.''ø`C$FØÏ	‘(±x"6Xác”TÚéL§@Iù;d d-¹|¾P,È”9¡R­ÕÍf3¢¿F½VmM
+íX§ÚíÍç@Y˜7ÎõºÕN¬=—ŽåÈÊªu
+}Ö¬«+‘e‡aiq ¤Ö76­íÝ=h
+ûZìíîl›ë‡}á¨Ê±¥[F«I9A¹k9¥Öë
+äŒ3¢Ã9Î¡óžqB~Øáb¸ÃåU_¸^Ü [ ·ôw†ý{z‡ v‡z‡Ù(Š£(Š£(þ› †Šfòq”ÉG–Éïkñ”ÏçŠY¾ÿªfäòÇ~à:*4ÓQ\O>Ÿ‘ ‡¼<×“úW£éÍZ| Þ‹Å7“ñ•ïjTÔäãn”½»¢®`$Hð+ò¿GOñûð*èx‹•ø¥X*|”^ÿd    IEND®B`‚‰PNG
+
+   
+IHDR   @   @   ·ì  :PLTE   """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""%+-@y‰W¼×`×ø^ÑñS²ÌC‚“,>C*8<XÁÝaÚûaÙùMŸµ+<AaÙúXÀÜ#%%TµÐLž´=q>u„K›°`ÖöA}L›±8do=r€%+,@yˆ^ÐïS²Ë)59=q€P©ÁU·Ò"#$PªÂ\Êè0JQQªÃ"##U·Ñ#&&_Ôô>t‚>s`Øø_Ôó5Yc1OW5Zd1NV+=B1MU+;@/GM\Ìê*;?3S\)8<2RZ_Õõ+=A]Ïî,@F,@E&-/0KS7alO¦¾9dp8amB~EˆšP¨ÀN¢¹'023T]]Îí?x‡3U^Cƒ•6\gU¸Ó&.0D„–7_iR­ÆH‘¥I”¨M ¶$(*?v…ZÆãX¿Ü-AG#$%[Éç8co[ÈæW½ÙC’'25?v†8bn%*+Lœ²N£º2PX)7;=p~(58^ÒòP§¿4WaQ«ÄT´Ï0JRQ¬ÅT´ÎI“¨6]hR¯ÉT³Í0LSF‹9eqEˆ›E‰œ9gsFŠCƒ”#&'\Ëé`Ö÷&/16\fB‘A{ŒR®Ç]Íì(47%,.*:>*9=9fr:gt7^iU¶Ð?w†ZÇäX¿Û^ÑðQ­ÅH£)6:V¹Ô'034U^E‡™.EL.FMK™®@zŠS×   tRNS *Ž×øÖ”ý˜	»½•+üùóÔ,ØúôÀ=V  IDATx¤ËµC! ÐïŠ–‡C|ÿãÚ^yR]ÕMÛáO]ßÔÕÝ0NÈ2ÍËí¿"ªª¢(0Vã(ÀY%PDT-~(m¬ó!âKÞY£~´•üIÒf{³ÛÞáa¼§§ô3—ÕOp&”Ð¤‰¡ xŽ÷#Ÿj­ôÚ¶mméòc)]m¤’‡É)Æ§gfçhk²ñÎÒ ægg¦Ç™šìÐ+X€ÅêuiyV×ª·k«°²\[ü:,Ø6ØÜjÄ²
+;»"»;°×XùþÛfÁáÇÍûý“SÎÎÏÏ8=Þo¾;æèÐ(ƒ‹öÓ¥BkÔeûÍ\7p+mîîáþNÚ<ÀQðOÒæùô³´y‚g»ttÐëo•ý½£ŸìVð»Òäsýü¬™ø”&_ðaüïV~à·Ö?­*8àQ ;8¥Á,¸¤‚
+f¥“1
+Üx¤†×§ñŸ*œøÑA¯Ôð°a#±³¶¦#ŠnP‘i+¼¶CÈ,ˆÆèäÍ_áNbÑá‚Ã¸ç •HŽB*ÚÒ¦ L( ^<ñÃ‚L6 pJ¾P”É¥Ž©¢%"“R,ä9Èe3eRËa1(
+¢ßqÇ8ÙŽ´ŠmKË±mÆ¶mÛü·yi!èÎªYÏuë ÀÏ_Àï?i÷ˆý+òŠÄA|ù{‘˜´?¿_En).JËD¤<€
+©¬¢Z\Ts©R*(	¯©JŠ…uX/
+4J9š¡5·DEµ4kÇ4‡&i¥V4Ú¡®Ð¯†vsf:àg,¢èBC»î$¶ºÍùî‡á–@ôŠI_?<‘!^ŠÈàÓ½ÇöäõB‘%Làw±FD1ŠÁ¨(F€±øH˜%0Æ±¿ÅØ„(¢0ˆÅÄ'Åæ—N.0u„@íY‡PWìIüaNâKš™Ä?ðÓµŒ=Žeœv/c—±ŒÓ0c0÷2Êë:ˆ06R-uÒÄ­\QÌ¶ää´¼µ6R#
+ÆFš³6Òñ·rÕ­ìu˜æmâðÂž‡Iñi~ –Åü ÃsPþ"± 
+óŸ¼
+eiyå£ËPšàãÊò’§¡œÝÒ,S]U¦ºV…ªÖ”©®Z¦êoëë·xzã™âÆSnm¬{ÚºwaÙ„Ï…Å»´Ýõ(mg/®þå½À¿¼ûŒ[§b³µq¶Å&Õ¯ ¹$ñzÈŠ‹H>aÌKT1/æø1O‚‰0¾.h Í‡YþAÓö£
+-ê>Û‹º«¢XÕ¢î}ß¨ëÛÑ; ÃöN´ØvÅýÎ¸ÿ1 ë×ÄO@&v/Äþ_—ö\ôÇ\í.™½+0”;!fÊ¦´Ó%Â JY·O”ÂŽ'/Å]_Š;ßÀ'"&Nªn	aQ^ ”cx¦AáÒ    IEND®B`‚
+
+
+--- FILE: public\index.html ---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="EDGE - Employee Development & Growth Engine" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>EDGE | Lucerne International</title>
+  </head>
+  <body class="bg-gray-900 text-white">
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
+</html>
+
+
+--- FILE: public\manifest.json ---
+
+{
+  "short_name": "React App",
+  "name": "Create React App Sample",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
+
+
+
+--- FILE: public\robots.txt ---
+
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Disallow:
+
+
+
+--- FILE: src\App.js ---
+
+// src/App.js
+import React, { useState, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+
+import Sidebar from './components/shared/Sidebar';
+import Dashboard from './components/pages/Dashboard';
+import MyTeam from './components/pages/MyTeam';
+import MyReviews from './components/pages/MyReviews';
+import Settings from './components/pages/Settings';
+import Assessment from './components/pages/Assessment';
+import StartReviewCycleModal from './components/modals/StartReviewCycleModal';
+import Modal from './components/modals/Modal';
+
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// REMOVE DEVELOPMENT BYPASS
+const DEV_MODE_BYPASS_LOGIN = false;
+
+const PageRenderer = ({ page, setActivePage, openModal }) => {
+  switch (page.name) {
+    case 'Dashboard':
+      return <Dashboard supabase={supabase} />;
+    case 'My Team':
+      return <MyTeam supabase={supabase} openModal={openModal} setActivePage={setActivePage} />;
+    case 'My Reviews':
+      return <MyReviews supabase={supabase} />;
+    case 'Settings':
+      return <Settings supabase={supabase} />;
+    case 'Assessment':
+      return <Assessment supabase={supabase} pageProps={page.props} setActivePage={setActivePage} />;
+    default:
+      return null;
+  }
+};
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [activePage, setActivePage] = useState({ name: 'Dashboard' });
+  const [modal, setModal] = useState({ isOpen: false, name: null, props: {} });
+
+  useEffect(() => {
+    const fetchSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (session && session.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+      }
+    };
+
+    fetchSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const openModal = (name, props = {}) => setModal({ isOpen: true, name, props });
+  const closeModal = () => setModal({ isOpen: false, name: null, props: {} });
+
+  if (!user && !DEV_MODE_BYPASS_LOGIN) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="w-full max-w-sm">
+          <Auth
+            supabaseClient={supabase}
+            appearance={{ theme: ThemeSupa }}
+            providers={['email']}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex bg-gray-900 text-gray-100">
+      <Sidebar activePage={activePage.name} setActivePage={setActivePage} />
+      <main className="flex-grow">
+        <PageRenderer page={activePage} setActivePage={setActivePage} openModal={openModal} />
+      </main>
+
+      {modal.isOpen && (
+        <Modal closeModal={closeModal}>
+          {modal.name === 'startReviewCycle' && (
+            <StartReviewCycleModal supabase={supabase} closeModal={closeModal} modalProps={modal.props} />
+          )}
+          {/* Add additional modals as needed */}
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+
+
+--- FILE: src\index.js ---
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+
+--- FILE: src\components\modals\Modal.js ---
+
+import React from 'react';
+import { X } from 'lucide-react';
+
+export default function Modal({ children, closeModal }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+      <div className="bg-gray-900 rounded-xl shadow-lg w-full max-w-lg relative p-6">
+        <button onClick={closeModal} className="absolute top-4 right-4 text-gray-400 hover:text-white">
+          <X size={20} />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+
+--- FILE: src\components\modals\StartReviewCycleModal.js ---
+
+import React, { useEffect, useState } from 'react';
+
+export default function StartReviewCycleModal({ supabase, closeModal, modalProps }) {
+  const [cycles, setCycles] = useState([]);
+  const [selected, setSelected] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchCycles = async () => {
+      const { data, error } = await supabase
+        .from('review_cycles')
+        .select('id, name, status')
+        .eq('status', 'active');
+      if (error) setError(error.message);
+      else setCycles(data);
+      setLoading(false);
+    };
+    fetchCycles();
+  }, [supabase]);
+
+  const start = async () => {
+    if (!selected) return;
+    setSubmitting(true);
+    const { error } = await supabase.rpc('start_review_cycle_for_my_team', { cycle_id_to_start: selected });
+    if (error) setError(error.message);
+    else {
+      if (modalProps?.afterSave) await modalProps.afterSave();
+      closeModal();
+    }
+    setSubmitting(false);
+  };
+
+  if (loading) return <div>Loadingâ€¦</div>;
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Start Review Cycle</h2>
+      {error && <p className="text-red-400 mb-2">{error}</p>}
+      <label className="block mb-4">
+        <span className="text-sm">Select Active Cycle</span>
+        <select
+          value={selected}
+          onChange={(e) => setSelected(parseInt(e.target.value))}
+          className="mt-1 w-full bg-gray-800 border border-gray-700 rounded-lg p-2">
+          <option value="">â€” choose â€”</option>
+          {cycles.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </label>
+      <div className="flex justify-end space-x-2">
+        <button onClick={closeModal} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600">Cancel</button>
+        <button
+          onClick={start}
+          disabled={!selected || submitting}
+          className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50">
+          {submitting ? 'Startingâ€¦' : 'Start'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
+--- FILE: src\components\pages\Assessment.js ---
+
+import React, { useEffect, useState } from 'react';
+
+export default function Assessment({ supabase, pageProps, setActivePage }) {
+  const { assessmentId } = pageProps;
+  const [assessment, setAssessment] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchDetails = async () => {
+      const { data, error } = await supabase.rpc('get_assessment_details', { p_assessment_id: assessmentId });
+      if (error) setError(error.message);
+      else setAssessment(data?.[0]);
+      setLoading(false);
+    };
+    fetchDetails();
+  }, [supabase, assessmentId]);
+
+  if (loading) return <div className="p-8">Loadingâ€¦</div>;
+  if (error)   return <div className="p-8 text-red-400">{error}</div>;
+  if (!assessment) return <div className="p-8">No data</div>;
+
+  return (
+    <div className="p-8 space-y-6">
+      <button onClick={() => setActivePage({ name: 'My Team', props: {} })} className="text-cyan-400 hover:underline">â†Â Back to MyÂ Team</button>
+
+      <h2 className="text-2xl font-semibold">{assessment.employee_name}</h2>
+      <p className="text-gray-400">Review Cycle: {assessment.review_cycle_name}</p>
+
+      <section>
+        <h3 className="text-xl font-semibold mb-2 mt-6">GWC</h3>
+        <ul className="space-y-1 text-gray-300 list-disc list-inside">
+          <li>GetsÂ It: {assessment.gwc_gets_it ? 'âœ…' : 'âŒ'} â€” {assessment.gwc_gets_it_feedback}</li>
+          <li>WantsÂ It: {assessment.gwc_wants_it ? 'âœ…' : 'âŒ'} â€” {assessment.gwc_wants_it_feedback}</li>
+          <li>Capacity: {assessment.gwc_capacity ? 'âœ…' : 'âŒ'} â€” {assessment.gwc_capacity_feedback}</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3 className="text-xl font-semibold mb-2 mt-6">Strengths &Â Improvements</h3>
+        <p className="mb-2"><strong>Strengths:</strong> {assessment.employee_strengths}</p>
+        <p><strong>Improvements:</strong> {assessment.employee_improvements}</p>
+      </section>
+
+      <section>
+        <h3 className="text-xl font-semibold mb-2 mt-6">Rocks</h3>
+        <ul className="space-y-2">
+          {assessment.rocks?.map((rock) => (
+            <li key={rock.id} className="p-3 bg-gray-800 rounded-lg">{rock.description} â€” <span className="capitalize text-gray-400">{rock.status}</span></li>
+          ))}
+        </ul>
+      </section>
+    </div>
+  );
+}
+
+
+--- FILE: src\components\pages\Dashboard.js ---
+
+import React, { useEffect, useState } from 'react';
+
+export default function Dashboard({ supabase }) {
+  const [teamStatus, setTeamStatus] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      const { data, error } = await supabase.rpc('get_team_status');
+      if (error) {
+        setError(error.message);
+      } else {
+        setTeamStatus(data);
+      }
+      setLoading(false);
+    };
+    fetchStatus();
+  }, [supabase]);
+
+  if (loading) return <div className="p-8">Loadingâ€¦</div>;
+  if (error)   return <div className="p-8 text-red-400">{error}</div>;
+
+  return (
+    <div className="p-8">
+      <h2 className="text-2xl font-semibold mb-6">TeamÂ Dashboard</h2>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-700 text-gray-300">
+            <tr>
+              <th className="px-4 py-2 text-left">Employee</th>
+              <th className="px-4 py-2 text-left">JobÂ Title</th>
+              <th className="px-4 py-2 text-left">AssessmentÂ Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teamStatus.map((row) => (
+              <tr key={row.employee_id} className="even:bg-gray-800">
+                <td className="px-4 py-2">{row.employee_name}</td>
+                <td className="px-4 py-2">{row.job_title}</td>
+                <td className="px-4 py-2 capitalize">{row.assessment_status ?? 'â€”'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+--- FILE: src\components\pages\MyReviews.js ---
+
+// src/components/pages/MyReviews.js
+import React, { useEffect, useState } from 'react';
+
+export default function MyReviews({ supabase }) {
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchReviews = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+      if (sessionError || !session) {
+        setError(sessionError?.message || "No active session");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('assessments')
+        .select('id, review_cycle_id, status, review_cycles(name)')
+        .eq('employee_id', session.user.id);
+
+      if (error) setError(error.message);
+      else setReviews(data);
+
+      setLoading(false);
+    };
+
+    fetchReviews();
+  }, [supabase]);
+
+  if (loading) return <div className="p-8">Loadingâ€¦</div>;
+  if (error)   return <div className="p-8 text-red-400">{error}</div>;
+
+  return (
+    <div className="p-8">
+      <h2 className="text-2xl font-semibold mb-6">My Reviews</h2>
+      <ul className="space-y-4">
+        {reviews.map((r) => (
+          <li key={r.id} className="p-4 bg-gray-800 rounded-lg shadow flex justify-between">
+            <span>
+              {r.review_cycles?.name ?? 'Unnamed Cycle'} â€” <span className="capitalize">{r.status}</span>
+            </span>
+            <span className="text-sm text-gray-400">ID: {r.id}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+
+
+--- FILE: src\components\pages\MyTeam.js ---
+
+import React, { useEffect, useState } from 'react';
+import { Play } from 'lucide-react';
+
+export default function MyTeam({ supabase, openModal, setActivePage }) {
+  const [teamStatus, setTeamStatus] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const load = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc('get_team_status');
+    if (error) setError(error.message);
+    else setTeamStatus(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    load();
+    // realâ€‘time updates optional: supabase.channel()
+  }, []);
+
+  if (loading) return <div className="p-8">Loadingâ€¦</div>;
+  if (error)   return <div className="p-8 text-red-400">{error}</div>;
+
+  return (
+    <div className="p-8">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-semibold">MyÂ Team</h2>
+        <button
+          onClick={() => openModal('startReviewCycle', { afterSave: load })}
+          className="flex items-center bg-cyan-600 hover:bg-cyan-700 px-4 py-2 rounded-lg shadow">
+          <Play size={16} className="mr-2" />
+          Start Review Cycle
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-700 text-gray-300">
+            <tr>
+              <th className="px-4 py-2 text-left">Employee</th>
+              <th className="px-4 py-2 text-left">JobÂ Title</th>
+              <th className="px-4 py-2 text-left">AssessmentÂ Status</th>
+              <th className="px-4 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {teamStatus.map((row) => (
+              <tr key={row.employee_id} className="even:bg-gray-800">
+                <td className="px-4 py-2">{row.employee_name}</td>
+                <td className="px-4 py-2">{row.job_title}</td>
+                <td className="px-4 py-2 capitalize">{row.assessment_status ?? 'â€”'}</td>
+                <td className="px-4 py-2 text-right">
+                  {row.assessment_id && (
+                    <button
+                      onClick={() => setActivePage({ name: 'Assessment', props: { assessmentId: row.assessment_id } })}
+                      className="text-cyan-400 hover:underline">
+                      Open
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+
+--- FILE: src\components\pages\Settings.js ---
+
+import React from 'react';
+
+export default function Settings() {
+  return (
+    <div className="p-8 max-w-xl">
+      <h2 className="text-2xl font-semibold mb-6">Settings</h2>
+      <p className="mb-4 text-gray-400">This minimal MVP has no userâ€‘configurable settings yet.</p>
+      <p className="text-sm text-gray-500">Future iterations will include notification preferences, theme selection, and profile editing.</p>
+    </div>
+  );
+}
+
+
+--- FILE: src\components\shared\Sidebar.js ---
+
+import React from 'react';
+import { LayoutDashboard, Users, FileText, Settings, LogOut } from 'lucide-react';
+
+const Sidebar = ({ activePage, setActivePage, handleSignOut }) => {
+  const navItems = [
+    { name: 'Dashboard', icon: LayoutDashboard },
+    { name: 'My Team', icon: Users },
+    { name: 'My Reviews', icon: FileText },
+    { name: 'Settings', icon: Settings },
+  ];
+
+  return (
+    <div className="w-64 bg-gray-900 text-white flex flex-col h-screen shadow-2xl">
+      <div className="p-6 text-center border-b border-gray-700">
+        <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">EDGE</h1>
+      </div>
+      <nav className="flex-grow p-4">
+        <ul>
+          {navItems.map((item) => (
+            <li key={item.name}>
+              <button
+                onClick={() => setActivePage({ name: item.name, props: {} })}
+                className={`w-full flex items-center p-3 my-2 rounded-lg transition-all duration-200 text-left ${
+                  activePage.name === item.name
+                    ? 'bg-cyan-500 text-white shadow-lg'
+                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                }`}
+              >
+                <item.icon className="mr-4" size={20} />
+                <span className="font-semibold">{item.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className="p-4 border-t border-gray-700">
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center p-3 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-all duration-200"
+        >
+          <LogOut className="mr-4" size={20} />
+          <span className="font-semibold">Sign Out</span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default Sidebar;
