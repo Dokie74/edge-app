@@ -72,6 +72,8 @@ DROP TABLE IF EXISTS public.assessments;
 DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
 DROP TABLE IF EXISTS public.assessment_rocks;
 DROP TABLE IF EXISTS public.assessment_feedback;
+DROP FUNCTION IF EXISTS public.update_assessment_field(p_assessment_id bigint, p_field_name text, p_field_value text);
+DROP FUNCTION IF EXISTS public.submit_self_assessment(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.link_current_user_to_employee();
 DROP FUNCTION IF EXISTS public.give_kudo(p_receiver_id uuid, p_core_value text, p_comment text);
@@ -281,7 +283,7 @@ $$;
 -- Name: get_assessment_details(bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TABLE(assessment_id bigint, employee_name text, review_cycle_name text, status text, self_assessment_status text, employee_strengths text, employee_improvements text, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_summary_comments text, manager_development_plan text, is_manager_view boolean)
+CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TABLE(assessment_id bigint, employee_name text, review_cycle_name text, status text, self_assessment_status text, employee_strengths text, employee_improvements text, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_summary_comments text, manager_development_plan text, is_manager_view boolean, can_edit_self_assessment boolean, rocks jsonb, scorecard_metrics jsonb)
     LANGUAGE sql SECURITY DEFINER
     AS $$
   SELECT
@@ -304,12 +306,41 @@ CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TA
     a.gwc_capacity_feedback,
     a.manager_summary_comments,
     a.manager_development_plan,
-    -- Check if current user is the manager of this employee
+    -- Check if current user is the manager of this employee or admin
     (EXISTS(
       SELECT 1 FROM employees mgr 
       WHERE mgr.user_id = auth.uid() 
       AND mgr.id = e.manager_id
-    ) OR auth.email() = 'admin@lucerne.com') as is_manager_view
+    ) OR auth.email() = 'admin@lucerne.com') as is_manager_view,
+    -- Can edit if employee and not yet submitted, or if manager/admin
+    (
+      (e.user_id = auth.uid() AND COALESCE(a.self_assessment_status, 'not_started') IN ('not_started', 'in_progress'))
+      OR 
+      (EXISTS(SELECT 1 FROM employees mgr WHERE mgr.user_id = auth.uid() AND mgr.id = e.manager_id))
+      OR 
+      auth.email() = 'admin@lucerne.com'
+    ) as can_edit_self_assessment,
+    -- Get rocks as JSON
+    COALESCE(
+      (SELECT json_agg(json_build_object(
+        'id', ar.id,
+        'description', ar.description,
+        'status', ar.status,
+        'feedback', ar.feedback
+      )) FROM assessment_rocks ar WHERE ar.assessment_id = a.id),
+      '[]'::json
+    ) as rocks,
+    -- Get scorecard metrics as JSON
+    COALESCE(
+      (SELECT json_agg(json_build_object(
+        'id', asm.id,
+        'metric_name', asm.metric_name,
+        'target', asm.target,
+        'actual', asm.actual,
+        'status', asm.status
+      )) FROM assessment_scorecard_metrics asm WHERE asm.assessment_id = a.id),
+      '[]'::json
+    ) as scorecard_metrics
   FROM assessments a
   JOIN employees e ON e.id = a.employee_id
   JOIN review_cycles rc ON rc.id = a.review_cycle_id
@@ -561,6 +592,139 @@ END;
 $$;
 
 
+--
+-- Name: submit_self_assessment(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_self_assessment(p_assessment_id bigint) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  user_employee_id uuid;
+  assessment_employee_id uuid;
+  required_fields_complete boolean;
+BEGIN
+  -- Get current user's employee ID
+  SELECT id INTO user_employee_id 
+  FROM employees 
+  WHERE user_id = auth.uid() AND is_active = true;
+  
+  IF user_employee_id IS NULL THEN
+    RETURN json_build_object('error', 'Employee record not found');
+  END IF;
+  
+  -- Verify this is the employee's own assessment
+  SELECT employee_id INTO assessment_employee_id
+  FROM assessments 
+  WHERE id = p_assessment_id;
+  
+  IF assessment_employee_id != user_employee_id THEN
+    RETURN json_build_object('error', 'Can only submit your own assessment');
+  END IF;
+  
+  -- Check if required fields are completed
+  SELECT (
+    employee_strengths IS NOT NULL AND employee_strengths != '' AND
+    employee_improvements IS NOT NULL AND employee_improvements != '' AND
+    value_passionate_examples IS NOT NULL AND value_passionate_examples != '' AND
+    value_driven_examples IS NOT NULL AND value_driven_examples != '' AND
+    value_resilient_examples IS NOT NULL AND value_resilient_examples != '' AND
+    value_responsive_examples IS NOT NULL AND value_responsive_examples != ''
+  )
+  INTO required_fields_complete
+  FROM assessments 
+  WHERE id = p_assessment_id;
+  
+  IF NOT required_fields_complete THEN
+    RETURN json_build_object('error', 'Please complete all required sections before submitting');
+  END IF;
+  
+  -- Update status and timestamp
+  UPDATE assessments 
+  SET 
+    self_assessment_status = 'employee_complete',
+    employee_submitted_at = now()
+  WHERE id = p_assessment_id;
+  
+  RETURN json_build_object(
+    'success', true, 
+    'message', 'Self-assessment submitted successfully! Your manager has been notified.'
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('error', 'Submission failed: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: update_assessment_field(bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_assessment_field(p_assessment_id bigint, p_field_name text, p_field_value text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  user_employee_id uuid;
+  assessment_employee_id uuid;
+  current_status text;
+BEGIN
+  -- Get current user's employee ID
+  SELECT id INTO user_employee_id 
+  FROM employees 
+  WHERE user_id = auth.uid() AND is_active = true;
+  
+  IF user_employee_id IS NULL THEN
+    RETURN json_build_object('error', 'Employee record not found');
+  END IF;
+  
+  -- Get assessment details and verify permissions
+  SELECT 
+    a.employee_id,
+    COALESCE(a.self_assessment_status, 'not_started')
+  INTO assessment_employee_id, current_status
+  FROM assessments a
+  WHERE a.id = p_assessment_id;
+  
+  -- Check if user can edit this assessment
+  IF assessment_employee_id != user_employee_id 
+     AND NOT EXISTS(SELECT 1 FROM employees WHERE id = assessment_employee_id AND manager_id = user_employee_id)
+     AND auth.email() != 'admin@lucerne.com' THEN
+    RETURN json_build_object('error', 'Permission denied');
+  END IF;
+  
+  -- Update the field (using dynamic SQL safely for specific allowed fields)
+  IF p_field_name = 'employee_strengths' THEN
+    UPDATE assessments SET employee_strengths = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'employee_improvements' THEN
+    UPDATE assessments SET employee_improvements = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_passionate_examples' THEN
+    UPDATE assessments SET value_passionate_examples = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_driven_examples' THEN
+    UPDATE assessments SET value_driven_examples = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_resilient_examples' THEN
+    UPDATE assessments SET value_resilient_examples = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_responsive_examples' THEN
+    UPDATE assessments SET value_responsive_examples = p_field_value WHERE id = p_assessment_id;
+  ELSE
+    RETURN json_build_object('error', 'Invalid field name');
+  END IF;
+  
+  -- Update status to in_progress if it was not_started and this is employee editing
+  IF current_status = 'not_started' AND assessment_employee_id = user_employee_id THEN
+    UPDATE assessments 
+    SET self_assessment_status = 'in_progress' 
+    WHERE id = p_assessment_id;
+  END IF;
+  
+  RETURN json_build_object('success', true, 'message', 'Field updated successfully');
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('error', 'Update failed: ' || SQLERRM);
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -677,7 +841,9 @@ CREATE TABLE public.assessments (
     submitted_by_employee_at timestamp with time zone,
     finalized_by_manager_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
-    self_assessment_status text DEFAULT 'not_started'::text
+    self_assessment_status text DEFAULT 'not_started'::text,
+    employee_submitted_at timestamp with time zone,
+    manager_reviewed_at timestamp with time zone
 );
 
 
@@ -778,7 +944,9 @@ CREATE TABLE public.review_cycles (
     start_date date NOT NULL,
     end_date date NOT NULL,
     status text DEFAULT 'upcoming'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    cycle_type text DEFAULT 'quarterly'::text,
+    description text
 );
 
 
@@ -824,7 +992,7 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 -- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status) FROM stdin;
+COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at) FROM stdin;
 \.
 
 
@@ -863,7 +1031,7 @@ COPY public.kudos (id, giver_id, receiver_id, core_value, message, created_at) F
 -- Data for Name: review_cycles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.review_cycles (id, name, start_date, end_date, status, created_at) FROM stdin;
+COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description) FROM stdin;
 \.
 
 
@@ -2649,49 +2817,56 @@ const Dashboard = ({ supabase, setActivePage, openModal }) => {
         }
     };
 
-    const getStatusDisplay = (assessment) => {
-        const currentStatus = assessment.self_assessment_status || assessment.status;
-        
-        const statusMap = {
-            'not_started': { 
-                label: 'Not Started', 
-                color: 'text-gray-400',
-                bgColor: 'bg-gray-600',
-                actionLabel: 'Start'
-            },
-            'in_progress': { 
-                label: 'In Progress', 
-                color: 'text-yellow-400',
-                bgColor: 'bg-yellow-600',
-                actionLabel: 'Continue'
-            },
-            'employee_complete': { 
-                label: 'Self-Assessment Complete', 
-                color: 'text-blue-400',
-                bgColor: 'bg-blue-600',
-                actionLabel: 'View'
-            },
-            'manager_complete': { 
-                label: 'Manager Review Complete', 
-                color: 'text-purple-400',
-                bgColor: 'bg-purple-600',
-                actionLabel: 'View'
-            },
-            'finalized': { 
-                label: 'Finalized', 
-                color: 'text-green-400',
-                bgColor: 'bg-green-600',
-                actionLabel: 'View'
-            }
-        };
-        
-        return statusMap[currentStatus] || { 
-            label: 'No Status', 
+const getStatusDisplay = (assessment) => {
+    // Use self_assessment_status if available, otherwise fall back to status
+    const currentStatus = assessment.self_assessment_status || assessment.status;
+    
+    const statusMap = {
+        'not_started': { 
+            label: 'Not Started', 
             color: 'text-gray-400',
             bgColor: 'bg-gray-600',
-            actionLabel: 'View'
-        };
+            actionLabel: 'Start',
+            description: 'Begin your self-assessment'
+        },
+        'in_progress': { 
+            label: 'In Progress', 
+            color: 'text-yellow-400',
+            bgColor: 'bg-yellow-600',
+            actionLabel: 'Continue',
+            description: 'Complete your self-assessment'
+        },
+        'employee_complete': { 
+            label: 'Submitted', 
+            color: 'text-blue-400',
+            bgColor: 'bg-blue-600',
+            actionLabel: 'View',
+            description: 'Waiting for manager review'
+        },
+        'manager_complete': { 
+            label: 'Manager Complete', 
+            color: 'text-purple-400',
+            bgColor: 'bg-purple-600',
+            actionLabel: 'View',
+            description: 'Review completed by manager'
+        },
+        'finalized': { 
+            label: 'Finalized', 
+            color: 'text-green-400',
+            bgColor: 'bg-green-600',
+            actionLabel: 'View',
+            description: 'Review cycle complete'
+        }
     };
+    
+    return statusMap[currentStatus] || { 
+        label: 'Unknown Status', 
+        color: 'text-gray-400',
+        bgColor: 'bg-gray-600',
+        actionLabel: 'View',
+        description: 'Status unclear'
+    };
+};
 
     const isActiveReview = (assessment) => {
         const currentStatus = assessment.self_assessment_status || assessment.status;
@@ -2804,20 +2979,36 @@ const Dashboard = ({ supabase, setActivePage, openModal }) => {
                                             </button>
                                         </div>
                                         
-                                        {/* Progress indicator */}
-                                        {assessment.self_assessment_status === 'in_progress' && (
-                                            <div className="mt-3 p-2 bg-yellow-900 rounded text-yellow-200 text-sm">
-                                                <Clock size={14} className="inline mr-1" />
-                                                Continue your self-assessment
-                                            </div>
-                                        )}
-                                        
-                                        {assessment.self_assessment_status === 'employee_complete' && (
-                                            <div className="mt-3 p-2 bg-blue-900 rounded text-blue-200 text-sm">
-                                                <CheckCircle size={14} className="inline mr-1" />
-                                                Submitted for manager review
-                                            </div>
-                                        )}
+                                        {/* Enhanced Progress indicator */}
+{assessment.self_assessment_status === 'in_progress' && (
+    <div className="mt-3 p-2 bg-yellow-900 rounded text-yellow-200 text-sm flex items-center">
+        <Clock size={14} className="mr-2" />
+        <div>
+            <div className="font-medium">Continue your self-assessment</div>
+            <div className="text-xs text-yellow-300">Complete all sections to submit for review</div>
+        </div>
+    </div>
+)}
+
+                                      {assessment.self_assessment_status === 'employee_complete' && (
+                                          <div className="mt-3 p-2 bg-blue-900 rounded text-blue-200 text-sm flex items-center">
+                                              <CheckCircle size={14} className="mr-2" />
+                                              <div>
+                                                  <div className="font-medium">Submitted for manager review</div>
+                                                  <div className="text-xs text-blue-300">Your manager will review and provide feedback</div>
+                                              </div>
+                                          </div>
+                                      )}
+
+                                      {assessment.self_assessment_status === 'manager_complete' && (
+                                          <div className="mt-3 p-2 bg-purple-900 rounded text-purple-200 text-sm flex items-center">
+                                              <Award size={14} className="mr-2" />
+                                              <div>
+                                                  <div className="font-medium">Manager review complete</div>
+                                                  <div className="text-xs text-purple-300">Review the feedback and development plan</div>
+                                              </div>
+                                          </div>
+                                      )}
                                     </div>
                                 );
                             })
@@ -2929,58 +3120,243 @@ export default Dashboard;
 
 --- FILE: src\components\pages\MyReviews.js ---
 
-// src/components/pages/MyReviews.js
-import React, { useEffect, useState } from 'react';
+// STEP 5: Enhanced MyReviews Page - Replace src/components/pages/MyReviews.js
+// This shows better status information like V4 had
 
-export default function MyReviews({ supabase }) {
+import React, { useEffect, useState } from 'react';
+import { Calendar, Clock, CheckCircle, Award, ArrowRight, Filter } from 'lucide-react';
+
+export default function MyReviews({ supabase, setActivePage }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all'); // all, active, completed
 
   useEffect(() => {
-    const fetchReviews = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-      if (sessionError || !session) {
-        setError(sessionError?.message || "No active session");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('assessments')
-        .select('id, review_cycle_id, status, review_cycles(name)')
-        .eq('employee_id', session.user.id);
-
-      if (error) setError(error.message);
-      else setReviews(data);
-
-      setLoading(false);
-    };
-
     fetchReviews();
-  }, [supabase]);
+  }, []);
 
-  if (loading) return <div className="p-8">Loadingâ€¦</div>;
-  if (error)   return <div className="p-8 text-red-400">{error}</div>;
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.rpc('get_my_assessments');
+      if (error) throw error;
+      setReviews(data || []);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusInfo = (review) => {
+    const status = review.self_assessment_status || review.status;
+    
+    const statusMap = {
+      'not_started': { 
+        label: 'Not Started', 
+        color: 'text-gray-400', 
+        bgColor: 'bg-gray-600',
+        icon: Clock,
+        isActive: true
+      },
+      'in_progress': { 
+        label: 'In Progress', 
+        color: 'text-yellow-400', 
+        bgColor: 'bg-yellow-600',
+        icon: Clock,
+        isActive: true
+      },
+      'employee_complete': { 
+        label: 'Submitted', 
+        color: 'text-blue-400', 
+        bgColor: 'bg-blue-600',
+        icon: CheckCircle,
+        isActive: true
+      },
+      'manager_complete': { 
+        label: 'Manager Complete', 
+        color: 'text-purple-400', 
+        bgColor: 'bg-purple-600',
+        icon: Award,
+        isActive: true
+      },
+      'finalized': { 
+        label: 'Finalized', 
+        color: 'text-green-400', 
+        bgColor: 'bg-green-600',
+        icon: CheckCircle,
+        isActive: false
+      }
+    };
+    
+    return statusMap[status] || statusMap['not_started'];
+  };
+
+  const filteredReviews = reviews.filter(review => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return getStatusInfo(review).isActive;
+    if (filter === 'completed') return !getStatusInfo(review).isActive;
+    return true;
+  });
+
+  const activeCount = reviews.filter(r => getStatusInfo(r).isActive).length;
+  const completedCount = reviews.filter(r => !getStatusInfo(r).isActive).length;
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <div className="text-center py-12">
+          <div className="text-yellow-400 text-lg">Loading your reviews...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="text-center py-12">
+          <div className="text-red-400 text-lg">Error: {error}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
-      <h2 className="text-2xl font-semibold mb-6">My Reviews</h2>
-      <ul className="space-y-4">
-        {reviews.map((r) => (
-          <li key={r.id} className="p-4 bg-gray-800 rounded-lg shadow flex justify-between">
-            <span>
-              {r.review_cycles?.name ?? 'Unnamed Cycle'} â€” <span className="capitalize">{r.status}</span>
-            </span>
-            <span className="text-sm text-gray-400">ID: {r.id}</span>
-          </li>
-        ))}
-      </ul>
+      <header className="mb-8">
+        <h1 className="text-4xl font-bold text-white">My Review History</h1>
+        <p className="text-gray-400 mt-2">Access your current and past performance reviews.</p>
+      </header>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Total Reviews</p>
+              <p className="text-2xl font-bold text-cyan-400">{reviews.length}</p>
+            </div>
+            <Calendar className="text-cyan-400" size={24} />
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Active Reviews</p>
+              <p className="text-2xl font-bold text-yellow-400">{activeCount}</p>
+            </div>
+            <Clock className="text-yellow-400" size={24} />
+          </div>
+        </div>
+
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-400 text-sm">Completed</p>
+              <p className="text-2xl font-bold text-green-400">{completedCount}</p>
+            </div>
+            <CheckCircle className="text-green-400" size={24} />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="mb-6">
+        <div className="border-b border-gray-700">
+          <nav className="-mb-px flex space-x-8">
+            {[
+              { id: 'all', name: 'All Reviews', count: reviews.length },
+              { id: 'active', name: 'Active', count: activeCount },
+              { id: 'completed', name: 'Completed', count: completedCount }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                  filter === tab.id
+                    ? 'border-cyan-500 text-cyan-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                }`}
+              >
+                <Filter size={16} className="mr-2" />
+                {tab.name} ({tab.count})
+              </button>
+            ))}
+          </nav>
+        </div>
+      </div>
+
+      {/* Reviews List */}
+      <div className="bg-gray-800 rounded-lg shadow-2xl p-6">
+        {filteredReviews.length > 0 ? (
+          <div className="space-y-4">
+            {filteredReviews.map(review => {
+              const statusInfo = getStatusInfo(review);
+              const StatusIcon = statusInfo.icon;
+              
+              return (
+                <div key={review.assessment_id} className="bg-gray-700 p-4 rounded-lg hover:bg-gray-600 transition">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h3 className="text-lg font-semibold text-white">{review.cycle_name}</h3>
+                        <span className={`px-2 py-1 text-xs rounded-full ${statusInfo.bgColor} text-white flex items-center`}>
+                          <StatusIcon size={12} className="mr-1" />
+                          {statusInfo.label}
+                        </span>
+                      </div>
+                      
+                      <div className="text-sm text-gray-400 space-y-1">
+                        <p>Created: {new Date(review.created_at).toLocaleDateString()}</p>
+                        
+                        {/* Show action needed for active reviews */}
+                        {statusInfo.isActive && (
+                          <p className={`font-medium ${statusInfo.color}`}>
+                            {review.self_assessment_status === 'not_started' && 'Action needed: Start your self-assessment'}
+                            {review.self_assessment_status === 'in_progress' && 'Action needed: Complete your self-assessment'}
+                            {review.self_assessment_status === 'employee_complete' && 'Waiting for manager review'}
+                            {review.self_assessment_status === 'manager_complete' && 'Review complete - view feedback'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => setActivePage({
+                        name: 'Assessment',
+                        props: { assessmentId: review.assessment_id }
+                      })}
+                      className="flex items-center text-cyan-400 hover:text-cyan-300 transition"
+                    >
+                      View Details 
+                      <ArrowRight size={16} className="ml-2" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Calendar size={48} className="mx-auto text-gray-500 mb-4" />
+            <h3 className="text-white text-lg mb-2">
+              {filter === 'all' ? 'No reviews found' : 
+               filter === 'active' ? 'No active reviews' : 'No completed reviews'}
+            </h3>
+            <p className="text-gray-400">
+              {filter === 'all' ? 'Your review history will appear here once cycles are created.' :
+               filter === 'active' ? 'No reviews are currently in progress.' : 
+               'Completed reviews will appear here.'}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
-
 
 
 --- FILE: src\components\pages\MyTeam.js ---

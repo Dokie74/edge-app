@@ -62,6 +62,8 @@ DROP TABLE IF EXISTS public.assessments;
 DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
 DROP TABLE IF EXISTS public.assessment_rocks;
 DROP TABLE IF EXISTS public.assessment_feedback;
+DROP FUNCTION IF EXISTS public.update_assessment_field(p_assessment_id bigint, p_field_name text, p_field_value text);
+DROP FUNCTION IF EXISTS public.submit_self_assessment(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.link_current_user_to_employee();
 DROP FUNCTION IF EXISTS public.give_kudo(p_receiver_id uuid, p_core_value text, p_comment text);
@@ -271,7 +273,7 @@ $$;
 -- Name: get_assessment_details(bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TABLE(assessment_id bigint, employee_name text, review_cycle_name text, status text, self_assessment_status text, employee_strengths text, employee_improvements text, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_summary_comments text, manager_development_plan text, is_manager_view boolean)
+CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TABLE(assessment_id bigint, employee_name text, review_cycle_name text, status text, self_assessment_status text, employee_strengths text, employee_improvements text, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_summary_comments text, manager_development_plan text, is_manager_view boolean, can_edit_self_assessment boolean, rocks jsonb, scorecard_metrics jsonb)
     LANGUAGE sql SECURITY DEFINER
     AS $$
   SELECT
@@ -294,12 +296,41 @@ CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TA
     a.gwc_capacity_feedback,
     a.manager_summary_comments,
     a.manager_development_plan,
-    -- Check if current user is the manager of this employee
+    -- Check if current user is the manager of this employee or admin
     (EXISTS(
       SELECT 1 FROM employees mgr 
       WHERE mgr.user_id = auth.uid() 
       AND mgr.id = e.manager_id
-    ) OR auth.email() = 'admin@lucerne.com') as is_manager_view
+    ) OR auth.email() = 'admin@lucerne.com') as is_manager_view,
+    -- Can edit if employee and not yet submitted, or if manager/admin
+    (
+      (e.user_id = auth.uid() AND COALESCE(a.self_assessment_status, 'not_started') IN ('not_started', 'in_progress'))
+      OR 
+      (EXISTS(SELECT 1 FROM employees mgr WHERE mgr.user_id = auth.uid() AND mgr.id = e.manager_id))
+      OR 
+      auth.email() = 'admin@lucerne.com'
+    ) as can_edit_self_assessment,
+    -- Get rocks as JSON
+    COALESCE(
+      (SELECT json_agg(json_build_object(
+        'id', ar.id,
+        'description', ar.description,
+        'status', ar.status,
+        'feedback', ar.feedback
+      )) FROM assessment_rocks ar WHERE ar.assessment_id = a.id),
+      '[]'::json
+    ) as rocks,
+    -- Get scorecard metrics as JSON
+    COALESCE(
+      (SELECT json_agg(json_build_object(
+        'id', asm.id,
+        'metric_name', asm.metric_name,
+        'target', asm.target,
+        'actual', asm.actual,
+        'status', asm.status
+      )) FROM assessment_scorecard_metrics asm WHERE asm.assessment_id = a.id),
+      '[]'::json
+    ) as scorecard_metrics
   FROM assessments a
   JOIN employees e ON e.id = a.employee_id
   JOIN review_cycles rc ON rc.id = a.review_cycle_id
@@ -551,6 +582,139 @@ END;
 $$;
 
 
+--
+-- Name: submit_self_assessment(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_self_assessment(p_assessment_id bigint) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  user_employee_id uuid;
+  assessment_employee_id uuid;
+  required_fields_complete boolean;
+BEGIN
+  -- Get current user's employee ID
+  SELECT id INTO user_employee_id 
+  FROM employees 
+  WHERE user_id = auth.uid() AND is_active = true;
+  
+  IF user_employee_id IS NULL THEN
+    RETURN json_build_object('error', 'Employee record not found');
+  END IF;
+  
+  -- Verify this is the employee's own assessment
+  SELECT employee_id INTO assessment_employee_id
+  FROM assessments 
+  WHERE id = p_assessment_id;
+  
+  IF assessment_employee_id != user_employee_id THEN
+    RETURN json_build_object('error', 'Can only submit your own assessment');
+  END IF;
+  
+  -- Check if required fields are completed
+  SELECT (
+    employee_strengths IS NOT NULL AND employee_strengths != '' AND
+    employee_improvements IS NOT NULL AND employee_improvements != '' AND
+    value_passionate_examples IS NOT NULL AND value_passionate_examples != '' AND
+    value_driven_examples IS NOT NULL AND value_driven_examples != '' AND
+    value_resilient_examples IS NOT NULL AND value_resilient_examples != '' AND
+    value_responsive_examples IS NOT NULL AND value_responsive_examples != ''
+  )
+  INTO required_fields_complete
+  FROM assessments 
+  WHERE id = p_assessment_id;
+  
+  IF NOT required_fields_complete THEN
+    RETURN json_build_object('error', 'Please complete all required sections before submitting');
+  END IF;
+  
+  -- Update status and timestamp
+  UPDATE assessments 
+  SET 
+    self_assessment_status = 'employee_complete',
+    employee_submitted_at = now()
+  WHERE id = p_assessment_id;
+  
+  RETURN json_build_object(
+    'success', true, 
+    'message', 'Self-assessment submitted successfully! Your manager has been notified.'
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('error', 'Submission failed: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: update_assessment_field(bigint, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_assessment_field(p_assessment_id bigint, p_field_name text, p_field_value text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  user_employee_id uuid;
+  assessment_employee_id uuid;
+  current_status text;
+BEGIN
+  -- Get current user's employee ID
+  SELECT id INTO user_employee_id 
+  FROM employees 
+  WHERE user_id = auth.uid() AND is_active = true;
+  
+  IF user_employee_id IS NULL THEN
+    RETURN json_build_object('error', 'Employee record not found');
+  END IF;
+  
+  -- Get assessment details and verify permissions
+  SELECT 
+    a.employee_id,
+    COALESCE(a.self_assessment_status, 'not_started')
+  INTO assessment_employee_id, current_status
+  FROM assessments a
+  WHERE a.id = p_assessment_id;
+  
+  -- Check if user can edit this assessment
+  IF assessment_employee_id != user_employee_id 
+     AND NOT EXISTS(SELECT 1 FROM employees WHERE id = assessment_employee_id AND manager_id = user_employee_id)
+     AND auth.email() != 'admin@lucerne.com' THEN
+    RETURN json_build_object('error', 'Permission denied');
+  END IF;
+  
+  -- Update the field (using dynamic SQL safely for specific allowed fields)
+  IF p_field_name = 'employee_strengths' THEN
+    UPDATE assessments SET employee_strengths = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'employee_improvements' THEN
+    UPDATE assessments SET employee_improvements = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_passionate_examples' THEN
+    UPDATE assessments SET value_passionate_examples = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_driven_examples' THEN
+    UPDATE assessments SET value_driven_examples = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_resilient_examples' THEN
+    UPDATE assessments SET value_resilient_examples = p_field_value WHERE id = p_assessment_id;
+  ELSIF p_field_name = 'value_responsive_examples' THEN
+    UPDATE assessments SET value_responsive_examples = p_field_value WHERE id = p_assessment_id;
+  ELSE
+    RETURN json_build_object('error', 'Invalid field name');
+  END IF;
+  
+  -- Update status to in_progress if it was not_started and this is employee editing
+  IF current_status = 'not_started' AND assessment_employee_id = user_employee_id THEN
+    UPDATE assessments 
+    SET self_assessment_status = 'in_progress' 
+    WHERE id = p_assessment_id;
+  END IF;
+  
+  RETURN json_build_object('success', true, 'message', 'Field updated successfully');
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('error', 'Update failed: ' || SQLERRM);
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -667,7 +831,9 @@ CREATE TABLE public.assessments (
     submitted_by_employee_at timestamp with time zone,
     finalized_by_manager_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
-    self_assessment_status text DEFAULT 'not_started'::text
+    self_assessment_status text DEFAULT 'not_started'::text,
+    employee_submitted_at timestamp with time zone,
+    manager_reviewed_at timestamp with time zone
 );
 
 
@@ -768,7 +934,9 @@ CREATE TABLE public.review_cycles (
     start_date date NOT NULL,
     end_date date NOT NULL,
     status text DEFAULT 'upcoming'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    cycle_type text DEFAULT 'quarterly'::text,
+    description text
 );
 
 
@@ -814,7 +982,7 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 -- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status) FROM stdin;
+COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at) FROM stdin;
 \.
 
 
@@ -853,7 +1021,7 @@ COPY public.kudos (id, giver_id, receiver_id, core_value, message, created_at) F
 -- Data for Name: review_cycles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.review_cycles (id, name, start_date, end_date, status, created_at) FROM stdin;
+COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description) FROM stdin;
 \.
 
 
