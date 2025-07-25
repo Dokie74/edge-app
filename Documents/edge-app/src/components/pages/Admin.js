@@ -1,80 +1,60 @@
 // src/components/pages/Admin.js - SIMPLIFIED VERSION FOR TESTING
-import React, { useEffect, useState } from 'react';
-import { Users, Calendar, Plus, Play, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus } from 'lucide-react';
+import { useAdmin } from '../../hooks';
+import { useApp } from '../../contexts';
+import { AdminService } from '../../services';
+import { getStatusBadgeColor, formatDate, validateRequired, validateDateRange } from '../../utils';
 
-export default function Admin({ supabase }) {
-  const [employees, setEmployees] = useState([]);
-  const [cycles, setCycles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+export default function Admin() {
+  const { 
+    employees, 
+    cycles, 
+    loading, 
+    error, 
+    createReviewCycle, 
+    activateReviewCycle, 
+    refresh 
+  } = useAdmin();
+  
+  const { openModal } = useApp();
+  const [allEmployees, setAllEmployees] = useState([]);
+  const [employeesLoading, setEmployeesLoading] = useState(true);
+  const [currentRole, setCurrentRole] = useState(null);
 
   useEffect(() => {
-    fetchData();
+    fetchEmployees();
+    checkRole();
   }, []);
 
-const fetchData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
-    
-    console.log('🔄 Admin: Fetching data...');
-    
-    // Use the standard get_all_employees function (should work with SECURITY DEFINER)
+  const fetchEmployees = async () => {
     try {
-      const { data: employeesData, error: employeesError } = await supabase.rpc('get_all_employees');
-      
-      if (employeesError) {
-        console.error('⚠️ Employees RPC error:', employeesError);
-        throw employeesError;
-      } else {
-        console.log('✅ Employees loaded via standard RPC:', employeesData);
-        setEmployees(employeesData || []);
-      }
-    } catch (employeeError) {
-      console.error('💥 Employee fetch failed:', employeeError);
-      setError(`Employee fetch failed: ${employeeError.message}`);
-      setEmployees([]);
+      setEmployeesLoading(true);
+      const employeesData = await AdminService.getAllEmployees();
+      setAllEmployees(employeesData);
+    } catch (err) {
+      console.error('Error fetching employees:', err);
+    } finally {
+      setEmployeesLoading(false);
     }
+  };
 
-    // Fetch review cycles (this should work)
+  const checkRole = async () => {
     try {
-      const { data: cyclesData, error: cyclesError } = await supabase
-        .from('review_cycles')
-        .select('id, name, status, start_date, end_date, created_at')
-        .order('created_at', { ascending: false });
-      
-      if (cyclesError) {
-        console.error('⚠️ Cycles error:', cyclesError);
-        setCycles([]);
-      } else {
-        console.log('✅ Cycles loaded:', cyclesData);
-        setCycles(cyclesData || []);
-      }
-    } catch (cycleError) {
-      console.error('💥 Cycles fetch failed:', cycleError);
-      setCycles([]);
+      const role = await AdminService.checkCurrentRole();
+      setCurrentRole(role);
+    } catch (err) {
+      console.error('Error checking role:', err);
     }
+  };
 
-  } catch (err) {
-    console.error('💥 Admin fetch error:', err);
-    setError(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
 
   const handleActivateCycle = async (cycleId) => {
     try {
-      const { data, error } = await supabase.rpc('activate_review_cycle', {
-        p_cycle_id: cycleId
-      });
-      
-      if (error) throw error;
+      const data = await activateReviewCycle(cycleId);
       
       if (data && data.success) {
         alert('✅ ' + data.message);
-        fetchData(); // Refresh data
       } else {
         alert('⚠️ ' + (data?.error || 'Unknown error'));
       }
@@ -95,14 +75,6 @@ const fetchData = async () => {
     );
   }
 
-  const getStatusBadge = (status) => {
-    const colors = {
-      upcoming: 'bg-yellow-600 text-white',
-      active: 'bg-green-600 text-white', 
-      completed: 'bg-blue-600 text-white'
-    };
-    return colors[status] || 'bg-gray-600 text-white';
-  };
 
   return (
     <div className="p-8">
@@ -113,7 +85,7 @@ const fetchData = async () => {
           <p className="text-xs text-yellow-400 mt-1">Simplified version for testing</p>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => openModal('createReviewCycle', { onComplete: refresh })}
           className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg flex items-center"
         >
           <Plus size={16} className="mr-2" />
@@ -146,7 +118,7 @@ const fetchData = async () => {
               <h2 className="text-xl font-semibold">Employees ({employees.length})</h2>
             </div>
             <button 
-              onClick={fetchData}
+              onClick={refresh}
               className="text-cyan-400 hover:text-cyan-300 text-sm"
             >
               Refresh
@@ -207,10 +179,10 @@ const fetchData = async () => {
                     <div>
                       <p className="font-medium text-white">{cycle.name}</p>
                       <p className="text-sm text-gray-400">
-                        {new Date(cycle.start_date).toLocaleDateString()} - {new Date(cycle.end_date).toLocaleDateString()}
+                        {formatDate(cycle.start_date)} - {formatDate(cycle.end_date)}
                       </p>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded ${getStatusBadge(cycle.status)}`}>
+                    <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(cycle.status)}`}>
                       {cycle.status}
                     </span>
                   </div>
@@ -259,134 +231,118 @@ const fetchData = async () => {
         </div>
       </div>
 
-      {/* Create Cycle Modal */}
-      {showCreateModal && (
-        <CreateCycleModal 
-          supabase={supabase}
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={() => {
-            setShowCreateModal(false);
-            fetchData();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-// Simple Create Cycle Modal Component
-function CreateCycleModal({ supabase, onClose, onSuccess }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    startDate: '',
-    endDate: ''
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.name || !formData.startDate || !formData.endDate) {
-      setError('All fields are required');
-      return;
-    }
-
-    setSaving(true);
-    setError('');
-
-    try {
-      const { data, error } = await supabase.rpc('create_simple_review_cycle', {
-        p_name: formData.name,
-        p_start_date: formData.startDate,
-        p_end_date: formData.endDate
-      });
-
-      if (error) throw error;
-
-      if (data && data.success) {
-        alert('✅ ' + data.message);
-        onSuccess();
-      } else {
-        setError(data?.error || 'Unknown error occurred');
-      }
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-      <div className="bg-gray-800 rounded-lg p-8 w-full max-w-md">
-        <h3 className="text-xl font-bold text-cyan-400 mb-4">Create Review Cycle</h3>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Employee Management Section */}
+      <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <div className="flex justify-between items-center mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Cycle Name
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData(prev => ({...prev, name: e.target.value}))}
-              placeholder="e.g., Q1 2025 Performance Review"
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
-              required
-            />
+            <h2 className="text-2xl font-bold text-cyan-400 flex items-center">
+              <Users className="mr-3" size={24} />
+              Employee Management
+            </h2>
+            <p className="text-gray-400 mt-1">Manage team members and their roles</p>
+            {currentRole && (
+              <p className="text-xs text-yellow-400 mt-1">Your role: {currentRole}</p>
+            )}
           </div>
+          <button
+            onClick={() => openModal('createEmployee', { onComplete: () => { fetchEmployees(); refresh(); } })}
+            className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <UserPlus size={16} className="mr-2" />
+            Add Employee
+          </button>
+        </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData(prev => ({...prev, startDate: e.target.value}))}
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
-              required
-            />
+        {/* Employee Table */}
+        {employeesLoading ? (
+          <div className="text-center py-8">
+            <div className="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-400">Loading employees...</p>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              End Date
-            </label>
-            <input
-              type="date"
-              value={formData.endDate}
-              onChange={(e) => setFormData(prev => ({...prev, endDate: e.target.value}))}
-              className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
-              required
-            />
+        ) : allEmployees.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-700">
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Name</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Email</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Role</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Job Title</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Manager</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Reports</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Status</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allEmployees.map((employee) => (
+                  <tr key={employee.id} className="border-b border-gray-700 hover:bg-gray-700">
+                    <td className="py-3 px-2">
+                      <div className="text-white font-medium">{employee.name}</div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="text-gray-300 text-sm">{employee.email}</div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        employee.role === 'admin' 
+                          ? 'bg-red-900 text-red-200' 
+                          : employee.role === 'manager'
+                          ? 'bg-blue-900 text-blue-200'
+                          : 'bg-gray-600 text-gray-200'
+                      }`}>
+                        {employee.role.charAt(0).toUpperCase() + employee.role.slice(1)}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="text-gray-300 text-sm">{employee.job_title}</div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="text-gray-300 text-sm">
+                        {employee.manager_name || '—'}
+                      </div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="text-gray-300 text-sm">
+                        {employee.direct_reports_count}
+                      </div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        employee.is_active 
+                          ? 'bg-green-900 text-green-200' 
+                          : 'bg-red-900 text-red-200'
+                      }`}>
+                        {employee.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-2">
+                      <button
+                        onClick={() => openModal('editEmployee', { 
+                          employee: employee,
+                          onComplete: () => { fetchEmployees(); refresh(); }
+                        })}
+                        className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center"
+                      >
+                        <Edit size={14} className="mr-1" />
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-
-          {error && (
-            <div className="text-red-400 text-sm bg-red-900 p-2 rounded">
-              {error}
-            </div>
-          )}
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 rounded text-white disabled:opacity-50"
-            >
-              {saving ? 'Creating...' : 'Create Cycle'}
-            </button>
+        ) : (
+          <div className="text-center py-8">
+            <Users size={48} className="mx-auto mb-4 text-gray-500" />
+            <p className="text-gray-400 mb-4">No employees found</p>
+            <p className="text-sm text-gray-500">Add your first employee to get started</p>
           </div>
-        </form>
+        )}
       </div>
+
     </div>
   );
 }
+

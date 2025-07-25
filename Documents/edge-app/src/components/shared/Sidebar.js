@@ -1,14 +1,18 @@
 // src/components/shared/Sidebar.js - Fixed with proper sign out
 import React from 'react';
-import { LayoutDashboard, Users, FileText, Settings, LogOut, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog } from 'lucide-react';
+import { useApp } from '../../contexts';
 
-const Sidebar = ({ activePage, setActivePage, userRole, userName, handleSignOut }) => {
+const Sidebar = () => {
+  const { activePage, setActivePage, userRole, userName, signOut } = useApp();
   // Define navigation items with role requirements
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'employee'] },
     { name: 'My Team', icon: Users, roles: ['admin', 'manager'] },
+    { name: 'Manager Playbook', icon: BookOpen, roles: ['admin', 'manager'] },
     { name: 'My Reviews', icon: FileText, roles: ['admin', 'manager', 'employee'] },
-    { name: 'Settings', icon: Settings, roles: ['admin', 'manager', 'employee'] },
+    { name: 'Feedback Wall', icon: MessageSquare, roles: ['admin', 'manager', 'employee'] },
+    { name: 'My Development', icon: Target, roles: ['admin', 'manager', 'employee'] },
     { name: 'Admin', icon: UserCog, roles: ['admin'] },
   ];
 
@@ -17,7 +21,7 @@ const Sidebar = ({ activePage, setActivePage, userRole, userName, handleSignOut 
     !userRole || item.roles.includes(userRole)
   );
 
-  return (
+    return (
     <div className="w-64 bg-gray-900 text-white flex flex-col h-screen shadow-2xl">
       <div className="p-6 text-center border-b border-gray-700">
         <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">EDGE</h1>
@@ -53,7 +57,7 @@ const Sidebar = ({ activePage, setActivePage, userRole, userName, handleSignOut 
       
       <div className="p-4 border-t border-gray-700">
         <button
-          onClick={handleSignOut}
+          onClick={signOut}
           className="w-full flex items-center p-3 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-all duration-200"
         >
           <LogOut className="mr-4" size={20} />

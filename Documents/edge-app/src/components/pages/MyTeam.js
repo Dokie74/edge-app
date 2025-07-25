@@ -1,49 +1,29 @@
 // src/components/pages/MyTeam.js - Enhanced with Error Handling
-import React, { useEffect, useState } from 'react';
-import { Play, Users, Calendar, AlertTriangle, RefreshCw } from 'lucide-react';
+import React from 'react';
+import { Play, Users, Calendar, RefreshCw, AlertTriangle } from 'lucide-react';
+import { useTeam } from '../../hooks';
+import { useApp } from '../../contexts';
+import { LoadingSpinner, ErrorMessage, Button } from '../ui';
 
-export default function MyTeam({ supabase, openModal, setActivePage }) {
-  const [teamStatus, setTeamStatus] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const load = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('🔄 MyTeam: Fetching team status...');
-      
-      const { data, error } = await supabase.rpc('get_team_status');
-      
-      if (error) {
-        console.error('❌ Team status error:', error);
-        throw error;
-      }
-      
-      console.log('✅ Team status loaded:', data);
-      setTeamStatus(data || []);
-      
-    } catch (err) {
-      console.error('💥 MyTeam fetch error:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+export default function MyTeam() {
+  const { openModal, setActivePage } = useApp();
+  const { 
+    team, 
+    teamAssessments, 
+    loading, 
+    error, 
+    startReviewCycle, 
+    refresh 
+  } = useTeam();
+  
+  // For compatibility, use team assessments as team status
+  const teamStatus = teamAssessments;
 
   if (loading) {
     return (
       <div className="p-8">
         <h1 className="text-3xl font-bold text-cyan-400 mb-8">My Team</h1>
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mx-auto mb-4"></div>
-          <div className="text-gray-400">Loading your team...</div>
-        </div>
+        <LoadingSpinner size="lg" message="Loading your team..." />
       </div>
     );
   }
@@ -52,28 +32,11 @@ export default function MyTeam({ supabase, openModal, setActivePage }) {
     return (
       <div className="p-8">
         <h1 className="text-3xl font-bold text-cyan-400 mb-8">My Team</h1>
-        <div className="bg-red-900 border border-red-700 rounded-lg p-6">
-          <div className="flex items-center text-red-200 mb-4">
-            <AlertTriangle size={20} className="mr-2" />
-            <span className="font-semibold">Error Loading Team</span>
-          </div>
-          <p className="text-red-300 mb-4">{error}</p>
-          <div className="space-y-2 text-sm text-red-200">
-            <p><strong>Possible causes:</strong></p>
-            <ul className="list-disc list-inside ml-4 space-y-1">
-              <li>You might not be set up as a manager in the system</li>
-              <li>The get_team_status function might be missing</li>
-              <li>Database permissions issue</li>
-            </ul>
-          </div>
-          <button
-            onClick={load}
-            className="mt-4 bg-red-800 hover:bg-red-700 text-white px-4 py-2 rounded flex items-center"
-          >
-            <RefreshCw size={16} className="mr-2" />
-            Retry
-          </button>
-        </div>
+        <ErrorMessage 
+          error={error} 
+          title="Error Loading Team" 
+          onRetry={refresh}
+        />
       </div>
     );
   }
@@ -87,7 +50,7 @@ export default function MyTeam({ supabase, openModal, setActivePage }) {
         </div>
         <div className="flex items-center space-x-4">
           <button
-            onClick={load}
+            onClick={refresh}
             className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg flex items-center"
           >
             <RefreshCw size={16} className="mr-2" />
@@ -95,7 +58,7 @@ export default function MyTeam({ supabase, openModal, setActivePage }) {
           </button>
           {openModal && (
             <button
-              onClick={() => openModal('startReviewCycle', { afterSave: load })}
+              onClick={() => openModal('startReviewCycle', { afterSave: refresh })}
               className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg flex items-center"
             >
               <Play size={16} className="mr-2" />

@@ -1,129 +1,45 @@
 // src/App.js - Working Full Version V2.5
 // Built on the successful minimal version
 
-import React, { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import React from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { supabase } from './services';
+import { AppProvider, useApp } from './contexts';
 
 // Import components one by one to ensure they work
 import Sidebar from './components/shared/Sidebar';
 import Dashboard from './components/pages/Dashboard';
 import MyTeam from './components/pages/MyTeam';
 import MyReviews from './components/pages/MyReviews';
-import Settings from './components/pages/Settings';
+import MyDevelopmentCenter from './components/pages/MyDevelopmentCenter';
 import Assessment from './components/pages/Assessment';
 import Admin from './components/pages/Admin';
+import FeedbackWall from './components/pages/FeedbackWall';
+import ManagerPlaybook from './components/pages/ManagerPlaybook';
 
 // Import modals
 import StartReviewCycleModal from './components/modals/StartReviewCycleModal';
+import CreateReviewCycleModal from './components/modals/CreateReviewCycleModal';
+import CreateEmployeeModal from './components/modals/CreateEmployeeModal';
 import GiveKudoModal from './components/modals/GiveKudoModal';
+import GiveFeedbackModal from './components/modals/GiveFeedbackModal';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-export default function App() {
-  const [user, setUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
-  const [userName, setUserName] = useState('');
-  const [userDataLoading, setUserDataLoading] = useState(true);
-  const [activePage, setActivePage] = useState({ name: 'Dashboard', props: {} });
-  const [modal, setModal] = useState({ isOpen: false, name: null, props: {} });
-
-  // Fetch user role and name after authentication
-  const fetchUserData = async () => {
-    if (!user) {
-      setUserDataLoading(false);
-      return;
-    }
-
-    try {
-      console.log('🔄 Fetching user data for:', user.email);
-      
-      // Simple role assignment for now (we know this works)
-      let role = 'employee';
-      let name = user.email.split('@')[0];
-      
-      if (user.email === 'admin@lucerne.com') {
-        role = 'admin';
-        name = 'Admin';
-      } else if (user.email === 'manager@lucerne.com') {
-        role = 'manager'; 
-        name = 'Manager';
-      } else if (user.email === 'employee1@lucerne.com') {
-        role = 'employee';
-        name = 'Employee 1';
-      }
-
-      console.log('✅ User data loaded:', { role, name });
-      setUserRole(role);
-      setUserName(name);
-
-    } catch (error) {
-      console.error('💥 Error in fetchUserData:', error);
-      // Set defaults if there's an error
-      setUserRole('employee');
-      setUserName(user.email.split('@')[0]);
-    } finally {
-      setUserDataLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    console.log('🔄 App starting...');
-    
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('🔐 Session check:', session?.user?.email || 'No session');
-      setUser(session?.user ?? null);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('🔐 Auth changed:', event, session?.user?.email || 'No user');
-      setUser(session?.user ?? null);
-      
-      // Reset user data when auth changes
-      if (!session?.user) {
-        setUserRole(null);
-        setUserName('');
-        setUserDataLoading(false);
-        setModal({ isOpen: false, name: null, props: {} });
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Fetch user data when user changes
-  useEffect(() => {
-    if (user) {
-      setUserDataLoading(true);
-      fetchUserData();
-    }
-  }, [user]);
-
-  const openModal = (name, props = {}) => {
-    console.log('📝 Opening modal:', name, props);
-    setModal({ isOpen: true, name, props });
-  };
-
-  const closeModal = () => {
-    console.log('❌ Closing modal');
-    setModal({ isOpen: false, name: null, props: {} });
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      // Reset all user-related state
-      setUserRole(null);
-      setUserName('');
-      setActivePage({ name: 'Dashboard', props: {} });
-      setModal({ isOpen: false, name: null, props: {} });
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  };
+// Main App Component
+const MainApp = () => {
+  const { 
+    user, 
+    userRole, 
+    userName, 
+    userDataLoading, 
+    activePage, 
+    modal, 
+    setActivePage, 
+    openModal, 
+    closeModal, 
+    signOut 
+  } = useApp();
 
   // Show loading screen while checking authentication
   if (userDataLoading && user) {
@@ -140,7 +56,9 @@ export default function App() {
 
   // Show login screen if not authenticated
   if (!user) {
-    console.log('🚪 Showing login screen');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚪 Showing login screen');
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="w-full max-w-sm">
@@ -189,60 +107,61 @@ export default function App() {
   }
 
   // Page renderer function
-  const renderPage = () => {
-    try {
-      switch (activePage.name) {
-        case 'Dashboard':
-          return <Dashboard supabase={supabase} setActivePage={setActivePage} openModal={openModal} />;
-        case 'My Team':
-          return <MyTeam supabase={supabase} openModal={openModal} setActivePage={setActivePage} />;
-        case 'My Reviews':
-          return <MyReviews supabase={supabase} />;
-        case 'Settings':
-          return <Settings supabase={supabase} />;
-        case 'Assessment':
-          return <Assessment supabase={supabase} pageProps={activePage.props} setActivePage={setActivePage} />;
-        case 'Admin':
-          return <Admin supabase={supabase} />;
-        default:
-          return <Dashboard supabase={supabase} setActivePage={setActivePage} openModal={openModal} />;
-      }
-    } catch (error) {
-      console.error('💥 Error rendering page:', error);
-      return (
-        <div className="p-8">
-          <div className="bg-red-900 border border-red-700 rounded-lg p-4">
-            <h2 className="text-red-200 font-bold mb-2">Page Error</h2>
-            <p className="text-red-300">Error loading {activePage.name}: {error.message}</p>
-            <button 
-              onClick={() => setActivePage({ name: 'Dashboard', props: {} })}
-              className="mt-4 bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded"
-            >
-              Return to Dashboard
-            </button>
-          </div>
-        </div>
-      );
+  const PageRenderer = ({ page }) => {
+  try {
+    switch (page.name) {
+      case 'Dashboard':
+        return <Dashboard />;
+      case 'My Team':
+        return <MyTeam />;
+      case 'My Reviews':
+        return <MyReviews />;
+      case 'My Development':
+        return <MyDevelopmentCenter />;
+      case 'Admin':
+        return <Admin />;
+      case 'Assessment':
+        return <Assessment pageProps={page.props} />;
+      case 'Feedback Wall':
+        return <FeedbackWall />;
+      case 'Manager Playbook':
+        return <ManagerPlaybook />;
+      default:
+        return <Dashboard />;
     }
-  };
+  } catch (error) {
+    console.error('💥 Error rendering page:', error);
+    return (
+      <div className="p-8">
+        <div className="bg-red-900 border border-red-700 rounded-lg p-4">
+          <h2 className="text-red-200 font-bold mb-2">Page Error</h2>
+          <p className="text-red-300">Error loading {page.name}: {error.message}</p>
+          <button 
+            onClick={() => setActivePage({ name: 'Dashboard', props: {} })}
+            className="mt-4 bg-red-700 hover:bg-red-600 text-white px-4 py-2 rounded"
+          >
+            Return to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+};
 
-  console.log('🏠 Showing main app - User:', user.email, 'Role:', userRole, 'Page:', activePage.name);
+  // Secure logging - no sensitive data exposed
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🏠 Main app loaded - Page:', activePage.name, 'User authenticated:', !!user);
+  }
 
   // MAIN APP STRUCTURE
   return (
     <div className="min-h-screen flex bg-gray-900 text-gray-100">
       {/* SIDEBAR */}
-      <Sidebar 
-        activePage={activePage.name} 
-        setActivePage={setActivePage} 
-        userRole={userRole}
-        userName={userName}
-        handleSignOut={handleSignOut}
-      />
+      <Sidebar />
       
       {/* MAIN CONTENT */}
       <main className="flex-grow">
-        {renderPage()}
+        <PageRenderer page={activePage} />
       </main>
 
       {/* MODALS - Only render when modal.isOpen is true and modal.name matches */}
@@ -254,6 +173,40 @@ export default function App() {
             ...modal.props,
             onComplete: () => {
               console.log('✅ Review cycle modal completed');
+              if (modal.props?.onComplete) {
+                modal.props.onComplete();
+              }
+              closeModal();
+            }
+          }} 
+        />
+      )}
+
+      {modal.isOpen && modal.name === 'createReviewCycle' && (
+        <CreateReviewCycleModal 
+          supabase={supabase} 
+          closeModal={closeModal} 
+          modalProps={{
+            ...modal.props,
+            onComplete: () => {
+              console.log('✅ Create review cycle modal completed');
+              if (modal.props?.onComplete) {
+                modal.props.onComplete();
+              }
+              closeModal();
+            }
+          }} 
+        />
+      )}
+
+      {modal.isOpen && modal.name === 'createEmployee' && (
+        <CreateEmployeeModal 
+          supabase={supabase} 
+          closeModal={closeModal} 
+          modalProps={{
+            ...modal.props,
+            onComplete: () => {
+              console.log('✅ Create employee modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
@@ -280,6 +233,23 @@ export default function App() {
         />
       )}
 
+      {modal.isOpen && modal.name === 'giveFeedback' && (
+        <GiveFeedbackModal 
+          supabase={supabase} 
+          closeModal={closeModal} 
+          modalProps={{
+            ...modal.props,
+            onComplete: () => {
+              console.log('✅ Give feedback modal completed');
+              if (modal.props?.onComplete) {
+                modal.props.onComplete();
+              }
+              closeModal();
+            }
+          }} 
+        />
+      )}
+
       {/* DEBUG INFO (only in development) */}
       {process.env.NODE_ENV === 'development' && (
         <div className="fixed bottom-0 left-0 right-0 bg-black bg-opacity-75 text-xs text-gray-400 p-2 border-t border-gray-700">
@@ -287,5 +257,14 @@ export default function App() {
         </div>
       )}
     </div>
+  );
+};
+
+// App wrapper with provider
+export default function App() {
+  return (
+    <AppProvider>
+      <MainApp />
+    </AppProvider>
   );
 }

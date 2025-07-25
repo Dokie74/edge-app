@@ -1,85 +1,30 @@
 // STEP 5: Enhanced MyReviews Page - Replace src/components/pages/MyReviews.js
 // This shows better status information like V4 had
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Calendar, Clock, CheckCircle, Award, ArrowRight, Filter } from 'lucide-react';
+import { useAssessments } from '../../hooks';
+import { useApp } from '../../contexts';
+import { getStatusDisplay, filterActiveReviews, filterCompletedReviews, formatDate } from '../../utils';
 
-export default function MyReviews({ supabase, setActivePage }) {
-  const [reviews, setReviews] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+export default function MyReviews() {
+  const { setActivePage } = useApp();
+  const { assessments: reviews, loading, error, refresh } = useAssessments();
   const [filter, setFilter] = useState('all'); // all, active, completed
 
-  useEffect(() => {
-    fetchReviews();
-  }, []);
-
-  const fetchReviews = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.rpc('get_my_assessments');
-      if (error) throw error;
-      setReviews(data || []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const getStatusInfo = (review) => {
-    const status = review.self_assessment_status || review.status;
-    
-    const statusMap = {
-      'not_started': { 
-        label: 'Not Started', 
-        color: 'text-gray-400', 
-        bgColor: 'bg-gray-600',
-        icon: Clock,
-        isActive: true
-      },
-      'in_progress': { 
-        label: 'In Progress', 
-        color: 'text-yellow-400', 
-        bgColor: 'bg-yellow-600',
-        icon: Clock,
-        isActive: true
-      },
-      'employee_complete': { 
-        label: 'Submitted', 
-        color: 'text-blue-400', 
-        bgColor: 'bg-blue-600',
-        icon: CheckCircle,
-        isActive: true
-      },
-      'manager_complete': { 
-        label: 'Manager Complete', 
-        color: 'text-purple-400', 
-        bgColor: 'bg-purple-600',
-        icon: Award,
-        isActive: true
-      },
-      'finalized': { 
-        label: 'Finalized', 
-        color: 'text-green-400', 
-        bgColor: 'bg-green-600',
-        icon: CheckCircle,
-        isActive: false
-      }
-    };
-    
-    return statusMap[status] || statusMap['not_started'];
+    return getStatusDisplay(review);
   };
 
   const filteredReviews = reviews.filter(review => {
     if (filter === 'all') return true;
-    if (filter === 'active') return getStatusInfo(review).isActive;
-    if (filter === 'completed') return !getStatusInfo(review).isActive;
+    if (filter === 'active') return filterActiveReviews([review]).length > 0;
+    if (filter === 'completed') return filterCompletedReviews([review]).length > 0;
     return true;
   });
 
-  const activeCount = reviews.filter(r => getStatusInfo(r).isActive).length;
-  const completedCount = reviews.filter(r => !getStatusInfo(r).isActive).length;
+  const activeCount = filterActiveReviews(reviews).length;
+  const completedCount = filterCompletedReviews(reviews).length;
 
   if (loading) {
     return (

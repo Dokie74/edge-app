@@ -1,107 +1,18 @@
 // src/components/pages/Dashboard.js - Enhanced V2.5
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Calendar, CheckCircle, Clock, Award, TrendingUp, MessageSquare } from 'lucide-react';
+import { useAssessments, useKudos } from '../../hooks';
+import { useApp } from '../../contexts';
+import { getStatusDisplay, filterActiveReviews, filterCompletedReviews, formatDate } from '../../utils';
+import { LoadingSpinner, ErrorMessage, StatusBadge, Button, Card } from '../ui';
 
-const Dashboard = ({ supabase, setActivePage, openModal }) => {
-    const [assessments, setAssessments] = useState([]);
-    const [kudos, setKudos] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
-        try {
-            setLoading(true);
-            await Promise.all([
-                fetchMyAssessments(),
-                fetchKudos()
-            ]);
-        } catch (error) {
-            console.error('Error fetching dashboard data:', error);
-            setError(error.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const fetchMyAssessments = async () => {
-        try {
-            const { data, error } = await supabase.rpc('get_my_assessments');
-            if (error) throw error;
-            setAssessments(data || []);
-        } catch (error) {
-            console.error('Error fetching assessments:', error);
-        }
-    };
-
-    const fetchKudos = async () => {
-        try {
-            const { data, error } = await supabase.rpc('get_kudos_wall');
-            if (error) throw error;
-            setKudos(data || []);
-        } catch (error) {
-            console.error('Error fetching kudos:', error);
-        }
-    };
-
-const getStatusDisplay = (assessment) => {
-    // Use self_assessment_status if available, otherwise fall back to status
-    const currentStatus = assessment.self_assessment_status || assessment.status;
+const Dashboard = () => {
+    const { setActivePage, openModal } = useApp();
+    const { assessments, loading: assessmentsLoading, error: assessmentsError } = useAssessments();
+    const { kudos, loading: kudosLoading, error: kudosError } = useKudos();
     
-    const statusMap = {
-        'not_started': { 
-            label: 'Not Started', 
-            color: 'text-gray-400',
-            bgColor: 'bg-gray-600',
-            actionLabel: 'Start',
-            description: 'Begin your self-assessment'
-        },
-        'in_progress': { 
-            label: 'In Progress', 
-            color: 'text-yellow-400',
-            bgColor: 'bg-yellow-600',
-            actionLabel: 'Continue',
-            description: 'Complete your self-assessment'
-        },
-        'employee_complete': { 
-            label: 'Submitted', 
-            color: 'text-blue-400',
-            bgColor: 'bg-blue-600',
-            actionLabel: 'View',
-            description: 'Waiting for manager review'
-        },
-        'manager_complete': { 
-            label: 'Manager Complete', 
-            color: 'text-purple-400',
-            bgColor: 'bg-purple-600',
-            actionLabel: 'View',
-            description: 'Review completed by manager'
-        },
-        'finalized': { 
-            label: 'Finalized', 
-            color: 'text-green-400',
-            bgColor: 'bg-green-600',
-            actionLabel: 'View',
-            description: 'Review cycle complete'
-        }
-    };
-    
-    return statusMap[currentStatus] || { 
-        label: 'Unknown Status', 
-        color: 'text-gray-400',
-        bgColor: 'bg-gray-600',
-        actionLabel: 'View',
-        description: 'Status unclear'
-    };
-};
-
-    const isActiveReview = (assessment) => {
-        const currentStatus = assessment.self_assessment_status || assessment.status;
-        return currentStatus !== 'finalized';
-    };
+    const loading = assessmentsLoading || kudosLoading;
+    const error = assessmentsError || kudosError;
 
     const handleViewAssessment = (assessment) => {
         setActivePage({
@@ -113,9 +24,7 @@ const getStatusDisplay = (assessment) => {
     if (loading) {
         return (
             <div className="p-8">
-                <div className="text-center py-12">
-                    <div className="text-yellow-400 text-lg">Loading your dashboard...</div>
-                </div>
+                <LoadingSpinner size="lg" message="Loading your dashboard..." />
             </div>
         );
     }
@@ -123,15 +32,13 @@ const getStatusDisplay = (assessment) => {
     if (error) {
         return (
             <div className="p-8">
-                <div className="text-center py-12">
-                    <div className="text-red-400 text-lg">Error: {error}</div>
-                </div>
+                <ErrorMessage error={error} title="Dashboard Error" />
             </div>
         );
     }
 
-    const activeReviews = assessments.filter(assessment => isActiveReview(assessment));
-    const completedReviews = assessments.filter(assessment => !isActiveReview(assessment));
+    const activeReviews = filterActiveReviews(assessments);
+    const completedReviews = filterCompletedReviews(assessments);
     const recentKudos = kudos.slice(0, 5);
 
     return (
@@ -196,17 +103,16 @@ const getStatusDisplay = (assessment) => {
                                             <div>
                                                 <h3 className="text-lg font-semibold text-white">{assessment.cycle_name}</h3>
                                                 <div className="flex items-center mt-1">
-                                                    <span className={`px-2 py-1 text-xs rounded-full ${statusInfo.bgColor} text-white`}>
-                                                        {statusInfo.label}
-                                                    </span>
+                                                    <StatusBadge status={assessment.self_assessment_status || assessment.status} />
                                                 </div>
                                             </div>
-                                            <button 
+                                            <Button 
                                                 onClick={() => handleViewAssessment(assessment)}
-                                                className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg transition"
+                                                variant="primary"
+                                                size="sm"
                                             >
                                                 {statusInfo.actionLabel}
-                                            </button>
+                                            </Button>
                                         </div>
                                         
                                         {/* Enhanced Progress indicator */}
@@ -286,7 +192,7 @@ const getStatusDisplay = (assessment) => {
                                             <div className="flex justify-between items-center mt-2">
                                                 <span className="text-gray-500 text-xs">from {kudo.giver_name}</span>
                                                 <span className="text-gray-500 text-xs">
-                                                    {new Date(kudo.created_at).toLocaleDateString()}
+                                                    {formatDate(kudo.created_at)}
                                                 </span>
                                             </div>
                                         </div>
