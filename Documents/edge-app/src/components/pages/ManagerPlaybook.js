@@ -3,6 +3,7 @@ import { BookOpen, Plus, Search, Edit3, Save, X, User, Clock, MessageSquare, Tar
 import { useApp } from '../../contexts';
 import { Button, LoadingSpinner, ErrorMessage } from '../ui';
 import { formatDate } from '../../utils';
+import ManagerPlaybookService from '../../services/ManagerPlaybookService';
 
 const ManagerPlaybook = () => {
   const { userRole } = useApp();
@@ -39,15 +40,11 @@ const ManagerPlaybook = () => {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      // This would fetch the manager's direct reports
-      // For now using mock data
-      setEmployees([
-        { employee_id: 1, name: 'John Doe', job_title: 'Software Developer', email: 'john@lucerne.com' },
-        { employee_id: 2, name: 'Jane Smith', job_title: 'UX Designer', email: 'jane@lucerne.com' }
-      ]);
+      const data = await ManagerPlaybookService.getManagerEmployees();
+      setEmployees(data);
       
-      if (employees.length > 0) {
-        setSelectedEmployee(employees[0]);
+      if (data.length > 0) {
+        setSelectedEmployee(data[0]);
       }
     } catch (err) {
       setError(err.message);
@@ -58,11 +55,11 @@ const ManagerPlaybook = () => {
 
   const fetchEmployeeNotes = async (employeeId) => {
     try {
-      // This would fetch private manager notes for the employee
-      // For now using mock data
-      setNotes([]);
+      const data = await ManagerPlaybookService.getEmployeeNotes(employeeId);
+      setNotes(data);
     } catch (err) {
       console.error('Error fetching notes:', err);
+      setNotes([]);
     }
   };
 
@@ -74,15 +71,19 @@ const ManagerPlaybook = () => {
         return;
       }
 
-      // This would save the note to the database
-      const noteToSave = {
-        ...newNote,
+      const noteData = {
         employee_id: selectedEmployee.employee_id,
-        created_at: new Date().toISOString(),
-        id: Date.now() // Mock ID
+        title: newNote.title,
+        content: newNote.content,
+        category: newNote.category,
+        priority: newNote.priority
       };
 
-      setNotes(prev => [noteToSave, ...prev]);
+      await ManagerPlaybookService.saveManagerNote(noteData);
+      
+      // Refresh notes list
+      await fetchEmployeeNotes(selectedEmployee.employee_id);
+      
       setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
       setShowAddNote(false);
       
@@ -104,16 +105,17 @@ const ManagerPlaybook = () => {
 
   const handleUpdateNote = async () => {
     try {
-      // This would update the note in the database
-      const updatedNote = {
-        ...editingNote,
-        ...newNote,
-        updated_at: new Date().toISOString()
+      const noteData = {
+        title: newNote.title,
+        content: newNote.content,
+        category: newNote.category,
+        priority: newNote.priority
       };
 
-      setNotes(prev => prev.map(note => 
-        note.id === editingNote.id ? updatedNote : note
-      ));
+      await ManagerPlaybookService.updateManagerNote(editingNote.id, noteData);
+      
+      // Refresh notes list
+      await fetchEmployeeNotes(selectedEmployee.employee_id);
       
       setEditingNote(null);
       setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
@@ -139,15 +141,15 @@ const ManagerPlaybook = () => {
     { value: 'general', label: 'General Notes', color: 'bg-gray-600' },
     { value: 'performance', label: 'Performance', color: 'bg-blue-600' },
     { value: 'development', label: 'Development', color: 'bg-green-600' },
-    { value: 'coaching', label: 'Coaching Tips', color: 'bg-purple-600' },
-    { value: 'concerns', label: 'Concerns', color: 'bg-red-600' },
-    { value: 'achievements', label: 'Achievements', color: 'bg-yellow-600' }
+    { value: 'personal', label: 'Personal', color: 'bg-purple-600' },
+    { value: 'goals', label: 'Goals', color: 'bg-yellow-600' }
   ];
 
   const priorities = [
     { value: 'low', label: 'Low', color: 'text-gray-400' },
     { value: 'medium', label: 'Medium', color: 'text-yellow-400' },
-    { value: 'high', label: 'High', color: 'text-red-400' }
+    { value: 'high', label: 'High', color: 'text-red-400' },
+    { value: 'urgent', label: 'Urgent', color: 'text-red-600' }
   ];
 
   if (loading) {

@@ -1,6 +1,6 @@
 // src/components/pages/Admin.js - SIMPLIFIED VERSION FOR TESTING
 import React, { useState, useEffect } from 'react';
-import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus } from 'lucide-react';
+import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus, Square } from 'lucide-react';
 import { useAdmin } from '../../hooks';
 import { useApp } from '../../contexts';
 import { AdminService } from '../../services';
@@ -63,6 +63,26 @@ export default function Admin() {
     }
   };
 
+  const handleCloseCycle = async (cycleId) => {
+    // Confirm before closing
+    if (!window.confirm('Are you sure you want to close this review cycle? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const data = await AdminService.closeReviewCycle(cycleId);
+      
+      if (data && data.success) {
+        alert('✅ ' + data.message);
+        refresh(); // Refresh the data to show updated status
+      } else {
+        alert('⚠️ ' + (data?.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('❌ Error: ' + err.message);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8">
@@ -101,7 +121,7 @@ export default function Admin() {
             <span>Error: {error}</span>
           </div>
           <button 
-            onClick={fetchData}
+            onClick={refresh}
             className="mt-2 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-red-100 text-sm"
           >
             Retry
@@ -187,15 +207,26 @@ export default function Admin() {
                     </span>
                   </div>
                   
-                  {cycle.status === 'upcoming' && (
-                    <button
-                      onClick={() => handleActivateCycle(cycle.id)}
-                      className="text-green-400 hover:text-green-300 flex items-center text-sm mt-2"
-                    >
-                      <Play size={14} className="mr-1" />
-                      Activate
-                    </button>
-                  )}
+                  <div className="flex gap-2 mt-2">
+                    {cycle.status === 'upcoming' && (
+                      <button
+                        onClick={() => handleActivateCycle(cycle.id)}
+                        className="text-green-400 hover:text-green-300 flex items-center text-sm"
+                      >
+                        <Play size={14} className="mr-1" />
+                        Activate
+                      </button>
+                    )}
+                    {cycle.status === 'active' && (
+                      <button
+                        onClick={() => handleCloseCycle(cycle.id)}
+                        className="text-red-400 hover:text-red-300 flex items-center text-sm"
+                      >
+                        <Square size={14} className="mr-1" />
+                        Close
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

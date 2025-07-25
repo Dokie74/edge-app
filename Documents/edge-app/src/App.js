@@ -22,6 +22,7 @@ import ManagerPlaybook from './components/pages/ManagerPlaybook';
 import StartReviewCycleModal from './components/modals/StartReviewCycleModal';
 import CreateReviewCycleModal from './components/modals/CreateReviewCycleModal';
 import CreateEmployeeModal from './components/modals/CreateEmployeeModal';
+import EditEmployeeModal from './components/modals/EditEmployeeModal';
 import GiveKudoModal from './components/modals/GiveKudoModal';
 import GiveFeedbackModal from './components/modals/GiveFeedbackModal';
 
@@ -207,6 +208,23 @@ const MainApp = () => {
             ...modal.props,
             onComplete: () => {
               console.log('✅ Create employee modal completed');
+              if (modal.props?.onComplete) {
+                modal.props.onComplete();
+              }
+              closeModal();
+            }
+          }} 
+        />
+      )}
+
+      {modal.isOpen && modal.name === 'editEmployee' && (
+        <EditEmployeeModal 
+          supabase={supabase} 
+          closeModal={closeModal} 
+          modalProps={{
+            ...modal.props,
+            onComplete: () => {
+              console.log('✅ Edit employee modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }

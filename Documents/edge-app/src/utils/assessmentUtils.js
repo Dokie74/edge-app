@@ -1,4 +1,5 @@
 // Assessment-related utility functions
+import { Calendar, Clock, CheckCircle, Award, User } from 'lucide-react';
 
 export const getStatusDisplay = (assessment) => {
   // Use self_assessment_status if available, otherwise fall back to status
@@ -10,35 +11,45 @@ export const getStatusDisplay = (assessment) => {
       color: 'text-gray-400',
       bgColor: 'bg-gray-600',
       actionLabel: 'Start',
-      description: 'Begin your self-assessment'
+      description: 'Begin your self-assessment',
+      icon: Calendar,
+      isActive: true
     },
     'in_progress': { 
       label: 'In Progress', 
       color: 'text-yellow-400',
       bgColor: 'bg-yellow-600',
       actionLabel: 'Continue',
-      description: 'Complete your self-assessment'
+      description: 'Complete your self-assessment',
+      icon: Clock,
+      isActive: true
     },
     'employee_complete': { 
       label: 'Submitted', 
       color: 'text-blue-400',
       bgColor: 'bg-blue-600',
       actionLabel: 'View',
-      description: 'Waiting for manager review'
+      description: 'Waiting for manager review',
+      icon: User,
+      isActive: true
     },
     'manager_complete': { 
       label: 'Manager Complete', 
       color: 'text-purple-400',
       bgColor: 'bg-purple-600',
       actionLabel: 'View',
-      description: 'Review completed by manager'
+      description: 'Review completed by manager',
+      icon: Award,
+      isActive: true
     },
     'finalized': { 
       label: 'Finalized', 
       color: 'text-green-400',
       bgColor: 'bg-green-600',
       actionLabel: 'View',
-      description: 'Review cycle complete'
+      description: 'Review cycle complete',
+      icon: CheckCircle,
+      isActive: false
     }
   };
   
@@ -47,13 +58,15 @@ export const getStatusDisplay = (assessment) => {
     color: 'text-gray-400',
     bgColor: 'bg-gray-600',
     actionLabel: 'View',
-    description: 'Status unclear'
+    description: 'Status unclear',
+    icon: Calendar,
+    isActive: false
   };
 };
 
 export const isActiveReview = (assessment) => {
-  const currentStatus = assessment.self_assessment_status || assessment.status;
-  return currentStatus !== 'finalized';
+  const statusInfo = getStatusDisplay(assessment);
+  return statusInfo.isActive;
 };
 
 export const filterActiveReviews = (assessments) => {
