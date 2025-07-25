@@ -40,9 +40,6 @@ export class AdminService {
       const { data, error } = await supabase.rpc('get_potential_managers');
       if (error) throw error;
       
-      console.log('Raw manager data from database:', data);
-      console.log('Data type:', typeof data);
-      
       // The function now returns JSON, so we need to parse it
       let managers;
       if (typeof data === 'string') {
@@ -50,9 +47,6 @@ export class AdminService {
       } else {
         managers = Array.isArray(data) ? data : (data || []);
       }
-      
-      console.log('Processed managers:', managers);
-      console.log('Manager count:', managers.length);
       
       return managers;
     } catch (error) {

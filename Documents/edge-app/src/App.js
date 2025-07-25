@@ -9,10 +9,11 @@ import { AppProvider, useApp } from './contexts';
 
 // Import components one by one to ensure they work
 import Sidebar from './components/shared/Sidebar';
-import Dashboard from './components/pages/Dashboard';
-import MyTeam from './components/pages/MyTeam';
+import EnhancedDashboard from './components/pages/EnhancedDashboard';
+import MyTeamEnhanced from './components/pages/MyTeamEnhanced';
+import ManagerReview from './components/pages/ManagerReview';
 import MyReviews from './components/pages/MyReviews';
-import MyDevelopmentCenter from './components/pages/MyDevelopmentCenter';
+import MyDevelopmentCenterEnhanced from './components/pages/MyDevelopmentCenterEnhanced';
 import Assessment from './components/pages/Assessment';
 import Admin from './components/pages/Admin';
 import FeedbackWall from './components/pages/FeedbackWall';
@@ -112,13 +113,15 @@ const MainApp = () => {
   try {
     switch (page.name) {
       case 'Dashboard':
-        return <Dashboard />;
+        return <EnhancedDashboard />;
       case 'My Team':
-        return <MyTeam />;
+        return <MyTeamEnhanced />;
+      case 'Manager Review':
+        return <ManagerReview pageProps={page.props} />;
       case 'My Reviews':
         return <MyReviews />;
       case 'My Development':
-        return <MyDevelopmentCenter />;
+        return <MyDevelopmentCenterEnhanced />;
       case 'Admin':
         return <Admin />;
       case 'Assessment':

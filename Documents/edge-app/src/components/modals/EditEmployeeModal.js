@@ -42,15 +42,10 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
 
   const fetchManagers = async () => {
     try {
-      console.log('EditEmployeeModal: Fetching managers...');
       const managersData = await AdminService.getPotentialManagers();
-      console.log('EditEmployeeModal: Received managers data:', managersData);
-      console.log('EditEmployeeModal: Is array?', Array.isArray(managersData));
-      console.log('EditEmployeeModal: Length:', managersData?.length);
       setManagers(managersData);
-      console.log('EditEmployeeModal: State updated, managers:', managersData);
     } catch (err) {
-      console.error('EditEmployeeModal: Error fetching managers:', err);
+      console.error('Error fetching managers:', err);
     }
   };
 

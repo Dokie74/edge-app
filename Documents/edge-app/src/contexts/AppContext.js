@@ -125,7 +125,9 @@ export const AppProvider = ({ children }) => {
     });
 
     const { data: { subscription } } = AuthService.onAuthStateChange((event, session) => {
-      console.log('🔐 Auth changed:', event, session?.user?.email || 'No user');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔐 Auth changed:', event, session?.user?.email || 'No user');
+      }
       dispatch({ type: APP_ACTIONS.SET_USER, payload: session?.user ?? null });
       
       // Reset user data when auth changes

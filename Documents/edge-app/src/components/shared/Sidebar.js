@@ -2,6 +2,7 @@
 import React from 'react';
 import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog } from 'lucide-react';
 import { useApp } from '../../contexts';
+import NotificationCenter from '../ui/NotificationCenter';
 
 const Sidebar = () => {
   const { activePage, setActivePage, userRole, userName, signOut } = useApp();
@@ -24,7 +25,10 @@ const Sidebar = () => {
     return (
     <div className="w-64 bg-gray-900 text-white flex flex-col h-screen shadow-2xl">
       <div className="p-6 text-center border-b border-gray-700">
-        <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">EDGE</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">EDGE</h1>
+          <NotificationCenter />
+        </div>
         {userName && (
           <div className="mt-2">
             <p className="text-sm text-gray-300">Welcome, {userName}</p>

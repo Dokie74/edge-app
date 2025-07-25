@@ -33,6 +33,7 @@ DROP POLICY IF EXISTS training_requests_admin_access ON public.training_requests
 DROP POLICY IF EXISTS security_audit_admin_read ON public.security_audit;
 DROP POLICY IF EXISTS review_cycles_manager_read ON public.review_cycles;
 DROP POLICY IF EXISTS review_cycles_admin_access ON public.review_cycles;
+DROP POLICY IF EXISTS notifications_own_access ON public.notifications;
 DROP POLICY IF EXISTS messages_participant_access ON public.manager_employee_messages;
 DROP POLICY IF EXISTS messages_admin_access ON public.manager_employee_messages;
 DROP POLICY IF EXISTS manager_notes_own_access ON public.manager_notes;
@@ -45,6 +46,7 @@ DROP POLICY IF EXISTS employees_admin_all_access ON public.employees;
 DROP POLICY IF EXISTS employee_goals_own_access ON public.employee_development_goals;
 DROP POLICY IF EXISTS employee_goals_manager_access ON public.employee_development_goals;
 DROP POLICY IF EXISTS employee_goals_admin_access ON public.employee_development_goals;
+DROP POLICY IF EXISTS development_plans_access ON public.development_plans;
 DROP POLICY IF EXISTS company_rocks_read ON public.company_rocks;
 DROP POLICY IF EXISTS company_rocks_admin ON public.company_rocks;
 DROP POLICY IF EXISTS assessments_manager_team ON public.assessments;
@@ -59,6 +61,8 @@ ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS secur
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.peer_feedback DROP CONSTRAINT IF EXISTS peer_feedback_recipient_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.peer_feedback DROP CONSTRAINT IF EXISTS peer_feedback_giver_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.notifications DROP CONSTRAINT IF EXISTS notifications_sender_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.notifications DROP CONSTRAINT IF EXISTS notifications_recipient_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.manager_notes DROP CONSTRAINT IF EXISTS manager_notes_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.manager_notes DROP CONSTRAINT IF EXISTS manager_notes_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.manager_employee_messages DROP CONSTRAINT IF EXISTS manager_employee_messages_to_employee_id_fkey;
@@ -67,6 +71,8 @@ ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_receiver
 ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_giver_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_reviewed_by_fkey;
+ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.company_rocks DROP CONSTRAINT IF EXISTS company_rocks_review_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_review_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_employee_id_fkey;
@@ -74,19 +80,29 @@ ALTER TABLE IF EXISTS ONLY public.assessment_scorecard_metrics DROP CONSTRAINT I
 ALTER TABLE IF EXISTS ONLY public.assessment_rocks DROP CONSTRAINT IF EXISTS assessment_rocks_assessment_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_given_by_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_assessment_id_fkey;
+DROP TRIGGER IF EXISTS trg_manager_review_completed ON public.assessments;
+DROP TRIGGER IF EXISTS trg_assessment_submitted ON public.assessments;
 DROP INDEX IF EXISTS public.idx_training_requests_status;
 DROP INDEX IF EXISTS public.idx_training_requests_employee;
+DROP INDEX IF EXISTS public.idx_notifications_unread;
+DROP INDEX IF EXISTS public.idx_notifications_type;
+DROP INDEX IF EXISTS public.idx_notifications_recipient_id;
+DROP INDEX IF EXISTS public.idx_notifications_created_at;
 DROP INDEX IF EXISTS public.idx_messages_to_employee;
 DROP INDEX IF EXISTS public.idx_messages_from_employee;
 DROP INDEX IF EXISTS public.idx_manager_notes_manager_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_employee_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_created_at;
+DROP INDEX IF EXISTS public.idx_development_plans_status;
+DROP INDEX IF EXISTS public.idx_development_plans_employee_id;
+DROP INDEX IF EXISTS public.idx_development_plans_created_at;
 DROP INDEX IF EXISTS public.idx_development_goals_status;
 DROP INDEX IF EXISTS public.idx_development_goals_employee;
 ALTER TABLE IF EXISTS ONLY public.training_requests DROP CONSTRAINT IF EXISTS training_requests_pkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_pkey;
 ALTER TABLE IF EXISTS ONLY public.review_cycles DROP CONSTRAINT IF EXISTS review_cycles_pkey;
 ALTER TABLE IF EXISTS ONLY public.peer_feedback DROP CONSTRAINT IF EXISTS peer_feedback_pkey;
+ALTER TABLE IF EXISTS ONLY public.notifications DROP CONSTRAINT IF EXISTS notifications_pkey;
 ALTER TABLE IF EXISTS ONLY public.manager_notes DROP CONSTRAINT IF EXISTS manager_notes_pkey;
 ALTER TABLE IF EXISTS ONLY public.manager_employee_messages DROP CONSTRAINT IF EXISTS manager_employee_messages_pkey;
 ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_pkey;
@@ -94,6 +110,7 @@ ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_pkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_email_key;
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_pkey;
+ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_pkey;
 ALTER TABLE IF EXISTS ONLY public.company_rocks DROP CONSTRAINT IF EXISTS company_rocks_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_scorecard_metrics DROP CONSTRAINT IF EXISTS assessment_scorecard_metrics_pkey;
@@ -107,11 +124,13 @@ DROP TABLE IF EXISTS public.security_audit;
 DROP TABLE IF EXISTS public.review_cycles;
 DROP SEQUENCE IF EXISTS public.peer_feedback_feedback_id_seq;
 DROP TABLE IF EXISTS public.peer_feedback;
+DROP TABLE IF EXISTS public.notifications;
 DROP TABLE IF EXISTS public.manager_notes;
 DROP TABLE IF EXISTS public.manager_employee_messages;
 DROP TABLE IF EXISTS public.kudos;
 DROP TABLE IF EXISTS public.employees;
 DROP TABLE IF EXISTS public.employee_development_goals;
+DROP TABLE IF EXISTS public.development_plans;
 DROP TABLE IF EXISTS public.company_rocks;
 DROP TABLE IF EXISTS public.assessments;
 DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
@@ -124,14 +143,22 @@ DROP FUNCTION IF EXISTS public.update_assessment_field(p_assessment_id bigint, p
 DROP FUNCTION IF EXISTS public.update_assessment(p_assessment_id bigint, p_updates jsonb);
 DROP FUNCTION IF EXISTS public.submit_training_request(p_request_type text, p_title text, p_description text, p_provider text, p_estimated_cost numeric, p_preferred_date date, p_business_justification text);
 DROP FUNCTION IF EXISTS public.submit_self_assessment(p_assessment_id bigint);
+DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals text, p_skills_to_develop text, p_timeline text);
+DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals jsonb, p_skills_to_develop jsonb, p_timeline text);
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.simple_activate_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.save_manager_note(p_employee_id uuid, p_title text, p_content text, p_category text, p_priority text);
+DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_manager_feedback text);
+DROP FUNCTION IF EXISTS public.notify_manager_assessment_submitted();
+DROP FUNCTION IF EXISTS public.notify_employee_manager_review_completed();
+DROP FUNCTION IF EXISTS public.mark_notification_read(p_notification_id uuid);
 DROP FUNCTION IF EXISTS public.mark_feedback_helpful(p_feedback_id bigint);
 DROP FUNCTION IF EXISTS public.log_security_event(p_action text, p_resource text, p_success boolean);
 DROP FUNCTION IF EXISTS public.link_current_user_to_employee();
 DROP FUNCTION IF EXISTS public.give_peer_feedback(p_recipient_id uuid, p_feedback_type text, p_message text, p_category text, p_is_anonymous boolean);
 DROP FUNCTION IF EXISTS public.give_kudo(p_receiver_id uuid, p_core_value text, p_comment text);
+DROP FUNCTION IF EXISTS public.get_user_notifications();
+DROP FUNCTION IF EXISTS public.get_unread_notification_count();
 DROP FUNCTION IF EXISTS public.get_team_status();
 DROP FUNCTION IF EXISTS public.get_team_assessments();
 DROP FUNCTION IF EXISTS public.get_review_cycle_details(p_cycle_id bigint);
@@ -144,12 +171,16 @@ DROP FUNCTION IF EXISTS public.get_my_feedback_received(p_limit integer);
 DROP FUNCTION IF EXISTS public.get_my_development_goals();
 DROP FUNCTION IF EXISTS public.get_my_assessments();
 DROP FUNCTION IF EXISTS public.get_manager_employees();
+DROP FUNCTION IF EXISTS public.get_manager_dashboard_stats();
 DROP FUNCTION IF EXISTS public.get_kudos_wall();
 DROP FUNCTION IF EXISTS public.get_feedback_wall(p_limit integer, p_feedback_type text);
 DROP FUNCTION IF EXISTS public.get_employees_simple();
 DROP FUNCTION IF EXISTS public.get_employees_for_feedback();
 DROP FUNCTION IF EXISTS public.get_employee_profile();
 DROP FUNCTION IF EXISTS public.get_employee_notes(p_employee_id uuid);
+DROP FUNCTION IF EXISTS public.get_employee_dashboard_stats();
+DROP FUNCTION IF EXISTS public.get_development_plans_for_review();
+DROP FUNCTION IF EXISTS public.get_development_plans();
 DROP FUNCTION IF EXISTS public.get_current_user_session();
 DROP FUNCTION IF EXISTS public.get_current_user_role();
 DROP FUNCTION IF EXISTS public.get_current_employee_id();
@@ -159,11 +190,14 @@ DROP FUNCTION IF EXISTS public.get_all_review_cycles_for_admin();
 DROP FUNCTION IF EXISTS public.get_all_employees_simple();
 DROP FUNCTION IF EXISTS public.get_all_employees_for_admin();
 DROP FUNCTION IF EXISTS public.get_all_employees();
+DROP FUNCTION IF EXISTS public.get_admin_dashboard_stats();
 DROP FUNCTION IF EXISTS public.get_active_review_cycles_with_status();
 DROP FUNCTION IF EXISTS public.delete_manager_note(p_note_id uuid);
 DROP FUNCTION IF EXISTS public.debug_auth_uid();
 DROP FUNCTION IF EXISTS public.create_simple_review_cycle(p_name text, p_start_date date, p_end_date date);
+DROP FUNCTION IF EXISTS public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data jsonb);
 DROP FUNCTION IF EXISTS public.create_employee(p_name text, p_email text, p_job_title text, p_role text, p_manager_id uuid, p_temp_password text);
+DROP FUNCTION IF EXISTS public.close_review_cycle(_csrf_token text, _nonce text, _timestamp bigint, p_cycle_id text);
 DROP FUNCTION IF EXISTS public.close_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.check_user_permission(required_permission text);
 DROP FUNCTION IF EXISTS public.add_assessment_feedback(p_assessment_id bigint, p_feedback text);
@@ -451,6 +485,126 @@ $$;
 
 
 --
+-- Name: close_review_cycle(text, text, bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.close_review_cycle(_csrf_token text, _nonce text, _timestamp bigint, p_cycle_id text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    v_cycle_record RECORD;
+    v_total_assessments INTEGER;
+    v_completed_assessments INTEGER;
+    v_has_updated_at BOOLEAN;
+BEGIN
+    -- Validate CSRF token (basic implementation)
+    IF _csrf_token IS NULL OR LENGTH(_csrf_token) < 10 THEN
+        RETURN json_build_object('error', 'Invalid CSRF token');
+    END IF;
+    
+    -- Get current user's employee record
+    SELECT e.id, e.role INTO v_current_employee_id, v_employee_role
+    FROM employees e
+    WHERE e.user_id = auth.uid() AND e.is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Check if user is admin
+    IF v_employee_role != 'admin' THEN
+        RETURN json_build_object('error', 'Access denied: Admin privileges required');
+    END IF;
+    
+    -- Check if updated_at column exists
+    SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'review_cycles' AND column_name = 'updated_at'
+    ) INTO v_has_updated_at;
+    
+    -- Find the review cycle
+    BEGIN
+        SELECT * INTO v_cycle_record
+        FROM review_cycles 
+        WHERE id::text = p_cycle_id 
+           OR name = p_cycle_id
+           OR name ILIKE '%' || p_cycle_id || '%'
+        ORDER BY created_at DESC
+        LIMIT 1;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN json_build_object('error', 'Error finding review cycle: ' || SQLERRM);
+    END;
+    
+    -- If not found, return error with available cycles
+    IF v_cycle_record.id IS NULL THEN
+        RETURN json_build_object(
+            'error', 'Review cycle not found with ID: ' || p_cycle_id,
+            'available_cycles', (
+                SELECT json_agg(json_build_object('id', id::text, 'name', name, 'status', status))
+                FROM review_cycles 
+                ORDER BY created_at DESC 
+                LIMIT 5
+            )
+        );
+    END IF;
+    
+    -- Check if cycle is already closed
+    IF v_cycle_record.status = 'closed' THEN
+        RETURN json_build_object('error', 'Review cycle "' || v_cycle_record.name || '" is already closed');
+    END IF;
+    
+    -- Get assessment statistics
+    SELECT 
+        COUNT(*) as total,
+        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
+    INTO v_total_assessments, v_completed_assessments
+    FROM assessments 
+    WHERE review_cycle_id = v_cycle_record.id;
+    
+    -- Close the review cycle (handle missing updated_at column gracefully)
+    IF v_has_updated_at THEN
+        UPDATE review_cycles 
+        SET status = 'closed', updated_at = NOW()
+        WHERE id = v_cycle_record.id;
+    ELSE
+        UPDATE review_cycles 
+        SET status = 'closed'
+        WHERE id = v_cycle_record.id;
+    END IF;
+    
+    -- Log the action (handle missing function gracefully)
+    BEGIN
+        PERFORM log_security_event(
+            'review_cycle_closed',
+            'cycle_id:' || v_cycle_record.id::text || ',name:' || v_cycle_record.name,
+            true
+        );
+    EXCEPTION
+        WHEN undefined_function THEN
+            -- Ignore if logging function doesn't exist
+            NULL;
+    END;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Review cycle closed successfully',
+        'cycle_id', v_cycle_record.id::text,
+        'cycle_name', v_cycle_record.name,
+        'total_assessments', v_total_assessments,
+        'completed_assessments', v_completed_assessments
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to close review cycle: ' || SQLERRM);
+END;
+$$;
+
+
+--
 -- Name: create_employee(text, text, text, text, uuid, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -528,6 +682,39 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         RETURN json_build_object('error', 'Failed to create employee: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: create_notification(uuid, uuid, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data jsonb DEFAULT '{}'::jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_notification_id UUID;
+BEGIN
+    INSERT INTO notifications (
+        recipient_id,
+        sender_id,
+        type,
+        title,
+        message,
+        data,
+        created_at
+    ) VALUES (
+        p_recipient_id,
+        p_sender_id,
+        p_type,
+        p_title,
+        p_message,
+        p_data,
+        NOW()
+    ) RETURNING id INTO v_notification_id;
+    
+    RETURN v_notification_id;
 END;
 $$;
 
@@ -656,6 +843,113 @@ BEGIN
     WHERE rc.status = 'active'
     GROUP BY rc.id, rc.name, rc.start_date, rc.end_date, rc.status
     ORDER BY rc.created_at DESC;
+END;
+$$;
+
+
+--
+-- Name: get_admin_dashboard_stats(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_admin_dashboard_stats() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL OR v_employee_role != 'admin' THEN
+        RETURN json_build_object('error', 'Access denied: Admin privileges required');
+    END IF;
+    
+    -- Gather comprehensive statistics
+    SELECT json_build_object(
+        'employees', json_build_object(
+            'total', (SELECT COUNT(*) FROM employees WHERE is_active = true),
+            'by_role', (
+                SELECT json_object_agg(role, count)
+                FROM (
+                    SELECT role, COUNT(*) as count
+                    FROM employees 
+                    WHERE is_active = true
+                    GROUP BY role
+                ) role_counts
+            )
+        ),
+        'review_cycles', json_build_object(
+            'total', (SELECT COUNT(*) FROM review_cycles),
+            'active', (SELECT COUNT(*) FROM review_cycles WHERE status = 'active'),
+            'upcoming', (SELECT COUNT(*) FROM review_cycles WHERE status = 'upcoming'),
+            'closed', (SELECT COUNT(*) FROM review_cycles WHERE status = 'closed')
+        ),
+        'assessments', json_build_object(
+            'total', (SELECT COUNT(*) FROM assessments),
+            'completed', (SELECT COUNT(*) FROM assessments WHERE self_assessment_status = 'submitted'),
+            'manager_reviews_pending', (SELECT COUNT(*) FROM assessments WHERE self_assessment_status = 'submitted' AND manager_review_status = 'pending'),
+            'manager_reviews_completed', (SELECT COUNT(*) FROM assessments WHERE manager_review_status = 'completed'),
+            'completion_rate', ROUND(
+                CASE 
+                    WHEN (SELECT COUNT(*) FROM assessments) > 0 THEN
+                        (SELECT COUNT(*)::DECIMAL FROM assessments WHERE self_assessment_status = 'submitted') /
+                        (SELECT COUNT(*)::DECIMAL FROM assessments) * 100
+                    ELSE 0
+                END, 2
+            )
+        ),
+        'development_plans', json_build_object(
+            'total', (SELECT COUNT(*) FROM development_plans),
+            'submitted', (SELECT COUNT(*) FROM development_plans WHERE status = 'submitted'),
+            'under_review', (SELECT COUNT(*) FROM development_plans WHERE status = 'under_review'),
+            'approved', (SELECT COUNT(*) FROM development_plans WHERE status = 'approved'),
+            'needs_revision', (SELECT COUNT(*) FROM development_plans WHERE status = 'needs_revision')
+        ),
+        'notifications', json_build_object(
+            'total_sent', (SELECT COUNT(*) FROM notifications WHERE 1=1), -- Handle case where notifications table might not exist
+            'unread', (SELECT COUNT(*) FROM notifications WHERE read_at IS NULL AND 1=1)
+        ),
+        'recent_activity', (
+            SELECT json_agg(activity_data)
+            FROM (
+                SELECT json_build_object(
+                    'type', 'assessment_submitted',
+                    'description', e.name || ' submitted self-assessment',
+                    'timestamp', a.updated_at,
+                    'employee_name', e.name
+                ) as activity_data
+                FROM assessments a
+                JOIN employees e ON a.employee_id = e.id
+                WHERE a.self_assessment_status = 'submitted'
+                AND a.updated_at > NOW() - INTERVAL '7 days'
+                
+                UNION ALL
+                
+                SELECT json_build_object(
+                    'type', 'development_plan_submitted',
+                    'description', e.name || ' submitted development plan: ' || dp.title,
+                    'timestamp', dp.created_at,
+                    'employee_name', e.name
+                ) as activity_data
+                FROM development_plans dp
+                JOIN employees e ON dp.employee_id = e.id
+                WHERE dp.created_at > NOW() - INTERVAL '7 days'
+                
+                ORDER BY (activity_data->>'timestamp')::timestamptz DESC
+                LIMIT 10
+            ) recent_activities
+        )
+    ) INTO result;
+    
+    RETURN result;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to get admin dashboard stats: ' || SQLERRM);
 END;
 $$;
 
@@ -986,6 +1280,219 @@ $$;
 
 
 --
+-- Name: get_development_plans(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_development_plans() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id INTO v_current_employee_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN '[]'::json;
+    END IF;
+    
+    -- Get development plans for current user
+    SELECT json_agg(
+        json_build_object(
+            'id', dp.id,
+            'title', dp.title,
+            'description', COALESCE(dp.description, ''),
+            'goals', dp.goals,
+            'skills_to_develop', dp.skills_to_develop,
+            'timeline', COALESCE(dp.timeline, ''),
+            'status', dp.status,
+            'manager_feedback', COALESCE(dp.manager_feedback, ''),
+            'manager_reviewed_at', dp.manager_reviewed_at,
+            'created_at', dp.created_at,
+            'updated_at', dp.updated_at,
+            'days_since_submission', EXTRACT(days FROM NOW() - dp.created_at)::INTEGER
+        ) ORDER BY dp.created_at DESC
+    ) INTO result
+    FROM development_plans dp
+    WHERE dp.employee_id = v_current_employee_id;
+    
+    RETURN COALESCE(result, '[]'::json);
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to get development plans: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: get_development_plans_for_review(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_development_plans_for_review() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN '[]'::json;
+    END IF;
+    
+    -- Check if user is manager or admin
+    IF v_employee_role NOT IN ('manager', 'admin') THEN
+        RETURN '[]'::json;
+    END IF;
+    
+    -- Get development plans for direct reports
+    SELECT json_agg(plan_data ORDER BY dp.created_at DESC) INTO result
+    FROM (
+        SELECT json_build_object(
+            'id', dp.id,
+            'employee_id', dp.employee_id,
+            'employee_name', e.name,
+            'employee_email', e.email,
+            'employee_job_title', COALESCE(e.job_title, ''),
+            'title', dp.title,
+            'description', dp.description,
+            'goals', dp.goals,
+            'skills_to_develop', dp.skills_to_develop,
+            'timeline', dp.timeline,
+            'status', dp.status,
+            'manager_feedback', dp.manager_feedback,
+            'manager_reviewed_at', dp.manager_reviewed_at,
+            'created_at', dp.created_at,
+            'updated_at', dp.updated_at,
+            'days_since_submission', EXTRACT(days FROM NOW() - dp.created_at)::INTEGER
+        ) as plan_data
+        FROM development_plans dp
+        JOIN employees e ON dp.employee_id = e.id
+        WHERE (e.manager_id = v_current_employee_id OR v_employee_role = 'admin')
+        AND e.is_active = true
+        ORDER BY dp.created_at DESC
+    ) ordered_plans;
+    
+    RETURN COALESCE(result, '[]'::json);
+END;
+$$;
+
+
+--
+-- Name: get_employee_dashboard_stats(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_employee_dashboard_stats() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id INTO v_current_employee_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Gather employee-specific statistics
+    SELECT json_build_object(
+        'assessments', json_build_object(
+            'total', (
+                SELECT COUNT(*) 
+                FROM assessments 
+                WHERE employee_id = v_current_employee_id
+            ),
+            'completed', (
+                SELECT COUNT(*) 
+                FROM assessments 
+                WHERE employee_id = v_current_employee_id
+                AND self_assessment_status = 'submitted'
+            ),
+            'pending', (
+                SELECT COUNT(*) 
+                FROM assessments 
+                WHERE employee_id = v_current_employee_id
+                AND self_assessment_status IN ('not_started', 'in_progress')
+            ),
+            'manager_reviews_completed', (
+                SELECT COUNT(*) 
+                FROM assessments 
+                WHERE employee_id = v_current_employee_id
+                AND manager_review_status = 'completed'
+            )
+        ),
+        'development_plans', json_build_object(
+            'total', (
+                SELECT COUNT(*) 
+                FROM development_plans 
+                WHERE employee_id = v_current_employee_id
+            ),
+            'approved', (
+                SELECT COUNT(*) 
+                FROM development_plans 
+                WHERE employee_id = v_current_employee_id
+                AND status = 'approved'
+            ),
+            'under_review', (
+                SELECT COUNT(*) 
+                FROM development_plans 
+                WHERE employee_id = v_current_employee_id
+                AND status IN ('submitted', 'under_review')
+            ),
+            'needs_revision', (
+                SELECT COUNT(*) 
+                FROM development_plans 
+                WHERE employee_id = v_current_employee_id
+                AND status = 'needs_revision'
+            )
+        ),
+        'notifications', json_build_object(
+            'unread_count', (
+                SELECT COUNT(*) 
+                FROM notifications 
+                WHERE recipient_id = v_current_employee_id AND read_at IS NULL AND 1=1
+            )
+        ),
+        'profile', (
+            SELECT json_build_object(
+                'name', name,
+                'job_title', job_title,
+                'email', email,
+                'role', role,
+                'manager_name', (
+                    SELECT m.name 
+                    FROM employees m 
+                    WHERE m.id = e.manager_id
+                )
+            )
+            FROM employees e
+            WHERE e.id = v_current_employee_id
+        )
+    ) INTO result;
+    
+    RETURN result;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to get employee dashboard stats: ' || SQLERRM);
+END;
+$$;
+
+
+--
 -- Name: get_employee_notes(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1188,6 +1695,124 @@ CREATE FUNCTION public.get_kudos_wall() RETURNS TABLE(kudo_id bigint, giver_name
   WHERE giver.is_active = true AND receiver.is_active = true
   ORDER BY k.created_at DESC
   LIMIT 50;
+$$;
+
+
+--
+-- Name: get_manager_dashboard_stats(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_manager_dashboard_stats() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    IF v_employee_role NOT IN ('manager', 'admin') THEN
+        RETURN json_build_object('error', 'Access denied: Manager privileges required');
+    END IF;
+    
+    -- Gather manager-specific statistics
+    SELECT json_build_object(
+        'team', json_build_object(
+            'total_members', (
+                SELECT COUNT(*) 
+                FROM employees 
+                WHERE manager_id = v_current_employee_id AND is_active = true
+            ),
+            'team_members', (
+                SELECT json_agg(json_build_object(
+                    'id', id,
+                    'name', name,
+                    'job_title', job_title,
+                    'email', email
+                ))
+                FROM employees 
+                WHERE manager_id = v_current_employee_id AND is_active = true
+                ORDER BY name
+            )
+        ),
+        'assessments', json_build_object(
+            'pending_reviews', (
+                SELECT COUNT(*) 
+                FROM assessments a
+                JOIN employees e ON a.employee_id = e.id
+                WHERE e.manager_id = v_current_employee_id
+                AND a.self_assessment_status = 'submitted'
+                AND COALESCE(a.manager_review_status, 'pending') = 'pending'
+            ),
+            'completed_reviews', (
+                SELECT COUNT(*) 
+                FROM assessments a
+                JOIN employees e ON a.employee_id = e.id
+                WHERE e.manager_id = v_current_employee_id
+                AND a.manager_review_status = 'completed'
+            ),
+            'team_completion_rate', ROUND(
+                CASE 
+                    WHEN (SELECT COUNT(*) FROM assessments a JOIN employees e ON a.employee_id = e.id WHERE e.manager_id = v_current_employee_id) > 0 THEN
+                        (SELECT COUNT(*)::DECIMAL 
+                         FROM assessments a
+                         JOIN employees e ON a.employee_id = e.id
+                         WHERE e.manager_id = v_current_employee_id
+                         AND a.self_assessment_status = 'submitted') /
+                        (SELECT COUNT(*)::DECIMAL 
+                         FROM assessments a
+                         JOIN employees e ON a.employee_id = e.id
+                         WHERE e.manager_id = v_current_employee_id) * 100
+                    ELSE 0
+                END, 2
+            )
+        ),
+        'development_plans', json_build_object(
+            'pending_review', (
+                SELECT COUNT(*) 
+                FROM development_plans dp
+                JOIN employees e ON dp.employee_id = e.id
+                WHERE e.manager_id = v_current_employee_id
+                AND dp.status = 'submitted'
+            ),
+            'approved', (
+                SELECT COUNT(*) 
+                FROM development_plans dp
+                JOIN employees e ON dp.employee_id = e.id
+                WHERE e.manager_id = v_current_employee_id
+                AND dp.status = 'approved'
+            ),
+            'needs_revision', (
+                SELECT COUNT(*) 
+                FROM development_plans dp
+                JOIN employees e ON dp.employee_id = e.id
+                WHERE e.manager_id = v_current_employee_id
+                AND dp.status = 'needs_revision'
+            )
+        ),
+        'notifications', json_build_object(
+            'unread_count', (
+                SELECT COUNT(*) 
+                FROM notifications 
+                WHERE recipient_id = v_current_employee_id AND read_at IS NULL AND 1=1
+            )
+        )
+    ) INTO result;
+    
+    RETURN result;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to get manager dashboard stats: ' || SQLERRM);
+END;
 $$;
 
 
@@ -1682,6 +2307,82 @@ $$;
 
 
 --
+-- Name: get_unread_notification_count(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_unread_notification_count() RETURNS integer
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_count INTEGER;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id INTO v_current_employee_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN 0;
+    END IF;
+    
+    SELECT COUNT(*) INTO v_count
+    FROM notifications
+    WHERE recipient_id = v_current_employee_id
+    AND read_at IS NULL;
+    
+    RETURN v_count;
+END;
+$$;
+
+
+--
+-- Name: get_user_notifications(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_user_notifications() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id INTO v_current_employee_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN '[]'::json;
+    END IF;
+    
+    -- Get notifications for this user
+    SELECT json_agg(notification_data ORDER BY created_at DESC) INTO result
+    FROM (
+        SELECT json_build_object(
+            'id', n.id,
+            'type', n.type,
+            'title', n.title,
+            'message', n.message,
+            'data', n.data,
+            'read_at', n.read_at,
+            'created_at', n.created_at,
+            'sender_name', COALESCE(e.name, 'System'),
+            'is_read', n.read_at IS NOT NULL
+        ) as notification_data
+        FROM notifications n
+        LEFT JOIN employees e ON n.sender_id = e.id
+        WHERE n.recipient_id = v_current_employee_id
+        ORDER BY n.created_at DESC
+        LIMIT 50
+    ) ordered_notifications;
+    
+    RETURN COALESCE(result, '[]'::json);
+END;
+$$;
+
+
+--
 -- Name: give_kudo(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1812,6 +2513,234 @@ BEGIN
         updated_at = NOW()
     WHERE feedback_id = p_feedback_id;
     RETURN FOUND;
+END;
+$$;
+
+
+--
+-- Name: mark_notification_read(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.mark_notification_read(p_notification_id uuid) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id INTO v_current_employee_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    -- Update notification if it belongs to current user
+    UPDATE notifications 
+    SET read_at = NOW() 
+    WHERE id = p_notification_id 
+    AND recipient_id = v_current_employee_id
+    AND read_at IS NULL;
+    
+    IF FOUND THEN
+        RETURN json_build_object('success', true, 'message', 'Notification marked as read');
+    ELSE
+        RETURN json_build_object('error', 'Notification not found or already read');
+    END IF;
+END;
+$$;
+
+
+--
+-- Name: notify_employee_manager_review_completed(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_employee_manager_review_completed() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_employee_name TEXT;
+    v_manager_name TEXT;
+    v_cycle_name TEXT;
+BEGIN
+    -- Only trigger when manager review status changes to completed
+    IF NEW.manager_review_status = 'completed' AND 
+       (OLD.manager_review_status IS NULL OR OLD.manager_review_status != 'completed') THEN
+        
+        -- Get employee and manager info
+        SELECT e.name INTO v_employee_name
+        FROM employees e
+        WHERE e.id = NEW.employee_id;
+        
+        SELECT m.name INTO v_manager_name
+        FROM employees e
+        JOIN employees m ON e.manager_id = m.id
+        WHERE e.id = NEW.employee_id;
+        
+        -- Get cycle name
+        SELECT rc.name INTO v_cycle_name
+        FROM review_cycles rc
+        WHERE rc.id = NEW.review_cycle_id;
+        
+        -- Create notification for employee
+        PERFORM create_notification(
+            NEW.employee_id,
+            (SELECT manager_id FROM employees WHERE id = NEW.employee_id),
+            'manager_review_completed',
+            'Your Manager Review is Complete',
+            v_manager_name || ' has completed your performance review for ' || v_cycle_name || '. You can now view their feedback.',
+            json_build_object(
+                'assessment_id', NEW.id,
+                'employee_id', NEW.employee_id,
+                'cycle_id', NEW.review_cycle_id,
+                'manager_name', v_manager_name,
+                'cycle_name', v_cycle_name
+            )
+        );
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: notify_manager_assessment_submitted(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_manager_assessment_submitted() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_manager_id UUID;
+    v_employee_name TEXT;
+    v_cycle_name TEXT;
+BEGIN
+    -- Only trigger when status changes to submitted
+    IF NEW.self_assessment_status = 'submitted' AND 
+       (OLD.self_assessment_status IS NULL OR OLD.self_assessment_status != 'submitted') THEN
+        
+        -- Get manager and employee info
+        SELECT e.manager_id, e.name INTO v_manager_id, v_employee_name
+        FROM employees e
+        WHERE e.id = NEW.employee_id;
+        
+        -- Get cycle name
+        SELECT rc.name INTO v_cycle_name
+        FROM review_cycles rc
+        WHERE rc.id = NEW.review_cycle_id;
+        
+        -- Create notification for manager
+        IF v_manager_id IS NOT NULL THEN
+            PERFORM create_notification(
+                v_manager_id,
+                NEW.employee_id,
+                'assessment_submitted',
+                'Employee Assessment Ready for Review',
+                v_employee_name || ' has completed their self-assessment for ' || v_cycle_name || ' and is ready for your review.',
+                json_build_object(
+                    'assessment_id', NEW.id,
+                    'employee_id', NEW.employee_id,
+                    'cycle_id', NEW.review_cycle_id,
+                    'employee_name', v_employee_name,
+                    'cycle_name', v_cycle_name
+                )
+            );
+        END IF;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: review_development_plan(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.review_development_plan(p_plan_id uuid, p_status text, p_manager_feedback text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    v_employee_id UUID;
+    v_employee_name TEXT;
+    v_plan_title TEXT;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Check if user is manager or admin
+    IF v_employee_role NOT IN ('manager', 'admin') THEN
+        RETURN json_build_object('error', 'Access denied: Manager privileges required');
+    END IF;
+    
+    -- Validate status
+    IF p_status NOT IN ('approved', 'needs_revision', 'under_review') THEN
+        RETURN json_build_object('error', 'Invalid status. Must be: approved, needs_revision, or under_review');
+    END IF;
+    
+    -- Get plan details and verify access - FIXED: Separate the SELECT statements
+    SELECT dp.employee_id, dp.title INTO v_employee_id, v_plan_title
+    FROM development_plans dp
+    JOIN employees e ON dp.employee_id = e.id
+    WHERE dp.id = p_plan_id
+    AND (e.manager_id = v_current_employee_id OR v_employee_role = 'admin')
+    AND e.is_active = true;
+    
+    IF v_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Development plan not found or access denied');
+    END IF;
+    
+    -- Get employee name
+    SELECT name INTO v_employee_name FROM employees WHERE id = v_employee_id;
+    
+    -- Update the development plan
+    UPDATE development_plans 
+    SET 
+        status = p_status,
+        manager_feedback = TRIM(p_manager_feedback),
+        manager_reviewed_at = NOW(),
+        manager_reviewed_by = v_current_employee_id,
+        updated_at = NOW()
+    WHERE id = p_plan_id;
+    
+    -- Create notification for employee (if create_notification function exists)
+    BEGIN
+        PERFORM create_notification(
+            v_employee_id,
+            v_current_employee_id,
+            'development_plan_reviewed',
+            'Development Plan Review Complete',
+            'Your development plan "' || v_plan_title || '" has been reviewed with status: ' || p_status,
+            json_build_object(
+                'plan_id', p_plan_id,
+                'plan_title', v_plan_title,
+                'status', p_status,
+                'has_feedback', (p_manager_feedback IS NOT NULL AND TRIM(p_manager_feedback) != '')
+            )
+        );
+    EXCEPTION
+        WHEN undefined_function THEN
+            -- Ignore if notification function doesn't exist
+            NULL;
+    END;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Development plan reviewed successfully',
+        'plan_id', p_plan_id,
+        'status', p_status,
+        'employee_name', v_employee_name
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to review development plan: ' || SQLERRM);
 END;
 $$;
 
@@ -1960,6 +2889,160 @@ BEGIN
     'message', 'Review cycle started successfully',
     'assessments_created', assessments_created
   );
+END;
+$$;
+
+
+--
+-- Name: submit_development_plan(text, text, jsonb, jsonb, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_development_plan(p_title text, p_description text, p_goals jsonb, p_skills_to_develop jsonb, p_timeline text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_manager_id UUID;
+    v_plan_id UUID;
+    v_employee_name TEXT;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id, manager_id, name INTO v_current_employee_id, v_manager_id, v_employee_name
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Insert development plan
+    INSERT INTO development_plans (
+        employee_id,
+        title,
+        description,
+        goals,
+        skills_to_develop,
+        timeline,
+        status,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_current_employee_id,
+        p_title,
+        p_description,
+        p_goals,
+        p_skills_to_develop,
+        p_timeline,
+        'submitted',
+        NOW(),
+        NOW()
+    ) RETURNING id INTO v_plan_id;
+    
+    -- Notify manager if exists
+    IF v_manager_id IS NOT NULL THEN
+        PERFORM create_notification(
+            v_manager_id,
+            v_current_employee_id,
+            'development_plan_submitted',
+            'Development Plan Submitted for Review',
+            v_employee_name || ' has submitted a new development plan titled "' || p_title || '" for your review.',
+            json_build_object(
+                'plan_id', v_plan_id,
+                'employee_id', v_current_employee_id,
+                'employee_name', v_employee_name,
+                'plan_title', p_title
+            )
+        );
+    END IF;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Development plan submitted successfully',
+        'plan_id', v_plan_id
+    );
+END;
+$$;
+
+
+--
+-- Name: submit_development_plan(text, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_development_plan(p_title text, p_description text DEFAULT ''::text, p_goals text DEFAULT '[]'::text, p_skills_to_develop text DEFAULT '[]'::text, p_timeline text DEFAULT ''::text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_plan_id UUID;
+    v_manager_id UUID;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id, manager_id INTO v_current_employee_id, v_manager_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Validate required fields
+    IF TRIM(p_title) = '' THEN
+        RETURN json_build_object('error', 'Plan title is required');
+    END IF;
+    
+    -- Insert development plan
+    INSERT INTO development_plans (
+        employee_id,
+        title,
+        description,
+        goals,
+        skills_to_develop,
+        timeline,
+        status,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_current_employee_id,
+        TRIM(p_title),
+        TRIM(p_description),
+        p_goals::TEXT,
+        p_skills_to_develop::TEXT,
+        TRIM(p_timeline),
+        'submitted',
+        NOW(),
+        NOW()
+    ) RETURNING id INTO v_plan_id;
+    
+    -- Create notification for manager (if create_notification function exists and manager exists)
+    IF v_manager_id IS NOT NULL THEN
+        BEGIN
+            PERFORM create_notification(
+                v_manager_id,
+                v_current_employee_id,
+                'development_plan_submitted',
+                'New Development Plan Submitted',
+                'A team member has submitted a development plan for your review: ' || TRIM(p_title),
+                json_build_object(
+                    'plan_id', v_plan_id,
+                    'plan_title', TRIM(p_title)
+                )
+            );
+        EXCEPTION
+            WHEN undefined_function THEN
+                -- Ignore if notification function doesn't exist
+                NULL;
+        END;
+    END IF;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Development plan submitted successfully',
+        'plan_id', v_plan_id
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to submit development plan: ' || SQLERRM);
 END;
 $$;
 
@@ -2566,7 +3649,12 @@ CREATE TABLE public.assessments (
     self_assessment_status text DEFAULT 'not_started'::text,
     employee_submitted_at timestamp with time zone,
     manager_reviewed_at timestamp with time zone,
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    manager_review_status text DEFAULT 'pending'::text,
+    manager_feedback jsonb DEFAULT '{}'::jsonb,
+    employee_notified boolean DEFAULT false,
+    manager_notified boolean DEFAULT false,
+    CONSTRAINT valid_manager_review_status CHECK ((manager_review_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'completed'::text])))
 );
 
 
@@ -2610,6 +3698,28 @@ ALTER TABLE public.company_rocks ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
     NO MINVALUE
     NO MAXVALUE
     CACHE 1
+);
+
+
+--
+-- Name: development_plans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.development_plans (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    employee_id uuid NOT NULL,
+    title text NOT NULL,
+    description text,
+    goals jsonb DEFAULT '[]'::jsonb,
+    skills_to_develop jsonb DEFAULT '[]'::jsonb,
+    timeline text,
+    status text DEFAULT 'submitted'::text,
+    manager_feedback text,
+    manager_reviewed_at timestamp with time zone,
+    manager_reviewed_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT valid_plan_status CHECK ((status = ANY (ARRAY['draft'::text, 'submitted'::text, 'under_review'::text, 'approved'::text, 'needs_revision'::text])))
 );
 
 
@@ -2718,6 +3828,24 @@ CREATE TABLE public.manager_notes (
 
 
 --
+-- Name: notifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.notifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    recipient_id uuid NOT NULL,
+    sender_id uuid,
+    type text NOT NULL,
+    title text NOT NULL,
+    message text NOT NULL,
+    data jsonb DEFAULT '{}'::jsonb,
+    read_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT valid_notification_type CHECK ((type = ANY (ARRAY['review_cycle_opened'::text, 'assessment_submitted'::text, 'manager_review_ready'::text, 'manager_review_completed'::text, 'development_plan_submitted'::text, 'development_plan_reviewed'::text, 'assessment_overdue'::text, 'review_reminder'::text])))
+);
+
+
+--
 -- Name: peer_feedback; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2767,7 +3895,8 @@ CREATE TABLE public.review_cycles (
     status text DEFAULT 'upcoming'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     cycle_type text DEFAULT 'quarterly'::text,
-    description text
+    description text,
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -2886,14 +4015,14 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 -- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at) FROM stdin;
-1	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
-2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
-3	e956be35-33d7-4870-97b3-63eaae4a690d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
-4	10d1c13c-ea48-45c1-8420-a616f0c314ec	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
-5	3542443c-6cd4-48ba-af2f-0bd3b4243c37	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
-6	da01f7e9-e2f6-43b2-b350-affc7c661751	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
-7	7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00
+COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified) FROM stdin;
+1	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+3	e956be35-33d7-4870-97b3-63eaae4a690d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+4	10d1c13c-ea48-45c1-8420-a616f0c314ec	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+5	3542443c-6cd4-48ba-af2f-0bd3b4243c37	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+6	da01f7e9-e2f6-43b2-b350-affc7c661751	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+7	7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
 \.
 
 
@@ -2902,6 +4031,14 @@ COPY public.assessments (id, employee_id, review_cycle_id, status, value_passion
 --
 
 COPY public.company_rocks (id, review_cycle_id, description, owner_name, target_date, status, created_at) FROM stdin;
+\.
+
+
+--
+-- Data for Name: development_plans; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.development_plans (id, employee_id, title, description, goals, skills_to_develop, timeline, status, manager_feedback, manager_reviewed_at, manager_reviewed_by, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -2955,6 +4092,14 @@ c1198e13-48e6-4a39-8f92-f270da0c2652	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	da01f7
 
 
 --
+-- Data for Name: notifications; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.notifications (id, recipient_id, sender_id, type, title, message, data, read_at, created_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: peer_feedback; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -2968,10 +4113,10 @@ COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, f
 -- Data for Name: review_cycles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description) FROM stdin;
-2	Test Q3 2025 Cycle	2025-07-01	2025-09-30	upcoming	2025-07-25 16:51:46.269884+00	quarterly	\N
-1	Test@2025Q3	2025-07-01	2025-09-30	active	2025-07-25 16:24:06.646381+00	quarterly	\N
-3	Q3ReviewFinalTest	2025-07-01	2025-09-30	active	2025-07-25 16:57:09.016246+00	quarterly	\N
+COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description, updated_at) FROM stdin;
+2	Test Q3 2025 Cycle	2025-07-01	2025-09-30	upcoming	2025-07-25 16:51:46.269884+00	quarterly	\N	2025-07-25 20:53:06.947319+00
+1	Test@2025Q3	2025-07-01	2025-09-30	active	2025-07-25 16:24:06.646381+00	quarterly	\N	2025-07-25 20:53:06.947319+00
+3	Q3ReviewFinalTest	2025-07-01	2025-09-30	closed	2025-07-25 16:57:09.016246+00	quarterly	\N	2025-07-25 20:53:35.320938+00
 \.
 
 
@@ -2984,6 +4129,7 @@ COPY public.security_audit (id, user_id, employee_id, action, resource, success,
 2	\N	\N	security_test	verification	t	\N	\N	2025-07-25 16:43:45.038992+00
 3	\N	\N	review_cycle_activated	cycle_id:1	t	\N	\N	2025-07-25 16:56:12.272007+00
 4	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	employee_updated	employee_id:da01f7e9-e2f6-43b2-b350-affc7c661751,changes:manager_id,	t	\N	\N	2025-07-25 20:04:00.134597+00
+5	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_closed	cycle_id:3,name:Q3ReviewFinalTest	t	\N	\N	2025-07-25 20:53:35.320938+00
 \.
 
 
@@ -3055,7 +4201,7 @@ SELECT pg_catalog.setval('public.review_cycles_id_seq', 3, true);
 -- Name: security_audit_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.security_audit_id_seq', 4, true);
+SELECT pg_catalog.setval('public.security_audit_id_seq', 5, true);
 
 
 --
@@ -3096,6 +4242,14 @@ ALTER TABLE ONLY public.assessments
 
 ALTER TABLE ONLY public.company_rocks
     ADD CONSTRAINT company_rocks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: development_plans development_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.development_plans
+    ADD CONSTRAINT development_plans_pkey PRIMARY KEY (id);
 
 
 --
@@ -3155,6 +4309,14 @@ ALTER TABLE ONLY public.manager_notes
 
 
 --
+-- Name: notifications notifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: peer_feedback peer_feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3201,6 +4363,27 @@ CREATE INDEX idx_development_goals_status ON public.employee_development_goals U
 
 
 --
+-- Name: idx_development_plans_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_development_plans_created_at ON public.development_plans USING btree (created_at DESC);
+
+
+--
+-- Name: idx_development_plans_employee_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_development_plans_employee_id ON public.development_plans USING btree (employee_id);
+
+
+--
+-- Name: idx_development_plans_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_development_plans_status ON public.development_plans USING btree (status);
+
+
+--
 -- Name: idx_manager_notes_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3236,6 +4419,34 @@ CREATE INDEX idx_messages_to_employee ON public.manager_employee_messages USING 
 
 
 --
+-- Name: idx_notifications_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notifications_created_at ON public.notifications USING btree (created_at DESC);
+
+
+--
+-- Name: idx_notifications_recipient_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notifications_recipient_id ON public.notifications USING btree (recipient_id);
+
+
+--
+-- Name: idx_notifications_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notifications_type ON public.notifications USING btree (type);
+
+
+--
+-- Name: idx_notifications_unread; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notifications_unread ON public.notifications USING btree (recipient_id, read_at) WHERE (read_at IS NULL);
+
+
+--
 -- Name: idx_training_requests_employee; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3247,6 +4458,20 @@ CREATE INDEX idx_training_requests_employee ON public.training_requests USING bt
 --
 
 CREATE INDEX idx_training_requests_status ON public.training_requests USING btree (status);
+
+
+--
+-- Name: assessments trg_assessment_submitted; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_assessment_submitted AFTER UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION public.notify_manager_assessment_submitted();
+
+
+--
+-- Name: assessments trg_manager_review_completed; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trg_manager_review_completed AFTER UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION public.notify_employee_manager_review_completed();
 
 
 --
@@ -3303,6 +4528,22 @@ ALTER TABLE ONLY public.assessments
 
 ALTER TABLE ONLY public.company_rocks
     ADD CONSTRAINT company_rocks_review_cycle_id_fkey FOREIGN KEY (review_cycle_id) REFERENCES public.review_cycles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: development_plans development_plans_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.development_plans
+    ADD CONSTRAINT development_plans_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: development_plans development_plans_manager_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.development_plans
+    ADD CONSTRAINT development_plans_manager_reviewed_by_fkey FOREIGN KEY (manager_reviewed_by) REFERENCES public.employees(id) ON DELETE SET NULL;
 
 
 --
@@ -3367,6 +4608,22 @@ ALTER TABLE ONLY public.manager_notes
 
 ALTER TABLE ONLY public.manager_notes
     ADD CONSTRAINT manager_notes_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notifications notifications_recipient_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_recipient_id_fkey FOREIGN KEY (recipient_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: notifications notifications_sender_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.notifications
+    ADD CONSTRAINT notifications_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.employees(id) ON DELETE SET NULL;
 
 
 --
@@ -3567,6 +4824,25 @@ CREATE POLICY company_rocks_read ON public.company_rocks FOR SELECT TO authentic
 
 
 --
+-- Name: development_plans; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.development_plans ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: development_plans development_plans_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY development_plans_access ON public.development_plans USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (employee_id IN ( SELECT e.id
+   FROM public.employees e
+  WHERE (e.manager_id IN ( SELECT employees.id
+           FROM public.employees
+          WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true))))))));
+
+
+--
 -- Name: employee_development_goals; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3717,6 +4993,21 @@ CREATE POLICY messages_participant_access ON public.manager_employee_messages TO
 
 
 --
+-- Name: notifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: notifications notifications_own_access; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY notifications_own_access ON public.notifications USING ((recipient_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))));
+
+
+--
 -- Name: review_cycles; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -3797,383 +5088,6 @@ CREATE POLICY training_requests_own_access ON public.training_requests TO authen
 --
 
 
-
-
---- FILE: manager-playbook-consolidated.sql ---
-
--- Manager Playbook Database Setup - Consolidated
--- Run this entire script in your Supabase SQL Editor
-
--- ============================================================================
--- STEP 1: CREATE MANAGER_NOTES TABLE
--- ============================================================================
-
-CREATE TABLE IF NOT EXISTS public.manager_notes (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    manager_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    category TEXT DEFAULT 'general',
-    priority TEXT DEFAULT 'medium',
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- Ensure valid categories and priorities
-    CONSTRAINT valid_category CHECK (category IN ('general', 'performance', 'development', 'personal', 'goals')),
-    CONSTRAINT valid_priority CHECK (priority IN ('low', 'medium', 'high', 'urgent'))
-);
-
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_manager_notes_manager_id ON manager_notes(manager_id);
-CREATE INDEX IF NOT EXISTS idx_manager_notes_employee_id ON manager_notes(employee_id);
-CREATE INDEX IF NOT EXISTS idx_manager_notes_created_at ON manager_notes(created_at DESC);
-
--- ============================================================================
--- STEP 2: CREATE FUNCTION TO GET MANAGER'S EMPLOYEES
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION public.get_manager_employees()
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_current_employee_id UUID;
-    result JSON;
-BEGIN
-    -- Get current user's employee ID
-    SELECT id INTO v_current_employee_id
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN '[]'::json;
-    END IF;
-    
-    -- Check if user is manager or admin
-    IF NOT EXISTS (
-        SELECT 1 FROM employees 
-        WHERE id = v_current_employee_id 
-        AND role IN ('manager', 'admin')
-    ) THEN
-        RETURN '[]'::json;    END IF;
-    
-    -- Get all employees under this manager
-    SELECT json_agg(employee_data) INTO result
-    FROM (
-        SELECT json_build_object(
-            'employee_id', e.id,
-            'name', e.name,
-            'email', e.email,
-            'job_title', COALESCE(e.job_title, ''),
-            'role', e.role,
-            'is_active', e.is_active,
-            'notes_count', COALESCE(note_count.count, 0)
-        ) as employee_data
-        FROM employees e
-        LEFT JOIN (
-            SELECT employee_id, COUNT(*) as count
-            FROM manager_notes
-            WHERE manager_id = v_current_employee_id
-            GROUP BY employee_id
-        ) note_count ON e.id = note_count.employee_id
-        WHERE e.manager_id = v_current_employee_id
-        AND e.is_active = true
-        ORDER BY e.name
-    ) ordered_employees;
-    
-    RETURN COALESCE(result, '[]'::json);
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Failed to get manager employees: %', SQLERRM;
-END;
-$$;
-
--- ============================================================================
--- STEP 3: CREATE FUNCTION TO GET EMPLOYEE NOTES
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION public.get_employee_notes(p_employee_id UUID)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_current_employee_id UUID;
-    result JSON;
-BEGIN
-    -- Get current user's employee ID
-    SELECT id INTO v_current_employee_id
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN '[]'::json;
-    END IF;
-    
-    -- Verify the employee belongs to this manager or user is admin
-    IF NOT EXISTS (
-        SELECT 1 FROM employees e
-        WHERE e.id = p_employee_id
-        AND (e.manager_id = v_current_employee_id OR 
-             EXISTS (SELECT 1 FROM employees WHERE id = v_current_employee_id AND role = 'admin'))
-    ) THEN
-        RETURN json_build_object('error', 'Unauthorized: You can only view notes for your direct reports');
-    END IF;
-    
-    -- Get all notes for this employee by this manager
-    SELECT json_agg(note_data) INTO result
-    FROM (
-        SELECT json_build_object(
-            'id', mn.id,
-            'title', mn.title,
-            'content', mn.content,
-            'category', mn.category,
-            'priority', mn.priority,
-            'created_at', mn.created_at,
-            'updated_at', mn.updated_at,
-            'employee_id', mn.employee_id,
-            'employee_name', e.name
-        ) as note_data
-        FROM manager_notes mn
-        JOIN employees e ON mn.employee_id = e.id
-        WHERE mn.manager_id = v_current_employee_id
-        AND mn.employee_id = p_employee_id
-        ORDER BY mn.created_at DESC
-    ) ordered_notes;
-    
-    RETURN COALESCE(result, '[]'::json);
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RAISE EXCEPTION 'Failed to get employee notes: %', SQLERRM;
-END;
-$$;
-
--- ============================================================================
--- STEP 4: CREATE FUNCTION TO SAVE MANAGER NOTE
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION public.save_manager_note(
-    p_employee_id UUID,
-    p_title TEXT,
-    p_content TEXT,
-    p_category TEXT DEFAULT 'general',
-    p_priority TEXT DEFAULT 'medium'
-)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_current_employee_id UUID;
-    v_note_id UUID;
-BEGIN
-    -- Get current user's employee ID
-    SELECT id INTO v_current_employee_id
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN json_build_object('error', 'Employee record not found');
-    END IF;
-    
-    -- Verify the employee belongs to this manager or user is admin
-    IF NOT EXISTS (
-        SELECT 1 FROM employees e
-        WHERE e.id = p_employee_id
-        AND (e.manager_id = v_current_employee_id OR 
-             EXISTS (SELECT 1 FROM employees WHERE id = v_current_employee_id AND role = 'admin'))
-    ) THEN
-        RETURN json_build_object('error', 'Unauthorized: You can only add notes for your direct reports');
-    END IF;
-    
-    -- Validate inputs
-    IF p_title IS NULL OR TRIM(p_title) = '' THEN
-        RETURN json_build_object('error', 'Note title is required');
-    END IF;
-    
-    IF p_content IS NULL OR TRIM(p_content) = '' THEN
-        RETURN json_build_object('error', 'Note content is required');
-    END IF;
-    
-    IF p_category NOT IN ('general', 'performance', 'development', 'personal', 'goals') THEN
-        RETURN json_build_object('error', 'Invalid category');
-    END IF;
-    
-    IF p_priority NOT IN ('low', 'medium', 'high', 'urgent') THEN
-        RETURN json_build_object('error', 'Invalid priority');
-    END IF;
-    
-    -- Insert the note
-    INSERT INTO manager_notes (
-        manager_id,
-        employee_id,
-        title,
-        content,
-        category,
-        priority,
-        created_at,
-        updated_at
-    ) VALUES (
-        v_current_employee_id,
-        p_employee_id,
-        TRIM(p_title),
-        TRIM(p_content),
-        p_category,
-        p_priority,
-        NOW(),
-        NOW()
-    ) RETURNING id INTO v_note_id;
-    
-    RETURN json_build_object(
-        'success', true,
-        'message', 'Note saved successfully',
-        'note_id', v_note_id
-    );
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to save note: ' || SQLERRM);
-END;
-$$;
-
--- ============================================================================
--- STEP 5: CREATE FUNCTION TO UPDATE MANAGER NOTE
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION public.update_manager_note(
-    p_note_id UUID,
-    p_title TEXT,
-    p_content TEXT,
-    p_category TEXT DEFAULT 'general',
-    p_priority TEXT DEFAULT 'medium'
-)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_current_employee_id UUID;
-BEGIN
-    -- Get current user's employee ID
-    SELECT id INTO v_current_employee_id
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN json_build_object('error', 'Employee record not found');
-    END IF;
-    
-    -- Verify the note belongs to this manager
-    IF NOT EXISTS (
-        SELECT 1 FROM manager_notes 
-        WHERE id = p_note_id AND manager_id = v_current_employee_id
-    ) THEN
-        RETURN json_build_object('error', 'Note not found or unauthorized');
-    END IF;
-    
-    -- Validate inputs
-    IF p_title IS NULL OR TRIM(p_title) = '' THEN
-        RETURN json_build_object('error', 'Note title is required');
-    END IF;
-    
-    IF p_content IS NULL OR TRIM(p_content) = '' THEN
-        RETURN json_build_object('error', 'Note content is required');
-    END IF;
-    
-    -- Update the note
-    UPDATE manager_notes SET
-        title = TRIM(p_title),
-        content = TRIM(p_content),
-        category = p_category,
-        priority = p_priority,
-        updated_at = NOW()
-    WHERE id = p_note_id;
-    
-    RETURN json_build_object(
-        'success', true,
-        'message', 'Note updated successfully'
-    );
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to update note: ' || SQLERRM);
-END;
-$$;
-
--- ============================================================================
--- STEP 6: CREATE FUNCTION TO DELETE MANAGER NOTE
--- ============================================================================
-
-CREATE OR REPLACE FUNCTION public.delete_manager_note(p_note_id UUID)
-RETURNS JSON
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-    v_current_employee_id UUID;
-BEGIN
-    -- Get current user's employee ID
-    SELECT id INTO v_current_employee_id
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN json_build_object('error', 'Employee record not found');
-    END IF;
-    
-    -- Verify the note belongs to this manager
-    IF NOT EXISTS (
-        SELECT 1 FROM manager_notes 
-        WHERE id = p_note_id AND manager_id = v_current_employee_id
-    ) THEN
-        RETURN json_build_object('error', 'Note not found or unauthorized');
-    END IF;
-    
-    -- Delete the note
-    DELETE FROM manager_notes WHERE id = p_note_id;
-    
-    RETURN json_build_object(
-        'success', true,
-        'message', 'Note deleted successfully'
-    );
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to delete note: ' || SQLERRM);
-END;
-$$;
-
--- ============================================================================
--- STEP 7: GRANT PERMISSIONS
--- ============================================================================
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON manager_notes TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_manager_employees() TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_employee_notes(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.save_manager_note(UUID, TEXT, TEXT, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.update_manager_note(UUID, TEXT, TEXT, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.delete_manager_note(UUID) TO authenticated;
-
--- ============================================================================
--- STEP 8: CREATE ROW LEVEL SECURITY POLICIES
--- ============================================================================
-
-ALTER TABLE manager_notes ENABLE ROW LEVEL SECURITY;
-
--- Policy: Managers can only see their own notes
-CREATE POLICY manager_notes_own_access ON manager_notes
-    FOR ALL USING (
-        manager_id IN (
-            SELECT id FROM employees 
-            WHERE user_id = auth.uid() AND is_active = true
-        )
-    );
-
-SELECT 'âœ… Manager Playbook database setup complete!' as status;
 
 
 --- FILE: package.json ---
@@ -4399,10 +5313,11 @@ import { AppProvider, useApp } from './contexts';
 
 // Import components one by one to ensure they work
 import Sidebar from './components/shared/Sidebar';
-import Dashboard from './components/pages/Dashboard';
-import MyTeam from './components/pages/MyTeam';
+import EnhancedDashboard from './components/pages/EnhancedDashboard';
+import MyTeamEnhanced from './components/pages/MyTeamEnhanced';
+import ManagerReview from './components/pages/ManagerReview';
 import MyReviews from './components/pages/MyReviews';
-import MyDevelopmentCenter from './components/pages/MyDevelopmentCenter';
+import MyDevelopmentCenterEnhanced from './components/pages/MyDevelopmentCenterEnhanced';
 import Assessment from './components/pages/Assessment';
 import Admin from './components/pages/Admin';
 import FeedbackWall from './components/pages/FeedbackWall';
@@ -4502,13 +5417,15 @@ const MainApp = () => {
   try {
     switch (page.name) {
       case 'Dashboard':
-        return <Dashboard />;
+        return <EnhancedDashboard />;
       case 'My Team':
-        return <MyTeam />;
+        return <MyTeamEnhanced />;
+      case 'Manager Review':
+        return <ManagerReview pageProps={page.props} />;
       case 'My Reviews':
         return <MyReviews />;
       case 'My Development':
-        return <MyDevelopmentCenter />;
+        return <MyDevelopmentCenterEnhanced />;
       case 'Admin':
         return <Admin />;
       case 'Assessment':
@@ -5339,15 +6256,10 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
 
   const fetchManagers = async () => {
     try {
-      console.log('EditEmployeeModal: Fetching managers...');
       const managersData = await AdminService.getPotentialManagers();
-      console.log('EditEmployeeModal: Received managers data:', managersData);
-      console.log('EditEmployeeModal: Is array?', Array.isArray(managersData));
-      console.log('EditEmployeeModal: Length:', managersData?.length);
       setManagers(managersData);
-      console.log('EditEmployeeModal: State updated, managers:', managersData);
     } catch (err) {
-      console.error('EditEmployeeModal: Error fetching managers:', err);
+      console.error('Error fetching managers:', err);
     }
   };
 
@@ -7389,6 +8301,437 @@ const Dashboard = () => {
 export default Dashboard;
 
 
+--- FILE: src\components\pages\EnhancedDashboard.js ---
+
+// src/components/pages/EnhancedDashboard.js - Enhanced dashboard with progress tracking
+import React, { useState, useEffect } from 'react';
+import { 
+  BarChart3, 
+  TrendingUp, 
+  Users, 
+  FileText, 
+  Target, 
+  Calendar, 
+  Clock, 
+  CheckCircle, 
+  AlertTriangle,
+  Award,
+  Bell,
+  Activity
+} from 'lucide-react';
+import { useApp } from '../../contexts';
+import { LoadingSpinner, ErrorMessage, StatusBadge } from '../ui';
+import { formatDate } from '../../utils';
+import NotificationService from '../../services/NotificationService';
+
+export default function EnhancedDashboard() {
+  const { userRole, userName } = useApp();
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, [userRole]);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await NotificationService.getDashboardStats(userRole);
+      setStats(data);
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <LoadingSpinner size="lg" message="Loading dashboard..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <ErrorMessage 
+          error={error} 
+          title="Dashboard Error" 
+          onRetry={fetchDashboardStats}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold text-cyan-400 flex items-center">
+          <BarChart3 className="mr-3" size={36} />
+          Dashboard
+        </h1>
+        <p className="text-gray-400 mt-2">
+          Welcome back, {userName}! Here's your performance overview.
+        </p>
+      </div>
+
+      {/* Role-specific Dashboard Content */}
+      {userRole === 'admin' && <AdminDashboard stats={stats} />}
+      {userRole === 'manager' && <ManagerDashboard stats={stats} />}
+      {userRole === 'employee' && <EmployeeDashboard stats={stats} />}
+    </div>
+  );
+}
+
+// Admin Dashboard Component
+const AdminDashboard = ({ stats }) => {
+  if (!stats) return null;
+
+  return (
+    <div className="space-y-8">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Total Employees"
+          value={stats.employees?.total || 0}
+          icon={Users}
+          color="blue"
+          subtitle={`${Object.values(stats.employees?.by_role || {}).length} roles`}
+        />
+        <MetricCard
+          title="Active Review Cycles"
+          value={stats.review_cycles?.active || 0}
+          icon={Calendar}
+          color="green"
+          subtitle={`${stats.review_cycles?.total || 0} total cycles`}
+        />
+        <MetricCard
+          title="Assessment Completion"
+          value={`${stats.assessments?.completion_rate || 0}%`}
+          icon={CheckCircle}
+          color="cyan"
+          subtitle={`${stats.assessments?.completed || 0}/${stats.assessments?.total || 0} completed`}
+        />
+        <MetricCard
+          title="Pending Reviews"
+          value={stats.assessments?.manager_reviews_pending || 0}
+          icon={Clock}
+          color="yellow"
+          subtitle="Awaiting manager review"
+        />
+      </div>
+
+      {/* Detailed Statistics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Employee Distribution */}
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Users className="mr-2 text-blue-400" size={20} />
+            Employee Distribution
+          </h3>
+          <div className="space-y-3">
+            {Object.entries(stats.employees?.by_role || {}).map(([role, count]) => (
+              <div key={role} className="flex items-center justify-between">
+                <span className="text-gray-300 capitalize">{role}s</span>
+                <div className="flex items-center space-x-2">
+                  <div className="bg-gray-700 rounded-full h-2 w-24">
+                    <div 
+                      className="bg-blue-500 rounded-full h-2"
+                      style={{ width: `${(count / stats.employees.total) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-white font-medium w-8 text-right">{count}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Development Plans Overview */}
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Target className="mr-2 text-purple-400" size={20} />
+            Development Plans
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-700 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-white">{stats.development_plans?.submitted || 0}</p>
+              <p className="text-gray-400 text-sm">Submitted</p>
+            </div>
+            <div className="bg-gray-700 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-green-400">{stats.development_plans?.approved || 0}</p>
+              <p className="text-gray-400 text-sm">Approved</p>
+            </div>
+            <div className="bg-gray-700 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-yellow-400">{stats.development_plans?.under_review || 0}</p>
+              <p className="text-gray-400 text-sm">Under Review</p>
+            </div>
+            <div className="bg-gray-700 rounded-lg p-4 text-center">
+              <p className="text-2xl font-bold text-red-400">{stats.development_plans?.needs_revision || 0}</p>
+              <p className="text-gray-400 text-sm">Need Revision</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      {stats.recent_activity && stats.recent_activity.length > 0 && (
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Activity className="mr-2 text-green-400" size={20} />
+            Recent Activity
+          </h3>
+          <div className="space-y-3">
+            {stats.recent_activity.slice(0, 5).map((activity, index) => (
+              <div key={index} className="flex items-center space-x-3 p-3 bg-gray-700 rounded-lg">
+                <div className="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                <div className="flex-1">
+                  <p className="text-gray-300">{activity.description}</p>
+                  <p className="text-gray-500 text-sm">{formatDate(activity.timestamp)}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Manager Dashboard Component
+const ManagerDashboard = ({ stats }) => {
+  if (!stats) return null;
+
+  return (
+    <div className="space-y-8">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Team Members"
+          value={stats.team?.total_members || 0}
+          icon={Users}
+          color="blue"
+          subtitle="Direct reports"
+        />
+        <MetricCard
+          title="Pending Reviews"
+          value={stats.assessments?.pending_reviews || 0}
+          icon={Clock}
+          color="yellow"
+          subtitle="Awaiting your review"
+        />
+        <MetricCard
+          title="Team Completion Rate"
+          value={`${stats.assessments?.team_completion_rate || 0}%`}
+          icon={TrendingUp}
+          color="green"
+          subtitle="Assessment completion"
+        />
+        <MetricCard
+          title="Development Plans"
+          value={stats.development_plans?.pending_review || 0}
+          icon={Target}
+          color="purple"
+          subtitle="Pending review"
+        />
+      </div>
+
+      {/* Team Overview */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Users className="mr-2 text-blue-400" size={20} />
+            Your Team
+          </h3>
+          {stats.team?.team_members && stats.team.team_members.length > 0 ? (
+            <div className="space-y-3">
+              {stats.team.team_members.slice(0, 5).map((member) => (
+                <div key={member.id} className="flex items-center space-x-3 p-3 bg-gray-700 rounded-lg">
+                  <div className="w-8 h-8 bg-cyan-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {member.name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-white font-medium">{member.name}</p>
+                    <p className="text-gray-400 text-sm">{member.job_title}</p>
+                  </div>
+                </div>
+              ))}
+              {stats.team.team_members.length > 5 && (
+                <p className="text-gray-400 text-sm text-center">
+                  ... and {stats.team.team_members.length - 5} more team members
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-gray-400">No team members assigned yet.</p>
+          )}
+        </div>
+
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <Target className="mr-2 text-purple-400" size={20} />
+            Development Plan Status
+          </h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Pending Review</span>
+              <span className="text-yellow-400 font-bold">{stats.development_plans?.pending_review || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Approved</span>
+              <span className="text-green-400 font-bold">{stats.development_plans?.approved || 0}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-gray-300">Need Revision</span>
+              <span className="text-red-400 font-bold">{stats.development_plans?.needs_revision || 0}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Employee Dashboard Component
+const EmployeeDashboard = ({ stats }) => {
+  if (!stats) return null;
+
+  return (
+    <div className="space-y-8">
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <MetricCard
+          title="Assessments Completed"
+          value={stats.assessments?.completed || 0}
+          icon={CheckCircle}
+          color="green"
+          subtitle={`${stats.assessments?.total || 0} total assessments`}
+        />
+        <MetricCard
+          title="Pending Assessments"
+          value={stats.assessments?.pending || 0}
+          icon={Clock}
+          color="yellow"
+          subtitle="Action required"
+        />
+        <MetricCard
+          title="Development Plans"
+          value={stats.development_plans?.total || 0}
+          icon={Target}
+          color="purple"
+          subtitle={`${stats.development_plans?.approved || 0} approved`}
+        />
+        <MetricCard
+          title="Manager Reviews"
+          value={stats.assessments?.manager_reviews_completed || 0}
+          icon={Award}
+          color="cyan"
+          subtitle="Feedback received"
+        />
+      </div>
+
+      {/* Profile and Progress */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Profile Info */}
+        {stats.profile && (
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+              <Users className="mr-2 text-blue-400" size={20} />
+              Your Profile
+            </h3>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-cyan-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-medium">
+                    {stats.profile.name?.split(' ').map(n => n[0]).join('') || 'U'}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-white font-medium">{stats.profile.name}</p>
+                  <p className="text-gray-400">{stats.profile.job_title}</p>
+                  <p className="text-gray-500 text-sm">{stats.profile.email}</p>
+                </div>
+              </div>
+              {stats.profile.manager_name && (
+                <div className="bg-gray-700 rounded-lg p-3">
+                  <p className="text-gray-400 text-sm">Reports to</p>
+                  <p className="text-white">{stats.profile.manager_name}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Development Progress */}
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
+            <TrendingUp className="mr-2 text-green-400" size={20} />
+            Development Progress
+          </h3>
+          <div className="space-y-4">
+            <div className="bg-gray-700 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-gray-300">Development Plans</span>
+                <span className="text-white font-bold">{stats.development_plans?.total || 0}</span>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-green-400">âœ“ Approved</span>
+                  <span className="text-green-400">{stats.development_plans?.approved || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-yellow-400">â³ Under Review</span>
+                  <span className="text-yellow-400">{stats.development_plans?.under_review || 0}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-red-400">âš  Needs Revision</span>
+                  <span className="text-red-400">{stats.development_plans?.needs_revision || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Reusable Metric Card Component
+const MetricCard = ({ title, value, icon: Icon, color, subtitle }) => {
+  const colorClasses = {
+    blue: 'text-blue-400',
+    green: 'text-green-400',
+    yellow: 'text-yellow-400',
+    red: 'text-red-400',
+    purple: 'text-purple-400',
+    cyan: 'text-cyan-400'
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <div className="flex items-center">
+        <Icon className={`${colorClasses[color]} mr-3`} size={24} />
+        <div>
+          <p className="text-2xl font-bold text-white">{value}</p>
+          <p className="text-gray-400 text-sm font-medium">{title}</p>
+          {subtitle && (
+            <p className="text-gray-500 text-xs mt-1">{subtitle}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
 --- FILE: src\components\pages\FeedbackWall.js ---
 
 import React, { useState, useEffect } from 'react';
@@ -8121,6 +9464,385 @@ const NoteCard = ({ note, categories, priorities, onEdit }) => {
 export default ManagerPlaybook;
 
 
+--- FILE: src\components\pages\ManagerReview.js ---
+
+// src/components/pages/ManagerReview.js - Manager interface for reviewing employee assessments
+import React, { useState, useEffect } from 'react';
+import { 
+  User, 
+  Calendar, 
+  Clock, 
+  Save, 
+  ArrowLeft, 
+  FileText, 
+  MessageSquare,
+  Star,
+  Target,
+  TrendingUp,
+  Award
+} from 'lucide-react';
+import { useApp } from '../../contexts';
+import { LoadingSpinner, ErrorMessage, Button, StatusBadge } from '../ui';
+import { formatDate } from '../../utils';
+import { supabase } from '../../services';
+
+export default function ManagerReview({ pageProps = {} }) {
+  const { setActivePage } = useApp();
+  const { 
+    assessmentId, 
+    employeeId, 
+    employeeName, 
+    cycleId, 
+    cycleName 
+  } = pageProps;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [assessment, setAssessment] = useState(null);
+  const [managerFeedback, setManagerFeedback] = useState({
+    overall_performance: '',
+    strengths: '',
+    areas_for_improvement: '',
+    goals_for_next_period: '',
+    development_recommendations: '',
+    rating: 3
+  });
+
+  // Fetch assessment data
+  useEffect(() => {
+    if (assessmentId) {
+      fetchAssessmentData();
+    }
+  }, [assessmentId]);
+
+  const fetchAssessmentData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Fetch assessment details including employee self-assessment
+      const { data, error } = await supabase
+        .from('assessments')
+        .select(`
+          *,
+          employee:employees(name, email, job_title),
+          review_cycle:review_cycles(name, description, start_date, end_date)
+        `)
+        .eq('id', assessmentId)
+        .single();
+
+      if (error) throw error;
+
+      setAssessment(data);
+
+      // Load existing manager feedback if available
+      if (data.manager_feedback && Object.keys(data.manager_feedback).length > 0) {
+        setManagerFeedback(prev => ({
+          ...prev,
+          ...data.manager_feedback
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching assessment data:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSaveReview = async () => {
+    try {
+      setSaving(true);
+      setError(null);
+
+      // Update assessment with manager feedback
+      const { error: updateError } = await supabase
+        .from('assessments')
+        .update({
+          manager_feedback: managerFeedback,
+          manager_review_status: 'completed',
+          manager_reviewed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assessmentId);
+
+      if (updateError) throw updateError;
+
+      // Navigate back to My Team
+      setActivePage({ name: 'My Team', props: {} });
+    } catch (err) {
+      console.error('Error saving manager review:', err);
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setManagerFeedback(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <LoadingSpinner size="lg" message="Loading assessment..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <ErrorMessage 
+          error={error} 
+          title="Error Loading Assessment" 
+          onRetry={fetchAssessmentData}
+        />
+      </div>
+    );
+  }
+
+  if (!assessment) {
+    return (
+      <div className="p-8">
+        <div className="text-center py-12">
+          <FileText size={64} className="mx-auto text-gray-500 mb-4" />
+          <h3 className="text-xl font-semibold text-white mb-2">Assessment Not Found</h3>
+          <p className="text-gray-400">The requested assessment could not be found.</p>
+          <Button 
+            onClick={() => setActivePage({ name: 'My Team', props: {} })}
+            className="mt-4"
+          >
+            Return to My Team
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="secondary" 
+            onClick={() => setActivePage({ name: 'My Team', props: {} })}
+          >
+            <ArrowLeft size={16} className="mr-2" />
+            Back to My Team
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-cyan-400">Manager Review</h1>
+            <p className="text-gray-400 mt-1">
+              Review assessment for {assessment.employee?.name}
+            </p>
+          </div>
+        </div>
+        <div className="flex space-x-3">
+          <Button 
+            variant="primary"
+            onClick={handleSaveReview}
+            disabled={saving}
+          >
+            <Save size={16} className="mr-2" />
+            {saving ? 'Saving...' : 'Complete Review'}
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Employee Self-Assessment (Left Side) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Assessment Info */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="flex items-center space-x-4 mb-4">
+              <div className="w-12 h-12 bg-cyan-600 rounded-full flex items-center justify-center">
+                <User className="text-white" size={24} />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-white">{assessment.employee?.name}</h2>
+                <p className="text-gray-400">{assessment.employee?.job_title}</p>
+                <p className="text-gray-500 text-sm">{assessment.employee?.email}</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-400">Review Cycle</p>
+                <p className="text-white font-medium">{assessment.review_cycle?.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Period</p>
+                <p className="text-white">
+                  {formatDate(assessment.review_cycle?.start_date)} - {formatDate(assessment.review_cycle?.end_date)}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-400">Status</p>
+                <StatusBadge 
+                  status={assessment.self_assessment_status} 
+                  color={assessment.self_assessment_status === 'submitted' ? 'green' : 'yellow'}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Employee Self-Assessment */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <FileText className="mr-2 text-cyan-400" size={20} />
+              Employee Self-Assessment
+            </h3>
+            
+            {assessment.responses && Object.keys(assessment.responses).length > 0 ? (
+              <div className="space-y-4">
+                {Object.entries(assessment.responses).map(([question, answer]) => (
+                  <div key={question} className="border-b border-gray-700 pb-4 last:border-b-0">
+                    <p className="text-gray-300 font-medium mb-2">{question}</p>
+                    <p className="text-gray-400">{answer || 'No response provided'}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-400">No self-assessment responses available.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Manager Review Form (Right Side) */}
+        <div className="space-y-6">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <MessageSquare className="mr-2 text-cyan-400" size={20} />
+              Your Review
+            </h3>
+            
+            <div className="space-y-4">
+              {/* Overall Rating */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Overall Performance Rating
+                </label>
+                <select
+                  value={managerFeedback.rating}
+                  onChange={(e) => handleInputChange('rating', parseInt(e.target.value))}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                >
+                  <option value={1}>1 - Needs Improvement</option>
+                  <option value={2}>2 - Below Expectations</option>
+                  <option value={3}>3 - Meets Expectations</option>
+                  <option value={4}>4 - Exceeds Expectations</option>
+                  <option value={5}>5 - Outstanding</option>
+                </select>
+              </div>
+
+              {/* Overall Performance */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Overall Performance Summary
+                </label>
+                <textarea
+                  value={managerFeedback.overall_performance}
+                  onChange={(e) => handleInputChange('overall_performance', e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Provide an overall summary of the employee's performance..."
+                />
+              </div>
+
+              {/* Strengths */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Key Strengths
+                </label>
+                <textarea
+                  value={managerFeedback.strengths}
+                  onChange={(e) => handleInputChange('strengths', e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="What are this employee's key strengths?"
+                />
+              </div>
+
+              {/* Areas for Improvement */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Areas for Improvement
+                </label>
+                <textarea
+                  value={managerFeedback.areas_for_improvement}
+                  onChange={(e) => handleInputChange('areas_for_improvement', e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="What areas could this employee focus on improving?"
+                />
+              </div>
+
+              {/* Goals for Next Period */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Goals for Next Period
+                </label>
+                <textarea
+                  value={managerFeedback.goals_for_next_period}
+                  onChange={(e) => handleInputChange('goals_for_next_period', e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="What goals should this employee focus on next?"
+                />
+              </div>
+
+              {/* Development Recommendations */}
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Development Recommendations
+                </label>
+                <textarea
+                  value={managerFeedback.development_recommendations}
+                  onChange={(e) => handleInputChange('development_recommendations', e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="What development opportunities would you recommend?"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="space-y-3">
+              <Button 
+                variant="primary"
+                onClick={handleSaveReview}
+                disabled={saving}
+                className="w-full"
+              >
+                <Save size={16} className="mr-2" />
+                {saving ? 'Saving Review...' : 'Complete Review'}
+              </Button>
+              
+              <Button 
+                variant="secondary"
+                onClick={() => setActivePage({ name: 'My Team', props: {} })}
+                className="w-full"
+              >
+                <ArrowLeft size={16} className="mr-2" />
+                Back to My Team
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 --- FILE: src\components\pages\MyDevelopmentCenter.js ---
 
 // V3.7 STEP 3: My Development Center - Replace src/components/pages/Settings.js
@@ -8494,6 +10216,566 @@ const CommunicationSection = () => (
 );
 
 export default MyDevelopmentCenter;
+
+
+--- FILE: src\components\pages\MyDevelopmentCenterEnhanced.js ---
+
+// src/components/pages/MyDevelopmentCenterEnhanced.js - Enhanced with development plan submission workflow
+import React, { useState, useEffect } from 'react';
+import { 
+  Target, 
+  Plus, 
+  Calendar, 
+  User, 
+  BookOpen, 
+  TrendingUp, 
+  Save, 
+  X,
+  CheckCircle,
+  Clock,
+  MessageSquare,
+  Award,
+  Lightbulb
+} from 'lucide-react';
+import { useApp } from '../../contexts';
+import { LoadingSpinner, ErrorMessage, Button, StatusBadge } from '../ui';
+import { formatDate } from '../../utils';
+import NotificationService from '../../services/NotificationService';
+
+export default function MyDevelopmentCenterEnhanced() {
+  const { userName } = useApp();
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [developmentPlans, setDevelopmentPlans] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  
+  const [newPlan, setNewPlan] = useState({
+    title: '',
+    description: '',
+    goals: [{ goal: '', timeline: '', priority: 'medium' }],
+    skills_to_develop: [{ skill: '', reason: '', method: '' }],
+    timeline: '3-6 months'
+  });
+
+  // Fetch development plans on component mount
+  useEffect(() => {
+    fetchDevelopmentPlans();
+  }, []);
+
+  const fetchDevelopmentPlans = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const plans = await NotificationService.getDevelopmentPlans();
+      setDevelopmentPlans(plans);
+    } catch (err) {
+      console.error('Error fetching development plans:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitPlan = async () => {
+    try {
+      setSubmitting(true);
+      setError(null);
+      
+      // Validate required fields
+      if (!newPlan.title.trim()) {
+        throw new Error('Plan title is required');
+      }
+      if (newPlan.goals.length === 0 || !newPlan.goals[0].goal.trim()) {
+        throw new Error('At least one goal is required');
+      }
+
+      await NotificationService.submitDevelopmentPlan(newPlan);
+      
+      // Reset form and refresh plans
+      setNewPlan({
+        title: '',
+        description: '',
+        goals: [{ goal: '', timeline: '', priority: 'medium' }],
+        skills_to_develop: [{ skill: '', reason: '', method: '' }],
+        timeline: '3-6 months'
+      });
+      setShowCreateForm(false);
+      await fetchDevelopmentPlans();
+      
+    } catch (err) {
+      console.error('Error submitting development plan:', err);
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const addGoal = () => {
+    setNewPlan(prev => ({
+      ...prev,
+      goals: [...prev.goals, { goal: '', timeline: '', priority: 'medium' }]
+    }));
+  };
+
+  const removeGoal = (index) => {
+    setNewPlan(prev => ({
+      ...prev,
+      goals: prev.goals.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateGoal = (index, field, value) => {
+    setNewPlan(prev => ({
+      ...prev,
+      goals: prev.goals.map((goal, i) => 
+        i === index ? { ...goal, [field]: value } : goal
+      )
+    }));
+  };
+
+  const addSkill = () => {
+    setNewPlan(prev => ({
+      ...prev,
+      skills_to_develop: [...prev.skills_to_develop, { skill: '', reason: '', method: '' }]
+    }));
+  };
+
+  const removeSkill = (index) => {
+    setNewPlan(prev => ({
+      ...prev,
+      skills_to_develop: prev.skills_to_develop.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateSkill = (index, field, value) => {
+    setNewPlan(prev => ({
+      ...prev,
+      skills_to_develop: prev.skills_to_develop.map((skill, i) => 
+        i === index ? { ...skill, [field]: value } : skill
+      )
+    }));
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'draft': 'gray',
+      'submitted': 'blue',
+      'under_review': 'yellow',
+      'approved': 'green',
+      'needs_revision': 'red'
+    };
+    return colors[status] || 'gray';
+  };
+
+  const tabs = [
+    { id: 'overview', name: 'Overview', icon: Target },
+    { id: 'plans', name: 'My Development Plans', icon: BookOpen },
+    { id: 'create', name: 'Create New Plan', icon: Plus }
+  ];
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-cyan-400 mb-8">My Development Center</h1>
+        <LoadingSpinner size="lg" message="Loading your development center..." />
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-cyan-400">My Development Center</h1>
+          <p className="text-gray-400 mt-2">Plan and track your professional development journey</p>
+        </div>
+        <div className="flex space-x-3">
+          <Button 
+            variant="primary"
+            onClick={() => setActiveTab('create')}
+          >
+            <Plus size={16} className="mr-2" />
+            Create Development Plan
+          </Button>
+        </div>
+      </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6">
+          <ErrorMessage 
+            error={error} 
+            title="Development Center Error" 
+            onRetry={() => setError(null)}
+          />
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-700 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
+                  ? 'border-cyan-500 text-cyan-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+              }`}
+            >
+              <tab.icon className="mr-2" size={16} />
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center">
+                <BookOpen className="text-blue-400 mr-3" size={24} />
+                <div>
+                  <p className="text-2xl font-bold text-white">{developmentPlans.length}</p>
+                  <p className="text-gray-400 text-sm">Development Plans</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center">
+                <CheckCircle className="text-green-400 mr-3" size={24} />
+                <div>
+                  <p className="text-2xl font-bold text-white">
+                    {developmentPlans.filter(p => p.status === 'approved').length}
+                  </p>
+                  <p className="text-gray-400 text-sm">Approved Plans</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+              <div className="flex items-center">
+                <Clock className="text-yellow-400 mr-3" size={24} />
+                <div>
+                  <p className="text-2xl font-bold text-white">
+                    {developmentPlans.filter(p => p.status === 'under_review').length}
+                  </p>
+                  <p className="text-gray-400 text-sm">Under Review</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 className="text-xl font-semibold text-white mb-4 flex items-center">
+              <Lightbulb className="mr-2 text-yellow-400" size={20} />
+              Development Tips
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-700 rounded-lg p-4">
+                <h3 className="font-medium text-cyan-400 mb-2">Set SMART Goals</h3>
+                <p className="text-gray-300 text-sm">Make your goals Specific, Measurable, Achievable, Relevant, and Time-bound.</p>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4">
+                <h3 className="font-medium text-cyan-400 mb-2">Regular Review</h3>
+                <p className="text-gray-300 text-sm">Schedule regular check-ins with your manager to discuss progress and adjustments.</p>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4">
+                <h3 className="font-medium text-cyan-400 mb-2">Skill Diversity</h3>
+                <p className="text-gray-300 text-sm">Balance technical skills with soft skills for comprehensive growth.</p>
+              </div>
+              <div className="bg-gray-700 rounded-lg p-4">
+                <h3 className="font-medium text-cyan-400 mb-2">Document Progress</h3>
+                <p className="text-gray-300 text-sm">Keep track of your achievements and lessons learned along the way.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'plans' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white">My Development Plans</h2>
+          
+          {developmentPlans.length === 0 ? (
+            <div className="text-center py-12">
+              <BookOpen size={64} className="mx-auto text-gray-500 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Development Plans Yet</h3>
+              <p className="text-gray-400 mb-6">Start your development journey by creating your first plan.</p>
+              <Button 
+                variant="primary"
+                onClick={() => setActiveTab('create')}
+              >
+                <Plus size={16} className="mr-2" />
+                Create Your First Plan
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {developmentPlans.map((plan) => (
+                <div key={plan.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-white mb-2">{plan.title}</h3>
+                      <p className="text-gray-400 mb-3">{plan.description}</p>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Status</p>
+                          <StatusBadge 
+                            status={plan.status} 
+                            color={getStatusColor(plan.status)}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Timeline</p>
+                          <p className="text-white">{plan.timeline}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Created</p>
+                          <p className="text-white">{formatDate(plan.created_at)}</p>
+                        </div>
+                      </div>
+
+                      {plan.goals && plan.goals.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-400 mb-2">Goals ({plan.goals.length})</p>
+                          <div className="space-y-1">
+                            {plan.goals.slice(0, 2).map((goal, index) => (
+                              <p key={index} className="text-gray-300 text-sm">â€¢ {goal.goal}</p>
+                            ))}
+                            {plan.goals.length > 2 && (
+                              <p className="text-gray-500 text-sm">... and {plan.goals.length - 2} more</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {plan.manager_feedback && (
+                        <div className="bg-gray-700 rounded-lg p-3 mt-4">
+                          <p className="text-sm text-gray-400 mb-1">Manager Feedback</p>
+                          <p className="text-gray-300 text-sm">{plan.manager_feedback}</p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Reviewed on {formatDate(plan.manager_reviewed_at)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'create' && (
+        <div className="space-y-6">
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 className="text-xl font-semibold text-white mb-4">Create Development Plan</h2>
+            
+            <div className="space-y-6">
+              {/* Basic Information */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Plan Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={newPlan.title}
+                    onChange={(e) => setNewPlan(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    placeholder="e.g., Leadership Skills Development"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Timeline
+                  </label>
+                  <select
+                    value={newPlan.timeline}
+                    onChange={(e) => setNewPlan(prev => ({ ...prev, timeline: e.target.value }))}
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  >
+                    <option value="1-3 months">1-3 months</option>
+                    <option value="3-6 months">3-6 months</option>
+                    <option value="6-12 months">6-12 months</option>
+                    <option value="1+ years">1+ years</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={newPlan.description}
+                  onChange={(e) => setNewPlan(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Describe your development objectives and what you hope to achieve..."
+                />
+              </div>
+
+              {/* Goals Section */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Development Goals *
+                  </label>
+                  <Button variant="secondary" size="sm" onClick={addGoal}>
+                    <Plus size={14} className="mr-1" />
+                    Add Goal
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {newPlan.goals.map((goal, index) => (
+                    <div key={index} className="bg-gray-700 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <span className="text-sm font-medium text-gray-300">Goal {index + 1}</span>
+                        {newPlan.goals.length > 1 && (
+                          <button
+                            onClick={() => removeGoal(index)}
+                            className="text-gray-400 hover:text-red-400 transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div className="lg:col-span-2">
+                          <input
+                            type="text"
+                            value={goal.goal}
+                            onChange={(e) => updateGoal(index, 'goal', e.target.value)}
+                            className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                            placeholder="Describe your specific goal..."
+                          />
+                        </div>
+                        <div>
+                          <input
+                            type="text"
+                            value={goal.timeline}
+                            onChange={(e) => updateGoal(index, 'timeline', e.target.value)}
+                            className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                            placeholder="Timeline (e.g., 3 months)"
+                          />
+                        </div>
+                        <div>
+                          <select
+                            value={goal.priority}
+                            onChange={(e) => updateGoal(index, 'priority', e.target.value)}
+                            className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                          >
+                            <option value="low">Low Priority</option>
+                            <option value="medium">Medium Priority</option>
+                            <option value="high">High Priority</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Skills Section */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <label className="block text-sm font-medium text-gray-300">
+                    Skills to Develop
+                  </label>
+                  <Button variant="secondary" size="sm" onClick={addSkill}>
+                    <Plus size={14} className="mr-1" />
+                    Add Skill
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  {newPlan.skills_to_develop.map((skill, index) => (
+                    <div key={index} className="bg-gray-700 rounded-lg p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <span className="text-sm font-medium text-gray-300">Skill {index + 1}</span>
+                        <button
+                          onClick={() => removeSkill(index)}
+                          className="text-gray-400 hover:text-red-400 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <input
+                          type="text"
+                          value={skill.skill}
+                          onChange={(e) => updateSkill(index, 'skill', e.target.value)}
+                          className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                          placeholder="Skill name (e.g., Public Speaking)"
+                        />
+                        <input
+                          type="text"
+                          value={skill.reason}
+                          onChange={(e) => updateSkill(index, 'reason', e.target.value)}
+                          className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                          placeholder="Why is this skill important for your role?"
+                        />
+                        <input
+                          type="text"
+                          value={skill.method}
+                          onChange={(e) => updateSkill(index, 'method', e.target.value)}
+                          className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                          placeholder="How will you develop this skill?"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3">
+                <Button 
+                  variant="secondary"
+                  onClick={() => {
+                    setNewPlan({
+                      title: '',
+                      description: '',
+                      goals: [{ goal: '', timeline: '', priority: 'medium' }],
+                      skills_to_develop: [{ skill: '', reason: '', method: '' }],
+                      timeline: '3-6 months'
+                    });
+                    setActiveTab('plans');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="primary"
+                  onClick={handleSubmitPlan}
+                  disabled={submitting}
+                >
+                  <Save size={16} className="mr-2" />
+                  {submitting ? 'Submitting...' : 'Submit Plan'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 
 --- FILE: src\components\pages\MyReviews.js ---
@@ -8873,12 +11155,671 @@ export default function MyTeam() {
 }
 
 
+--- FILE: src\components\pages\MyTeamEnhanced.js ---
+
+// src/components/pages/MyTeamEnhanced.js - Enhanced with pending reviews workflow
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, 
+  Calendar, 
+  Clock, 
+  CheckCircle, 
+  AlertTriangle, 
+  Eye, 
+  Edit, 
+  MessageSquare,
+  FileText,
+  Target,
+  Award,
+  Save
+} from 'lucide-react';
+import { useTeam } from '../../hooks';
+import { useApp } from '../../contexts';
+import { LoadingSpinner, ErrorMessage, Button, StatusBadge } from '../ui';
+import { formatDate } from '../../utils';
+import NotificationService from '../../services/NotificationService';
+
+export default function MyTeamEnhanced() {
+  const { openModal, setActivePage } = useApp();
+  const { 
+    team, 
+    teamAssessments, 
+    loading, 
+    error, 
+    refresh 
+  } = useTeam();
+  
+  const [selectedTab, setSelectedTab] = useState('overview');
+  const [pendingReviews, setPendingReviews] = useState([]);
+  const [completedReviews, setCompletedReviews] = useState([]);
+  const [developmentPlans, setDevelopmentPlans] = useState([]);
+
+  // Process assessments for workflow display
+  useEffect(() => {
+    if (teamAssessments) {
+      const pending = teamAssessments.filter(assessment => 
+        assessment.self_assessment_status === 'submitted' && 
+        assessment.manager_review_status === 'pending'
+      );
+      const completed = teamAssessments.filter(assessment => 
+        assessment.manager_review_status === 'completed'
+      );
+      
+      setPendingReviews(pending);
+      setCompletedReviews(completed);
+    }
+  }, [teamAssessments]);
+
+  // Fetch development plans for review
+  useEffect(() => {
+    fetchDevelopmentPlans();
+  }, []);
+
+  const fetchDevelopmentPlans = async () => {
+    try {
+      const plans = await NotificationService.getDevelopmentPlansForReview();
+      setDevelopmentPlans(plans);
+    } catch (error) {
+      console.error('Error fetching development plans:', error);
+    }
+  };
+
+  const handleReviewAssessment = (assessment) => {
+    // Navigate to manager review interface
+    setActivePage({ 
+      name: 'Manager Review', 
+      props: { 
+        assessmentId: assessment.assessment_id,
+        employeeId: assessment.employee_id,
+        employeeName: assessment.employee_name,
+        cycleId: assessment.cycle_id,
+        cycleName: assessment.cycle_name
+      } 
+    });
+  };
+
+  const handleReviewDevelopmentPlan = async (planId, status, feedback) => {
+    try {
+      await NotificationService.reviewDevelopmentPlan(planId, status, feedback);
+      // Refresh development plans after review
+      await fetchDevelopmentPlans();
+    } catch (error) {
+      console.error('Error reviewing development plan:', error);
+      // You could show a toast notification here
+    }
+  };
+
+  const getAssessmentStatusColor = (status) => {
+    const colorMap = {
+      'not_started': 'gray',
+      'in_progress': 'yellow',
+      'submitted': 'blue',
+      'completed': 'green',
+      'overdue': 'red'
+    };
+    return colorMap[status] || 'gray';
+  };
+
+  const getManagerReviewStatusColor = (status) => {
+    const colorMap = {
+      'pending': 'yellow',
+      'in_progress': 'blue',
+      'completed': 'green'
+    };
+    return colorMap[status] || 'gray';
+  };
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-cyan-400 mb-8">My Team</h1>
+        <LoadingSpinner size="lg" message="Loading your team..." />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <h1 className="text-3xl font-bold text-cyan-400 mb-8">My Team</h1>
+        <ErrorMessage 
+          error={error} 
+          title="Error Loading Team" 
+          onRetry={refresh}
+        />
+      </div>
+    );
+  }
+
+  const tabs = [
+    { id: 'overview', name: 'Team Overview', icon: Users },
+    { id: 'pending', name: `Pending Reviews (${pendingReviews.length})`, icon: Clock },
+    { id: 'completed', name: 'Completed Reviews', icon: CheckCircle },
+    { id: 'development', name: `Development Plans (${developmentPlans.filter(p => p.status === 'submitted').length})`, icon: Target }
+  ];
+
+  return (
+    <div className="p-8">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold text-cyan-400">My Team</h1>
+          <p className="text-gray-400 mt-2">Manage your direct reports and their assessments</p>
+        </div>
+        <div className="flex space-x-3">
+          <Button onClick={refresh} variant="secondary">
+            <Calendar className="mr-2" size={16} />
+            Refresh
+          </Button>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center">
+            <Users className="text-cyan-400 mr-3" size={24} />
+            <div>
+              <p className="text-2xl font-bold text-white">{team.length}</p>
+              <p className="text-gray-400 text-sm">Team Members</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center">
+            <Clock className="text-yellow-400 mr-3" size={24} />
+            <div>
+              <p className="text-2xl font-bold text-white">{pendingReviews.length}</p>
+              <p className="text-gray-400 text-sm">Pending Reviews</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center">
+            <CheckCircle className="text-green-400 mr-3" size={24} />
+            <div>
+              <p className="text-2xl font-bold text-white">{completedReviews.length}</p>
+              <p className="text-gray-400 text-sm">Completed Reviews</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <div className="flex items-center">
+            <Target className="text-purple-400 mr-3" size={24} />
+            <div>
+              <p className="text-2xl font-bold text-white">{developmentPlans.filter(p => p.status === 'submitted').length}</p>
+              <p className="text-gray-400 text-sm">Plans for Review</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-700 mb-6">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setSelectedTab(tab.id)}
+              className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
+                selectedTab === tab.id
+                  ? 'border-cyan-500 text-cyan-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+              }`}
+            >
+              <tab.icon className="mr-2" size={16} />
+              {tab.name}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {selectedTab === 'overview' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Team Overview</h2>
+          {team.length === 0 ? (
+            <div className="text-center py-12">
+              <Users size={64} className="mx-auto text-gray-500 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Team Members</h3>
+              <p className="text-gray-400">No direct reports are currently assigned to you.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {team.map((member) => (
+                <div key={member.id} className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 bg-cyan-600 rounded-full flex items-center justify-center">
+                        <span className="text-white font-medium">
+                          {member.name.split(' ').map(n => n[0]).join('')}
+                        </span>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">{member.name}</h3>
+                        <p className="text-gray-400">{member.job_title}</p>
+                        <p className="text-gray-500 text-sm">{member.email}</p>
+                      </div>
+                    </div>
+                    <StatusBadge 
+                      status={member.is_active ? 'active' : 'inactive'} 
+                      color={member.is_active ? 'green' : 'gray'} 
+                    />
+                  </div>
+                  
+                  {/* Member Actions */}
+                  <div className="mt-4 flex space-x-2">
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      onClick={() => {
+                        // Navigate to manager playbook for this employee
+                        setActivePage({ name: 'Manager Playbook', props: { selectedEmployeeId: member.id } });
+                      }}
+                    >
+                      <MessageSquare size={14} className="mr-1" />
+                      Notes
+                    </Button>
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      onClick={() => {
+                        // View employee assessments
+                        setActivePage({ name: 'My Reviews', props: { employeeId: member.id } });
+                      }}
+                    >
+                      <FileText size={14} className="mr-1" />
+                      Reviews
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedTab === 'pending' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Pending Reviews</h2>
+          {pendingReviews.length === 0 ? (
+            <div className="text-center py-12">
+              <Clock size={64} className="mx-auto text-gray-500 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Pending Reviews</h3>
+              <p className="text-gray-400">All team member assessments are up to date!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {pendingReviews.map((assessment) => (
+                <div key={assessment.assessment_id} className="bg-gray-800 rounded-lg p-6 border border-gray-700 border-l-4 border-l-yellow-500">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-3">
+                        <div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-medium text-sm">
+                            {assessment.employee_name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">{assessment.employee_name}</h3>
+                          <p className="text-gray-400">{assessment.employee_job_title}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Review Cycle</p>
+                          <p className="text-white font-medium">{assessment.cycle_name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Employee Status</p>
+                          <StatusBadge 
+                            status={assessment.self_assessment_status} 
+                            color={getAssessmentStatusColor(assessment.self_assessment_status)}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Due Date</p>
+                          <p className="text-white">{formatDate(assessment.due_date)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col space-y-2">
+                      <Button 
+                        variant="primary"
+                        onClick={() => handleReviewAssessment(assessment)}
+                      >
+                        <Eye className="mr-2" size={16} />
+                        Review Assessment
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedTab === 'completed' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Completed Reviews</h2>
+          {completedReviews.length === 0 ? (
+            <div className="text-center py-12">
+              <CheckCircle size={64} className="mx-auto text-gray-500 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Completed Reviews</h3>
+              <p className="text-gray-400">Completed reviews will appear here.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {completedReviews.map((assessment) => (
+                <div key={assessment.assessment_id} className="bg-gray-800 rounded-lg p-6 border border-gray-700 border-l-4 border-l-green-500">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4 mb-3">
+                        <div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-medium text-sm">
+                            {assessment.employee_name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-white">{assessment.employee_name}</h3>
+                          <p className="text-gray-400">{assessment.employee_job_title}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                          <p className="text-sm text-gray-400">Review Cycle</p>
+                          <p className="text-white font-medium">{assessment.cycle_name}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Manager Review</p>
+                          <StatusBadge 
+                            status={assessment.manager_review_status} 
+                            color={getManagerReviewStatusColor(assessment.manager_review_status)}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-sm text-gray-400">Completed</p>
+                          <p className="text-white">{formatDate(assessment.updated_at)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col space-y-2">
+                      <Button 
+                        variant="secondary"
+                        onClick={() => handleReviewAssessment(assessment)}
+                      >
+                        <Eye className="mr-2" size={16} />
+                        View Review
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {selectedTab === 'development' && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-semibold text-white mb-4">Development Plans for Review</h2>
+          {developmentPlans.length === 0 ? (
+            <div className="text-center py-12">
+              <Target size={64} className="mx-auto text-gray-500 mb-4" />
+              <h3 className="text-xl font-semibold text-white mb-2">No Development Plans</h3>
+              <p className="text-gray-400">Your team members haven't submitted any development plans yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {developmentPlans.map((plan) => (
+                <DevelopmentPlanCard
+                  key={plan.id}
+                  plan={plan}
+                  onReview={(planId, status, feedback) => handleReviewDevelopmentPlan(planId, status, feedback)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Development Plan Card Component for Manager Review
+const DevelopmentPlanCard = ({ plan, onReview }) => {
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewStatus, setReviewStatus] = useState('under_review');
+  const [feedback, setFeedback] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmitReview = async () => {
+    try {
+      setSubmitting(true);
+      await onReview(plan.id, reviewStatus, feedback);
+      setShowReviewForm(false);
+      setFeedback('');
+    } catch (error) {
+      console.error('Error submitting review:', error);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'submitted': 'yellow',
+      'under_review': 'blue',
+      'approved': 'green',
+      'needs_revision': 'red'
+    };
+    return colors[status] || 'gray';
+  };
+
+  const formatGoals = (goals) => {
+    try {
+      const goalArray = typeof goals === 'string' ? JSON.parse(goals) : goals;
+      return Array.isArray(goalArray) ? goalArray : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const formatSkills = (skills) => {
+    try {
+      const skillArray = typeof skills === 'string' ? JSON.parse(skills) : skills;
+      return Array.isArray(skillArray) ? skillArray : [];
+    } catch {
+      return [];
+    }
+  };
+
+  return (
+    <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="flex items-center space-x-4 mb-3">
+            <div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-medium text-sm">
+                {plan.employee_name.split(' ').map(n => n[0]).join('')}
+              </span>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-white">{plan.employee_name}</h3>
+              <p className="text-gray-400">{plan.employee_job_title}</p>
+            </div>
+          </div>
+          
+          <h4 className="text-xl font-semibold text-white mb-2">{plan.title}</h4>
+          {plan.description && (
+            <p className="text-gray-300 mb-4">{plan.description}</p>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <p className="text-sm text-gray-400">Status</p>
+              <StatusBadge 
+                status={plan.status} 
+                color={getStatusColor(plan.status)}
+              />
+            </div>
+            <div>
+              <p className="text-sm text-gray-400">Timeline</p>
+              <p className="text-white">{plan.timeline}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-400">Submitted</p>
+              <p className="text-white">{formatDate(plan.created_at)}</p>
+            </div>
+          </div>
+
+          {/* Goals */}
+          {formatGoals(plan.goals).length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm text-gray-400 mb-2">Goals ({formatGoals(plan.goals).length})</p>
+              <div className="space-y-2">
+                {formatGoals(plan.goals).slice(0, 3).map((goal, index) => (
+                  <div key={index} className="bg-gray-700 rounded-lg p-3">
+                    <p className="text-gray-300 font-medium">{goal.goal}</p>
+                    {goal.timeline && (
+                      <p className="text-gray-500 text-sm mt-1">Timeline: {goal.timeline}</p>
+                    )}
+                    {goal.priority && (
+                      <span className={`inline-block px-2 py-1 text-xs rounded mt-1 ${
+                        goal.priority === 'high' ? 'bg-red-600 text-white' :
+                        goal.priority === 'medium' ? 'bg-yellow-600 text-white' :
+                        'bg-gray-600 text-gray-300'
+                      }`}>
+                        {goal.priority} priority
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {formatGoals(plan.goals).length > 3 && (
+                  <p className="text-gray-500 text-sm">... and {formatGoals(plan.goals).length - 3} more goals</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Skills */}
+          {formatSkills(plan.skills_to_develop).length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm text-gray-400 mb-2">Skills to Develop ({formatSkills(plan.skills_to_develop).length})</p>
+              <div className="space-y-2">
+                {formatSkills(plan.skills_to_develop).slice(0, 2).map((skill, index) => (
+                  <div key={index} className="bg-gray-700 rounded-lg p-3">
+                    <p className="text-gray-300 font-medium">{skill.skill}</p>
+                    {skill.reason && (
+                      <p className="text-gray-400 text-sm mt-1">{skill.reason}</p>
+                    )}
+                  </div>
+                ))}
+                {formatSkills(plan.skills_to_develop).length > 2 && (
+                  <p className="text-gray-500 text-sm">... and {formatSkills(plan.skills_to_develop).length - 2} more skills</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Existing Manager Feedback */}
+          {plan.manager_feedback && (
+            <div className="bg-gray-700 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-400 mb-2">Previous Manager Feedback</p>
+              <p className="text-gray-300">{plan.manager_feedback}</p>
+              <p className="text-xs text-gray-500 mt-2">
+                Reviewed on {formatDate(plan.manager_reviewed_at)}
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex flex-col space-y-2 ml-6">
+          {plan.status === 'submitted' && (
+            <Button 
+              variant="primary"
+              onClick={() => setShowReviewForm(!showReviewForm)}
+            >
+              <MessageSquare className="mr-2" size={16} />
+              Review Plan
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Review Form */}
+      {showReviewForm && (
+        <div className="border-t border-gray-700 pt-4 mt-4">
+          <h5 className="text-lg font-semibold text-white mb-4">Review Development Plan</h5>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Review Decision
+              </label>
+              <select
+                value={reviewStatus}
+                onChange={(e) => setReviewStatus(e.target.value)}
+                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              >
+                <option value="under_review">Keep Under Review</option>
+                <option value="approved">Approve Plan</option>
+                <option value="needs_revision">Needs Revision</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Manager Feedback
+              </label>
+              <textarea
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                rows={4}
+                placeholder="Provide feedback on this development plan..."
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button 
+                variant="secondary"
+                onClick={() => setShowReviewForm(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                variant="primary"
+                onClick={handleSubmitReview}
+                disabled={submitting}
+              >
+                <Save size={16} className="mr-2" />
+                {submitting ? 'Submitting...' : 'Submit Review'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 --- FILE: src\components\shared\Sidebar.js ---
 
 // src/components/shared/Sidebar.js - Fixed with proper sign out
 import React from 'react';
 import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog } from 'lucide-react';
 import { useApp } from '../../contexts';
+import NotificationCenter from '../ui/NotificationCenter';
 
 const Sidebar = () => {
   const { activePage, setActivePage, userRole, userName, signOut } = useApp();
@@ -8901,7 +11842,10 @@ const Sidebar = () => {
     return (
     <div className="w-64 bg-gray-900 text-white flex flex-col h-screen shadow-2xl">
       <div className="p-6 text-center border-b border-gray-700">
-        <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">EDGE</h1>
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-3xl font-bold text-cyan-400 tracking-wider">EDGE</h1>
+          <NotificationCenter />
+        </div>
         {userName && (
           <div className="mt-2">
             <p className="text-sm text-gray-300">Welcome, {userName}</p>
@@ -9171,6 +12115,7 @@ export { default as ErrorMessage } from './ErrorMessage';
 export { default as StatusBadge } from './StatusBadge';
 export { default as Button } from './Button';
 export { default as Card } from './Card';
+export { default as NotificationCenter } from './NotificationCenter';
 
 
 --- FILE: src\components\ui\LoadingSpinner.js ---
@@ -9235,6 +12180,248 @@ const LoadingSpinner = ({
 };
 
 export default LoadingSpinner;
+
+
+--- FILE: src\components\ui\NotificationCenter.js ---
+
+import React, { useState, useEffect } from 'react';
+import { Bell, X, Check, CheckCheck } from 'lucide-react';
+import { Button } from './Button';
+import NotificationService from '../../services/NotificationService';
+
+const NotificationCenter = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isOpen, setIsOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch notifications and unread count
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const [notificationsData, count] = await Promise.all([
+        NotificationService.getUserNotifications(),
+        NotificationService.getUnreadCount()
+      ]);
+      setNotifications(notificationsData);
+      setUnreadCount(count);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mark notification as read
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      await NotificationService.markAsRead(notificationId);
+      // Update local state
+      setNotifications(prev => 
+        prev.map(n => 
+          n.id === notificationId ? { ...n, is_read: true, read_at: new Date().toISOString() } : n
+        )
+      );
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  // Mark all notifications as read
+  const handleMarkAllAsRead = async () => {
+    try {
+      await NotificationService.markAllAsRead();
+      setNotifications(prev => 
+        prev.map(n => ({ ...n, is_read: true, read_at: new Date().toISOString() }))
+      );
+      setUnreadCount(0);
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  // Fetch notifications on component mount
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  // Auto-refresh notifications every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="relative">
+      {/* Notification Bell Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-2 text-gray-400 hover:text-white transition-colors"
+      >
+        <Bell size={20} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {/* Notification Dropdown */}
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-96 bg-gray-800 rounded-lg shadow-2xl border border-gray-700 z-50">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-700">
+            <div className="flex items-center space-x-2">
+              <Bell size={16} className="text-cyan-400" />
+              <h3 className="text-lg font-semibold text-white">Notifications</h3>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {unreadCount}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center space-x-2">
+              {unreadCount > 0 && (
+                <button
+                  onClick={handleMarkAllAsRead}
+                  className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                  title="Mark all as read"
+                >
+                  <CheckCheck size={16} />
+                </button>
+              )}
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Notifications List */}
+          <div className="max-h-96 overflow-y-auto">
+            {loading ? (
+              <div className="p-4 text-center text-gray-400">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400 mx-auto"></div>
+                <p className="mt-2">Loading notifications...</p>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <Bell size={48} className="mx-auto mb-4 opacity-50" />
+                <h4 className="text-lg font-medium mb-2">No notifications yet</h4>
+                <p className="text-sm">You're all caught up! New notifications will appear here.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-700">
+                {notifications.map((notification, index) => (
+                  <NotificationItem
+                    key={`${notification.id}-${index}`}
+                    notification={notification}
+                    onMarkAsRead={handleMarkAsRead}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          {notifications.length > 0 && (
+            <div className="p-3 border-t border-gray-700 text-center">
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  // Could navigate to a full notifications page here
+                }}
+                className="text-cyan-400 hover:text-cyan-300 text-sm transition-colors"
+              >
+                View all notifications
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+// Individual notification item component
+const NotificationItem = ({ notification, onMarkAsRead }) => {
+  const handleClick = () => {
+    if (!notification.is_read) {
+      onMarkAsRead(notification.id);
+    }
+    // Could add navigation logic here based on notification type
+  };
+
+  const getNotificationStyles = () => {
+    const color = NotificationService.getNotificationColor(notification.type);
+    const baseClasses = "p-4 hover:bg-gray-700 transition-colors cursor-pointer";
+    
+    if (!notification.is_read) {
+      return `${baseClasses} bg-gray-750 border-l-4 border-${color}-500`;
+    }
+    return `${baseClasses} opacity-75`;
+  };
+
+  return (
+    <div className={getNotificationStyles()} onClick={handleClick}>
+      <div className="flex items-start space-x-3">
+        {/* Icon */}
+        <div className="flex-shrink-0 mt-1">
+          <span className="text-lg">
+            {NotificationService.getNotificationIcon(notification.type)}
+          </span>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <h4 className={`text-sm font-medium ${notification.is_read ? 'text-gray-300' : 'text-white'}`}>
+                {notification.title}
+              </h4>
+              <p className={`text-sm mt-1 ${notification.is_read ? 'text-gray-400' : 'text-gray-300'}`}>
+                {notification.message}
+              </p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-gray-500">
+                  {notification.sender_name && notification.sender_name !== 'System' && (
+                    <span>From: {notification.sender_name} â€¢ </span>
+                  )}
+                  {NotificationService.formatNotificationTime(notification.created_at)}
+                </p>
+                {!notification.is_read && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onMarkAsRead(notification.id);
+                    }}
+                    className="text-cyan-400 hover:text-cyan-300 transition-colors"
+                    title="Mark as read"
+                  >
+                    <Check size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default NotificationCenter;
 
 
 --- FILE: src\components\ui\StatusBadge.js ---
@@ -9409,7 +12596,9 @@ export const AppProvider = ({ children }) => {
     });
 
     const { data: { subscription } } = AuthService.onAuthStateChange((event, session) => {
-      console.log('ðŸ” Auth changed:', event, session?.user?.email || 'No user');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('ðŸ” Auth changed:', event, session?.user?.email || 'No user');
+      }
       dispatch({ type: APP_ACTIONS.SET_USER, payload: session?.user ?? null });
       
       // Reset user data when auth changes
@@ -9750,9 +12939,6 @@ export class AdminService {
       const { data, error } = await supabase.rpc('get_potential_managers');
       if (error) throw error;
       
-      console.log('Raw manager data from database:', data);
-      console.log('Data type:', typeof data);
-      
       // The function now returns JSON, so we need to parse it
       let managers;
       if (typeof data === 'string') {
@@ -9760,9 +12946,6 @@ export class AdminService {
       } else {
         managers = Array.isArray(data) ? data : (data || []);
       }
-      
-      console.log('Processed managers:', managers);
-      console.log('Manager count:', managers.length);
       
       return managers;
     } catch (error) {
@@ -10244,6 +13427,8 @@ export { KudosService } from './kudosService';
 export { AdminService } from './AdminService';
 export { TeamService } from './teamService';
 export { FeedbackService } from './feedbackService';
+export { NotificationService } from './NotificationService';
+export { ManagerPlaybookService } from './ManagerPlaybookService';
 
 
 --- FILE: src\services\kudosService.js ---
@@ -10453,6 +13638,312 @@ export class ManagerPlaybookService {
 }
 
 export default ManagerPlaybookService;
+
+
+--- FILE: src\services\NotificationService.js ---
+
+// NotificationService.js - Service for managing user notifications and workflow events
+import { supabase } from './supabaseClient';
+import logger from '../utils/secureLogger';
+
+export class NotificationService {
+  // Get all notifications for current user
+  static async getUserNotifications() {
+    try {
+      const { data, error } = await supabase.rpc('get_user_notifications');
+      if (error) throw error;
+      
+      // Parse JSON response
+      if (typeof data === 'string') {
+        return JSON.parse(data);
+      }
+      return Array.isArray(data) ? data : (data || []);
+    } catch (error) {
+      console.error('Error fetching user notifications:', error);
+      throw new Error(`Failed to fetch notifications: ${error.message}`);
+    }
+  }
+
+  // Get count of unread notifications
+  static async getUnreadCount() {
+    try {
+      const { data, error } = await supabase.rpc('get_unread_notification_count');
+      if (error) throw error;
+      return data || 0;
+    } catch (error) {
+      console.error('Error fetching unread count:', error);
+      return 0;
+    }
+  }
+
+  // Mark a notification as read
+  static async markAsRead(notificationId) {
+    try {
+      if (!notificationId) {
+        throw new Error('Notification ID is required');
+      }
+
+      const { data, error } = await supabase.rpc('mark_notification_read', {
+        p_notification_id: notificationId
+      });
+      
+      if (error) throw error;
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+      throw new Error(`Failed to mark notification as read: ${error.message}`);
+    }
+  }
+
+  // Mark all notifications as read for current user
+  static async markAllAsRead() {
+    try {
+      const notifications = await this.getUserNotifications();
+      const unreadNotifications = notifications.filter(n => !n.is_read);
+      
+      // Mark each unread notification as read
+      const promises = unreadNotifications.map(notification => 
+        this.markAsRead(notification.id)
+      );
+      
+      await Promise.all(promises);
+      return { success: true, count: unreadNotifications.length };
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+      throw new Error(`Failed to mark all notifications as read: ${error.message}`);
+    }
+  }
+
+  // Submit a development plan
+  static async submitDevelopmentPlan(planData) {
+    try {
+      // Validate required fields
+      if (!planData.title?.trim()) {
+        throw new Error('Plan title is required');
+      }
+      if (!planData.goals || planData.goals.length === 0) {
+        throw new Error('At least one goal is required');
+      }
+
+      logger.logUserAction('submit_development_plan_attempt', null, { 
+        title: planData.title 
+      });
+
+      const { data: result, error } = await supabase.rpc('submit_development_plan', {
+        p_title: planData.title.trim(),
+        p_description: planData.description?.trim() || '',
+        p_goals: JSON.stringify(planData.goals),
+        p_skills_to_develop: JSON.stringify(planData.skills_to_develop || []),
+        p_timeline: planData.timeline?.trim() || ''
+      });
+      
+      if (error) throw error;
+      
+      if (result?.error) {
+        logger.logSecurity('development_plan_submit_failed', 'warn', { error: result.error });
+        throw new Error(result.error);
+      }
+
+      logger.logUserAction('submit_development_plan_success', null, { 
+        plan_id: result.plan_id 
+      });
+      
+      return result;
+    } catch (error) {
+      logger.logError(error, { action: 'submit_development_plan', data: planData });
+      throw new Error(`Failed to submit development plan: ${error.message}`);
+    }
+  }
+
+  // Get development plans for current user
+  static async getDevelopmentPlans() {
+    try {
+      const { data, error } = await supabase.rpc('get_development_plans');
+      if (error) throw error;
+      
+      // Parse JSON response
+      if (typeof data === 'string') {
+        return JSON.parse(data);
+      }
+      return Array.isArray(data) ? data : (data || []);
+    } catch (error) {
+      console.error('Error fetching development plans:', error);
+      throw new Error(`Failed to fetch development plans: ${error.message}`);
+    }
+  }
+
+  // Real-time subscription to notifications
+  static subscribeToNotifications(userId, callback) {
+    try {
+      const subscription = supabase
+        .channel('notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `recipient_id=eq.${userId}`
+          },
+          callback
+        )
+        .subscribe();
+
+      return subscription;
+    } catch (error) {
+      console.error('Error subscribing to notifications:', error);
+      return null;
+    }
+  }
+
+  // Unsubscribe from real-time notifications
+  static unsubscribeFromNotifications(subscription) {
+    if (subscription) {
+      supabase.removeChannel(subscription);
+    }
+  }
+
+  // Helper function to get notification icon based on type
+  static getNotificationIcon(type) {
+    const iconMap = {
+      'review_cycle_opened': 'ðŸ“‹',
+      'assessment_submitted': 'âœ…',
+      'manager_review_ready': 'ðŸ‘¨â€ðŸ’¼',
+      'manager_review_completed': 'ðŸŽ‰',
+      'development_plan_submitted': 'ðŸ“ˆ',
+      'development_plan_reviewed': 'âœï¸',
+      'assessment_overdue': 'âš ï¸',
+      'review_reminder': 'ðŸ””'
+    };
+    return iconMap[type] || 'ðŸ“¢';
+  }
+
+  // Helper function to get notification color based on type
+  static getNotificationColor(type) {
+    const colorMap = {
+      'review_cycle_opened': 'blue',
+      'assessment_submitted': 'green',
+      'manager_review_ready': 'orange',
+      'manager_review_completed': 'green',
+      'development_plan_submitted': 'purple',
+      'development_plan_reviewed': 'blue',
+      'assessment_overdue': 'red',
+      'review_reminder': 'yellow'
+    };
+    return colorMap[type] || 'gray';
+  }
+
+  // Get development plans for manager review
+  static async getDevelopmentPlansForReview() {
+    try {
+      const { data, error } = await supabase.rpc('get_development_plans_for_review');
+      if (error) throw error;
+      
+      // Parse JSON response
+      if (typeof data === 'string') {
+        return JSON.parse(data);
+      }
+      return Array.isArray(data) ? data : (data || []);
+    } catch (error) {
+      console.error('Error fetching development plans for review:', error);
+      throw new Error(`Failed to fetch development plans for review: ${error.message}`);
+    }
+  }
+
+  // Review a development plan (manager function)
+  static async reviewDevelopmentPlan(planId, status, feedback) {
+    try {
+      if (!planId) {
+        throw new Error('Plan ID is required');
+      }
+      if (!status || !['approved', 'needs_revision', 'under_review'].includes(status)) {
+        throw new Error('Valid status is required (approved, needs_revision, or under_review)');
+      }
+
+      logger.logUserAction('review_development_plan_attempt', null, { 
+        plan_id: planId,
+        status: status 
+      });
+
+      const { data: result, error } = await supabase.rpc('review_development_plan', {
+        p_plan_id: planId,
+        p_status: status,
+        p_manager_feedback: feedback || ''
+      });
+      
+      if (error) throw error;
+      
+      if (result?.error) {
+        logger.logSecurity('development_plan_review_failed', 'warn', { error: result.error });
+        throw new Error(result.error);
+      }
+
+      logger.logUserAction('review_development_plan_success', null, { 
+        plan_id: planId,
+        status: status
+      });
+      
+      return result;
+    } catch (error) {
+      logger.logError(error, { action: 'review_development_plan', plan_id: planId });
+      throw new Error(`Failed to review development plan: ${error.message}`);
+    }
+  }
+
+  // Get dashboard statistics
+  static async getDashboardStats(userRole) {
+    try {
+      let functionName;
+      switch (userRole) {
+        case 'admin':
+          functionName = 'get_admin_dashboard_stats';
+          break;
+        case 'manager':
+          functionName = 'get_manager_dashboard_stats';
+          break;
+        default:
+          functionName = 'get_employee_dashboard_stats';
+      }
+
+      const { data, error } = await supabase.rpc(functionName);
+      if (error) throw error;
+      
+      // Parse JSON response
+      if (typeof data === 'string') {
+        return JSON.parse(data);
+      }
+      return data || {};
+    } catch (error) {
+      console.error('Error fetching dashboard stats:', error);
+      throw new Error(`Failed to fetch dashboard statistics: ${error.message}`);
+    }
+  }
+
+  // Helper function to format notification time
+  static formatNotificationTime(timestamp) {
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffInMinutes = Math.floor((now - time) / (1000 * 60));
+    
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+    
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    if (diffInHours < 24) return `${diffInHours}h ago`;
+    
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays}d ago`;
+    
+    return time.toLocaleDateString();
+  }
+}
+
+export default NotificationService;
 
 
 --- FILE: src\services\SecureAuthService.js ---
