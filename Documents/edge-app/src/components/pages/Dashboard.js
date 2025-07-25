@@ -47,49 +47,56 @@ const Dashboard = ({ supabase, setActivePage, openModal }) => {
         }
     };
 
-    const getStatusDisplay = (assessment) => {
-        const currentStatus = assessment.self_assessment_status || assessment.status;
-        
-        const statusMap = {
-            'not_started': { 
-                label: 'Not Started', 
-                color: 'text-gray-400',
-                bgColor: 'bg-gray-600',
-                actionLabel: 'Start'
-            },
-            'in_progress': { 
-                label: 'In Progress', 
-                color: 'text-yellow-400',
-                bgColor: 'bg-yellow-600',
-                actionLabel: 'Continue'
-            },
-            'employee_complete': { 
-                label: 'Self-Assessment Complete', 
-                color: 'text-blue-400',
-                bgColor: 'bg-blue-600',
-                actionLabel: 'View'
-            },
-            'manager_complete': { 
-                label: 'Manager Review Complete', 
-                color: 'text-purple-400',
-                bgColor: 'bg-purple-600',
-                actionLabel: 'View'
-            },
-            'finalized': { 
-                label: 'Finalized', 
-                color: 'text-green-400',
-                bgColor: 'bg-green-600',
-                actionLabel: 'View'
-            }
-        };
-        
-        return statusMap[currentStatus] || { 
-            label: 'No Status', 
+const getStatusDisplay = (assessment) => {
+    // Use self_assessment_status if available, otherwise fall back to status
+    const currentStatus = assessment.self_assessment_status || assessment.status;
+    
+    const statusMap = {
+        'not_started': { 
+            label: 'Not Started', 
             color: 'text-gray-400',
             bgColor: 'bg-gray-600',
-            actionLabel: 'View'
-        };
+            actionLabel: 'Start',
+            description: 'Begin your self-assessment'
+        },
+        'in_progress': { 
+            label: 'In Progress', 
+            color: 'text-yellow-400',
+            bgColor: 'bg-yellow-600',
+            actionLabel: 'Continue',
+            description: 'Complete your self-assessment'
+        },
+        'employee_complete': { 
+            label: 'Submitted', 
+            color: 'text-blue-400',
+            bgColor: 'bg-blue-600',
+            actionLabel: 'View',
+            description: 'Waiting for manager review'
+        },
+        'manager_complete': { 
+            label: 'Manager Complete', 
+            color: 'text-purple-400',
+            bgColor: 'bg-purple-600',
+            actionLabel: 'View',
+            description: 'Review completed by manager'
+        },
+        'finalized': { 
+            label: 'Finalized', 
+            color: 'text-green-400',
+            bgColor: 'bg-green-600',
+            actionLabel: 'View',
+            description: 'Review cycle complete'
+        }
     };
+    
+    return statusMap[currentStatus] || { 
+        label: 'Unknown Status', 
+        color: 'text-gray-400',
+        bgColor: 'bg-gray-600',
+        actionLabel: 'View',
+        description: 'Status unclear'
+    };
+};
 
     const isActiveReview = (assessment) => {
         const currentStatus = assessment.self_assessment_status || assessment.status;
@@ -202,20 +209,36 @@ const Dashboard = ({ supabase, setActivePage, openModal }) => {
                                             </button>
                                         </div>
                                         
-                                        {/* Progress indicator */}
-                                        {assessment.self_assessment_status === 'in_progress' && (
-                                            <div className="mt-3 p-2 bg-yellow-900 rounded text-yellow-200 text-sm">
-                                                <Clock size={14} className="inline mr-1" />
-                                                Continue your self-assessment
-                                            </div>
-                                        )}
-                                        
-                                        {assessment.self_assessment_status === 'employee_complete' && (
-                                            <div className="mt-3 p-2 bg-blue-900 rounded text-blue-200 text-sm">
-                                                <CheckCircle size={14} className="inline mr-1" />
-                                                Submitted for manager review
-                                            </div>
-                                        )}
+                                        {/* Enhanced Progress indicator */}
+{assessment.self_assessment_status === 'in_progress' && (
+    <div className="mt-3 p-2 bg-yellow-900 rounded text-yellow-200 text-sm flex items-center">
+        <Clock size={14} className="mr-2" />
+        <div>
+            <div className="font-medium">Continue your self-assessment</div>
+            <div className="text-xs text-yellow-300">Complete all sections to submit for review</div>
+        </div>
+    </div>
+)}
+
+                                      {assessment.self_assessment_status === 'employee_complete' && (
+                                          <div className="mt-3 p-2 bg-blue-900 rounded text-blue-200 text-sm flex items-center">
+                                              <CheckCircle size={14} className="mr-2" />
+                                              <div>
+                                                  <div className="font-medium">Submitted for manager review</div>
+                                                  <div className="text-xs text-blue-300">Your manager will review and provide feedback</div>
+                                              </div>
+                                          </div>
+                                      )}
+
+                                      {assessment.self_assessment_status === 'manager_complete' && (
+                                          <div className="mt-3 p-2 bg-purple-900 rounded text-purple-200 text-sm flex items-center">
+                                              <Award size={14} className="mr-2" />
+                                              <div>
+                                                  <div className="font-medium">Manager review complete</div>
+                                                  <div className="text-xs text-purple-300">Review the feedback and development plan</div>
+                                              </div>
+                                          </div>
+                                      )}
                                     </div>
                                 );
                             })
