@@ -1,4 +1,4 @@
-// src/components/pages/Admin.js - Enhanced version for Phase 1
+// src/components/pages/Admin.js - SIMPLIFIED VERSION FOR TESTING
 import React, { useEffect, useState } from 'react';
 import { Users, Calendar, Plus, Play, AlertTriangle } from 'lucide-react';
 
@@ -13,48 +13,56 @@ export default function Admin({ supabase }) {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+const fetchData = async () => {
+  try {
+    setLoading(true);
+    setError(null);
+    
+    console.log('🔄 Admin: Fetching data...');
+    
+    // Use the standard get_all_employees function (should work with SECURITY DEFINER)
     try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('🔄 Admin: Fetching data...');
-      
-      // Fetch employees - get ALL employees first
-      const { data: employeesData, error: employeesError } = await supabase
-        .from('employees')
-        .select('id, name, email, job_title, is_active, created_at, manager_id')
-        .order('name');
+      const { data: employeesData, error: employeesError } = await supabase.rpc('get_all_employees');
       
       if (employeesError) {
-        console.error('❌ Employees error:', employeesError);
+        console.error('⚠️ Employees RPC error:', employeesError);
         throw employeesError;
+      } else {
+        console.log('✅ Employees loaded via standard RPC:', employeesData);
+        setEmployees(employeesData || []);
       }
-      
-      console.log('✅ Employees loaded:', employeesData);
-      setEmployees(employeesData || []);
+    } catch (employeeError) {
+      console.error('💥 Employee fetch failed:', employeeError);
+      setError(`Employee fetch failed: ${employeeError.message}`);
+      setEmployees([]);
+    }
 
-      // Fetch review cycles
+    // Fetch review cycles (this should work)
+    try {
       const { data: cyclesData, error: cyclesError } = await supabase
         .from('review_cycles')
         .select('id, name, status, start_date, end_date, created_at')
         .order('created_at', { ascending: false });
       
       if (cyclesError) {
-        console.error('❌ Cycles error:', cyclesError);
+        console.error('⚠️ Cycles error:', cyclesError);
         setCycles([]);
       } else {
         console.log('✅ Cycles loaded:', cyclesData);
         setCycles(cyclesData || []);
       }
-
-    } catch (err) {
-      console.error('💥 Admin fetch error:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
+    } catch (cycleError) {
+      console.error('💥 Cycles fetch failed:', cycleError);
+      setCycles([]);
     }
-  };
+
+  } catch (err) {
+    console.error('💥 Admin fetch error:', err);
+    setError(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleActivateCycle = async (cycleId) => {
     try {
@@ -64,11 +72,11 @@ export default function Admin({ supabase }) {
       
       if (error) throw error;
       
-      if (data.success) {
+      if (data && data.success) {
         alert('✅ ' + data.message);
         fetchData(); // Refresh data
       } else {
-        alert('❌ ' + data.error);
+        alert('⚠️ ' + (data?.error || 'Unknown error'));
       }
     } catch (err) {
       alert('❌ Error: ' + err.message);
@@ -79,24 +87,9 @@ export default function Admin({ supabase }) {
     return (
       <div className="p-8">
         <h1 className="text-3xl font-bold text-cyan-400 mb-8">Admin Panel</h1>
-        <div className="text-center py-8">Loading admin data...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold text-cyan-400 mb-8">Admin Panel</h1>
-        <div className="text-red-400 text-center py-8">
-          <AlertTriangle size={48} className="mx-auto mb-4" />
-          <p>Error loading data: {error}</p>
-          <button 
-            onClick={fetchData}
-            className="mt-4 px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg"
-          >
-            Retry
-          </button>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400 mx-auto mb-4"></div>
+          <div className="text-gray-400">Loading admin data...</div>
         </div>
       </div>
     );
@@ -114,7 +107,11 @@ export default function Admin({ supabase }) {
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-cyan-400">Admin Panel</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-cyan-400">Admin Panel</h1>
+          <p className="text-gray-400 mt-2">Manage employees and review cycles</p>
+          <p className="text-xs text-yellow-400 mt-1">Simplified version for testing</p>
+        </div>
         <button
           onClick={() => setShowCreateModal(true)}
           className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg flex items-center"
@@ -123,13 +120,37 @@ export default function Admin({ supabase }) {
           Create Review Cycle
         </button>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-900 border border-red-700 rounded-lg">
+          <div className="flex items-center text-red-200">
+            <AlertTriangle size={16} className="mr-2" />
+            <span>Error: {error}</span>
+          </div>
+          <button 
+            onClick={fetchData}
+            className="mt-2 px-3 py-1 bg-red-800 hover:bg-red-700 rounded text-red-100 text-sm"
+          >
+            Retry
+          </button>
+        </div>
+      )}
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Employees Section */}
         <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center mb-4">
-            <Users className="mr-2 text-cyan-400" size={24} />
-            <h2 className="text-xl font-semibold">Employees ({employees.length})</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Users className="mr-2 text-cyan-400" size={24} />
+              <h2 className="text-xl font-semibold">Employees ({employees.length})</h2>
+            </div>
+            <button 
+              onClick={fetchData}
+              className="text-cyan-400 hover:text-cyan-300 text-sm"
+            >
+              Refresh
+            </button>
           </div>
           
           {employees.length > 0 ? (
@@ -145,25 +166,37 @@ export default function Admin({ supabase }) {
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className={`text-xs px-2 py-1 rounded ${
-                      employee.is_active ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                    }`}>
-                      {employee.is_active ? 'Active' : 'Inactive'}
+                    <span className="text-xs px-2 py-1 rounded bg-green-600 text-white">
+                      Active
                     </span>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-center text-gray-400 py-4">No employees found</p>
+            <div className="text-center py-8">
+              {error ? (
+                <div className="text-red-400">
+                  <AlertTriangle size={48} className="mx-auto mb-4" />
+                  <p>Failed to load employees</p>
+                </div>
+              ) : (
+                <div className="text-gray-500">
+                  <Users size={48} className="mx-auto mb-4" />
+                  <p>No employees found</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
         {/* Review Cycles Section */}
         <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center mb-4">
-            <Calendar className="mr-2 text-cyan-400" size={24} />
-            <h2 className="text-xl font-semibold">Review Cycles ({cycles.length})</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Calendar className="mr-2 text-cyan-400" size={24} />
+              <h2 className="text-xl font-semibold">Review Cycles ({cycles.length})</h2>
+            </div>
           </div>
           
           {cycles.length > 0 ? (
@@ -196,6 +229,7 @@ export default function Admin({ supabase }) {
             </div>
           ) : (
             <div className="text-center py-8">
+              <Calendar size={48} className="mx-auto mb-4 text-gray-500" />
               <p className="text-gray-400 mb-4">No review cycles found</p>
               <p className="text-sm text-gray-500">Create your first review cycle to get started</p>
             </div>
@@ -210,9 +244,7 @@ export default function Admin({ supabase }) {
           <p className="text-gray-400">Total Employees</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg text-center">
-          <p className="text-2xl font-bold text-green-400">
-            {employees.filter(e => e.is_active).length}
-          </p>
+          <p className="text-2xl font-bold text-green-400">{employees.length}</p>
           <p className="text-gray-400">Active Employees</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg text-center">
@@ -222,10 +254,8 @@ export default function Admin({ supabase }) {
           <p className="text-gray-400">Active Cycles</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg text-center">
-          <p className="text-2xl font-bold text-purple-400">
-            {employees.filter(e => e.manager_id).length}
-          </p>
-          <p className="text-gray-400">Employees with Managers</p>
+          <p className="text-2xl font-bold text-purple-400">0</p>
+          <p className="text-gray-400">Manager Relations</p>
         </div>
       </div>
 
@@ -274,11 +304,11 @@ function CreateCycleModal({ supabase, onClose, onSuccess }) {
 
       if (error) throw error;
 
-      if (data.success) {
+      if (data && data.success) {
         alert('✅ ' + data.message);
         onSuccess();
       } else {
-        setError(data.error);
+        setError(data?.error || 'Unknown error occurred');
       }
     } catch (err) {
       setError(err.message);

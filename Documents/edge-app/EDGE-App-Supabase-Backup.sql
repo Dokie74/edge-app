@@ -19,11 +19,14 @@ SET row_security = off;
 
 DROP POLICY IF EXISTS review_cycles_manager_read ON public.review_cycles;
 DROP POLICY IF EXISTS review_cycles_admin_access ON public.review_cycles;
-DROP POLICY IF EXISTS employees_see_manager ON public.employees;
+DROP POLICY IF EXISTS kudos_public_read ON public.kudos;
+DROP POLICY IF EXISTS kudos_own_insert ON public.kudos;
+DROP POLICY IF EXISTS feedback_assessment_access ON public.assessment_feedback;
 DROP POLICY IF EXISTS employees_own_update ON public.employees;
 DROP POLICY IF EXISTS employees_own_record ON public.employees;
-DROP POLICY IF EXISTS employees_manager_team ON public.employees;
 DROP POLICY IF EXISTS employees_admin_all_access ON public.employees;
+DROP POLICY IF EXISTS company_rocks_read ON public.company_rocks;
+DROP POLICY IF EXISTS company_rocks_admin ON public.company_rocks;
 DROP POLICY IF EXISTS assessments_manager_team ON public.assessments;
 DROP POLICY IF EXISTS assessments_employee_own ON public.assessments;
 DROP POLICY IF EXISTS assessments_admin_access ON public.assessments;
@@ -31,32 +34,51 @@ DROP POLICY IF EXISTS assessment_scorecard_metrics_all_policy ON public.assessme
 DROP POLICY IF EXISTS assessment_scorecard_metrics_access ON public.assessment_scorecard_metrics;
 DROP POLICY IF EXISTS assessment_rocks_all_policy ON public.assessment_rocks;
 DROP POLICY IF EXISTS assessment_rocks_access ON public.assessment_rocks;
+ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_receiver_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_giver_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_manager_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.company_rocks DROP CONSTRAINT IF EXISTS company_rocks_review_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_review_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_scorecard_metrics DROP CONSTRAINT IF EXISTS assessment_scorecard_metrics_assessment_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_rocks DROP CONSTRAINT IF EXISTS assessment_rocks_assessment_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_given_by_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_assessment_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.review_cycles DROP CONSTRAINT IF EXISTS review_cycles_pkey;
+ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_pkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_user_id_key;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_pkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_email_key;
+ALTER TABLE IF EXISTS ONLY public.company_rocks DROP CONSTRAINT IF EXISTS company_rocks_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_scorecard_metrics DROP CONSTRAINT IF EXISTS assessment_scorecard_metrics_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_rocks DROP CONSTRAINT IF EXISTS assessment_rocks_pkey;
+ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_pkey;
 DROP TABLE IF EXISTS public.review_cycles;
+DROP TABLE IF EXISTS public.kudos;
 DROP TABLE IF EXISTS public.employees;
+DROP TABLE IF EXISTS public.company_rocks;
 DROP TABLE IF EXISTS public.assessments;
 DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
 DROP TABLE IF EXISTS public.assessment_rocks;
+DROP TABLE IF EXISTS public.assessment_feedback;
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.link_current_user_to_employee();
+DROP FUNCTION IF EXISTS public.give_kudo(p_receiver_id uuid, p_core_value text, p_comment text);
 DROP FUNCTION IF EXISTS public.get_team_status();
 DROP FUNCTION IF EXISTS public.get_my_role();
 DROP FUNCTION IF EXISTS public.get_my_name();
+DROP FUNCTION IF EXISTS public.get_my_assessments();
+DROP FUNCTION IF EXISTS public.get_kudos_wall();
+DROP FUNCTION IF EXISTS public.get_assessment_feedback(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.get_assessment_details(p_assessment_id bigint);
+DROP FUNCTION IF EXISTS public.get_all_review_cycles_for_admin();
+DROP FUNCTION IF EXISTS public.get_all_employees_simple();
+DROP FUNCTION IF EXISTS public.get_all_employees_for_admin();
 DROP FUNCTION IF EXISTS public.get_all_employees();
 DROP FUNCTION IF EXISTS public.debug_auth_uid();
 DROP FUNCTION IF EXISTS public.create_simple_review_cycle(p_name text, p_start_date date, p_end_date date);
+DROP FUNCTION IF EXISTS public.add_assessment_feedback(p_assessment_id bigint, p_feedback text);
 DROP FUNCTION IF EXISTS public.activate_review_cycle(p_cycle_id bigint);
 DROP SCHEMA IF EXISTS public;
 --
@@ -95,6 +117,40 @@ BEGIN
   END IF;
   
   RETURN json_build_object('success', true, 'message', 'Cycle activated successfully');
+END;
+$$;
+
+
+--
+-- Name: add_assessment_feedback(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_assessment_feedback(p_assessment_id bigint, p_feedback text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  feedback_giver_id uuid;
+BEGIN
+  -- Get the current user's employee ID
+  SELECT id INTO feedback_giver_id 
+  FROM employees 
+  WHERE user_id = auth.uid() AND is_active = true;
+  
+  IF feedback_giver_id IS NULL THEN
+    RETURN json_build_object('error', 'Employee record not found');
+  END IF;
+  
+  -- Insert the feedback
+  INSERT INTO assessment_feedback (assessment_id, given_by_id, feedback)
+  VALUES (p_assessment_id, feedback_giver_id, p_feedback);
+  
+  RETURN json_build_object(
+    'success', true,
+    'message', 'Feedback added successfully'
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('error', 'Failed to add feedback: ' || SQLERRM);
 END;
 $$;
 
@@ -153,18 +209,83 @@ $$;
 
 
 --
+-- Name: get_all_employees_for_admin(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_all_employees_for_admin() RETURNS TABLE(id uuid, name text, email text, job_title text, is_active boolean, created_at timestamp with time zone, manager_id uuid, manager_name text)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  -- Only allow admins to call this
+  SELECT 
+    e.id,
+    e.name,
+    e.email,
+    e.job_title,
+    e.is_active,
+    e.created_at,
+    e.manager_id,
+    m.name as manager_name
+  FROM employees e
+  LEFT JOIN employees m ON e.manager_id = m.id
+  WHERE auth.email() = 'admin@lucerne.com'  -- Security check
+  ORDER BY e.name;
+$$;
+
+
+--
+-- Name: get_all_employees_simple(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_all_employees_simple() RETURNS TABLE(id uuid, name text, email text, job_title text, manager_id uuid)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT e.id, e.name, e.email, e.job_title, e.manager_id
+  FROM employees e
+  WHERE e.is_active = true
+  ORDER BY e.name;
+$$;
+
+
+--
+-- Name: get_all_review_cycles_for_admin(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_all_review_cycles_for_admin() RETURNS TABLE(id bigint, name text, status text, start_date date, end_date date, created_at timestamp with time zone)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  -- Only allow admins to call this
+  SELECT 
+    rc.id,
+    rc.name,
+    rc.status,
+    rc.start_date,
+    rc.end_date,
+    rc.created_at
+  FROM review_cycles rc
+  WHERE auth.email() = 'admin@lucerne.com'  -- Security check
+  ORDER BY rc.created_at DESC;
+$$;
+
+
+--
 -- Name: get_assessment_details(bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TABLE(assessment_id bigint, employee_name text, review_cycle_name text, employee_strengths text, employee_improvements text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_summary_comments text, manager_development_plan text, rocks json[])
+CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TABLE(assessment_id bigint, employee_name text, review_cycle_name text, status text, self_assessment_status text, employee_strengths text, employee_improvements text, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_summary_comments text, manager_development_plan text, is_manager_view boolean)
     LANGUAGE sql SECURITY DEFINER
     AS $$
   SELECT
     a.id,
     e.name,
     rc.name,
+    a.status,
+    COALESCE(a.self_assessment_status, 'not_started'),
     a.employee_strengths,
     a.employee_improvements,
+    a.value_passionate_examples,
+    a.value_driven_examples,
+    a.value_resilient_examples,
+    a.value_responsive_examples,
     a.gwc_gets_it,
     a.gwc_gets_it_feedback,
     a.gwc_wants_it,
@@ -173,15 +294,88 @@ CREATE FUNCTION public.get_assessment_details(p_assessment_id bigint) RETURNS TA
     a.gwc_capacity_feedback,
     a.manager_summary_comments,
     a.manager_development_plan,
-    ARRAY(
-      SELECT json_build_object('id', ar.id, 'description', ar.description, 'status', ar.status, 'feedback', ar.feedback)
-      FROM assessment_rocks ar WHERE ar.assessment_id = a.id
-    )
+    -- Check if current user is the manager of this employee
+    (EXISTS(
+      SELECT 1 FROM employees mgr 
+      WHERE mgr.user_id = auth.uid() 
+      AND mgr.id = e.manager_id
+    ) OR auth.email() = 'admin@lucerne.com') as is_manager_view
   FROM assessments a
-  JOIN employees e  ON e.id  = a.employee_id
+  JOIN employees e ON e.id = a.employee_id
   JOIN review_cycles rc ON rc.id = a.review_cycle_id
   WHERE a.id = p_assessment_id
-    AND e.manager_id = (SELECT id FROM employees WHERE user_id = auth.uid());
+    AND (
+      -- Employee can see their own assessment
+      e.user_id = auth.uid()
+      -- Manager can see their team's assessments
+      OR e.manager_id = (SELECT id FROM employees WHERE user_id = auth.uid())
+      -- Admin can see all
+      OR auth.email() = 'admin@lucerne.com'
+    );
+$$;
+
+
+--
+-- Name: get_assessment_feedback(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_assessment_feedback(p_assessment_id bigint) RETURNS TABLE(feedback_id bigint, feedback text, given_by_name text, created_at timestamp with time zone, is_author boolean)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    af.id,
+    af.feedback,
+    e.name,
+    af.created_at,
+    af.given_by_id = (SELECT id FROM employees WHERE user_id = auth.uid())
+  FROM assessment_feedback af
+  JOIN employees e ON e.id = af.given_by_id
+  WHERE af.assessment_id = p_assessment_id
+    AND e.is_active = true
+  ORDER BY af.created_at ASC;
+$$;
+
+
+--
+-- Name: get_kudos_wall(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_kudos_wall() RETURNS TABLE(kudo_id bigint, giver_name text, recipient_name text, core_value text, message text, created_at timestamp with time zone)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    k.id,
+    giver.name,
+    receiver.name,
+    k.core_value,
+    k.message,
+    k.created_at
+  FROM kudos k
+  JOIN employees giver ON giver.id = k.giver_id
+  JOIN employees receiver ON receiver.id = k.receiver_id
+  WHERE giver.is_active = true AND receiver.is_active = true
+  ORDER BY k.created_at DESC
+  LIMIT 50;
+$$;
+
+
+--
+-- Name: get_my_assessments(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_my_assessments() RETURNS TABLE(assessment_id bigint, cycle_name text, status text, self_assessment_status text, created_at timestamp with time zone)
+    LANGUAGE sql SECURITY DEFINER
+    AS $$
+  SELECT 
+    a.id,
+    rc.name,
+    a.status,
+    COALESCE(a.self_assessment_status, 'not_started'),
+    a.created_at
+  FROM assessments a
+  JOIN review_cycles rc ON rc.id = a.review_cycle_id
+  WHERE a.employee_id = (SELECT id FROM employees WHERE user_id = auth.uid())
+  ORDER BY a.created_at DESC;
 $$;
 
 
@@ -247,6 +441,45 @@ CREATE FUNCTION public.get_team_status() RETURNS TABLE(employee_id uuid, employe
   FROM employees e
   LEFT JOIN assessments a ON e.id = a.employee_id AND a.review_cycle_id = (SELECT id FROM latest_cycle)
   WHERE e.manager_id = (SELECT id FROM employees WHERE user_id = auth.uid());
+$$;
+
+
+--
+-- Name: give_kudo(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.give_kudo(p_receiver_id uuid, p_core_value text, p_comment text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+  giver_id uuid;
+BEGIN
+  -- Get the giver's employee ID
+  SELECT id INTO giver_id 
+  FROM employees 
+  WHERE user_id = auth.uid() AND is_active = true;
+  
+  IF giver_id IS NULL THEN
+    RETURN json_build_object('error', 'Employee record not found');
+  END IF;
+  
+  -- Check if receiver exists and is active
+  IF NOT EXISTS(SELECT 1 FROM employees WHERE id = p_receiver_id AND is_active = true) THEN
+    RETURN json_build_object('error', 'Recipient not found or inactive');
+  END IF;
+  
+  -- Insert the kudo
+  INSERT INTO kudos (giver_id, receiver_id, core_value, message)
+  VALUES (giver_id, p_receiver_id, p_core_value, p_comment);
+  
+  RETURN json_build_object(
+    'success', true,
+    'message', 'Kudo sent successfully!'
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN json_build_object('error', 'Failed to send kudo: ' || SQLERRM);
+END;
 $$;
 
 
@@ -321,6 +554,33 @@ $$;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: assessment_feedback; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.assessment_feedback (
+    id bigint NOT NULL,
+    assessment_id bigint NOT NULL,
+    given_by_id uuid NOT NULL,
+    feedback text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: assessment_feedback_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.assessment_feedback ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.assessment_feedback_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
 
 --
 -- Name: assessment_rocks; Type: TABLE; Schema: public; Owner: -
@@ -406,7 +666,8 @@ CREATE TABLE public.assessments (
     manager_development_plan text,
     submitted_by_employee_at timestamp with time zone,
     finalized_by_manager_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    self_assessment_status text DEFAULT 'not_started'::text
 );
 
 
@@ -416,6 +677,35 @@ CREATE TABLE public.assessments (
 
 ALTER TABLE public.assessments ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
     SEQUENCE NAME public.assessments_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: company_rocks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.company_rocks (
+    id bigint NOT NULL,
+    review_cycle_id bigint NOT NULL,
+    description text NOT NULL,
+    owner_name text,
+    target_date date,
+    status text DEFAULT 'not_started'::text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: company_rocks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.company_rocks ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.company_rocks_id_seq
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -437,6 +727,34 @@ CREATE TABLE public.employees (
     manager_id uuid,
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: kudos; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.kudos (
+    id bigint NOT NULL,
+    giver_id uuid NOT NULL,
+    receiver_id uuid NOT NULL,
+    core_value text NOT NULL,
+    message text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: kudos_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.kudos ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.kudos_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
@@ -469,6 +787,14 @@ ALTER TABLE public.review_cycles ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
+-- Data for Name: assessment_feedback; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.assessment_feedback (id, assessment_id, given_by_id, feedback, created_at) FROM stdin;
+\.
+
+
+--
 -- Data for Name: assessment_rocks; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -488,7 +814,15 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 -- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at) FROM stdin;
+COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status) FROM stdin;
+\.
+
+
+--
+-- Data for Name: company_rocks; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.company_rocks (id, review_cycle_id, description, owner_name, target_date, status, created_at) FROM stdin;
 \.
 
 
@@ -507,11 +841,27 @@ da01f7e9-e2f6-43b2-b350-affc7c661751	\N	Jane Smith	jane@lucerne.com	Designer	\N	
 
 
 --
+-- Data for Name: kudos; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.kudos (id, giver_id, receiver_id, core_value, message, created_at) FROM stdin;
+1	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	e956be35-33d7-4870-97b3-63eaae4a690d	Passionate about our purpose	Great test	2025-07-24 18:31:42.402507+00
+\.
+
+
+--
 -- Data for Name: review_cycles; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.review_cycles (id, name, start_date, end_date, status, created_at) FROM stdin;
 \.
+
+
+--
+-- Name: assessment_feedback_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.assessment_feedback_id_seq', 1, false);
 
 
 --
@@ -536,10 +886,32 @@ SELECT pg_catalog.setval('public.assessments_id_seq', 1, false);
 
 
 --
+-- Name: company_rocks_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.company_rocks_id_seq', 1, false);
+
+
+--
+-- Name: kudos_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.kudos_id_seq', 1, true);
+
+
+--
 -- Name: review_cycles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
 SELECT pg_catalog.setval('public.review_cycles_id_seq', 1, false);
+
+
+--
+-- Name: assessment_feedback assessment_feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_feedback
+    ADD CONSTRAINT assessment_feedback_pkey PRIMARY KEY (id);
 
 
 --
@@ -567,6 +939,14 @@ ALTER TABLE ONLY public.assessments
 
 
 --
+-- Name: company_rocks company_rocks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.company_rocks
+    ADD CONSTRAINT company_rocks_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: employees employees_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -591,11 +971,35 @@ ALTER TABLE ONLY public.employees
 
 
 --
+-- Name: kudos kudos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kudos
+    ADD CONSTRAINT kudos_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: review_cycles review_cycles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.review_cycles
     ADD CONSTRAINT review_cycles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: assessment_feedback assessment_feedback_assessment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_feedback
+    ADD CONSTRAINT assessment_feedback_assessment_id_fkey FOREIGN KEY (assessment_id) REFERENCES public.assessments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessment_feedback assessment_feedback_given_by_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessment_feedback
+    ADD CONSTRAINT assessment_feedback_given_by_id_fkey FOREIGN KEY (given_by_id) REFERENCES public.employees(id);
 
 
 --
@@ -631,12 +1035,42 @@ ALTER TABLE ONLY public.assessments
 
 
 --
+-- Name: company_rocks company_rocks_review_cycle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.company_rocks
+    ADD CONSTRAINT company_rocks_review_cycle_id_fkey FOREIGN KEY (review_cycle_id) REFERENCES public.review_cycles(id) ON DELETE CASCADE;
+
+
+--
 -- Name: employees employees_manager_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.employees
     ADD CONSTRAINT employees_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id);
 
+
+--
+-- Name: kudos kudos_giver_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kudos
+    ADD CONSTRAINT kudos_giver_id_fkey FOREIGN KEY (giver_id) REFERENCES public.employees(id);
+
+
+--
+-- Name: kudos kudos_receiver_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kudos
+    ADD CONSTRAINT kudos_receiver_id_fkey FOREIGN KEY (receiver_id) REFERENCES public.employees(id);
+
+
+--
+-- Name: assessment_feedback; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.assessment_feedback ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: assessment_rocks; Type: ROW SECURITY; Schema: public; Owner: -
@@ -770,6 +1204,26 @@ CREATE POLICY assessments_manager_team ON public.assessments TO authenticated US
 
 
 --
+-- Name: company_rocks; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.company_rocks ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: company_rocks company_rocks_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY company_rocks_admin ON public.company_rocks TO authenticated USING ((auth.email() = 'admin@lucerne.com'::text)) WITH CHECK ((auth.email() = 'admin@lucerne.com'::text));
+
+
+--
+-- Name: company_rocks company_rocks_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY company_rocks_read ON public.company_rocks FOR SELECT TO authenticated USING (true);
+
+
+--
 -- Name: employees; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -780,15 +1234,6 @@ ALTER TABLE public.employees ENABLE ROW LEVEL SECURITY;
 --
 
 CREATE POLICY employees_admin_all_access ON public.employees TO authenticated USING ((auth.email() = 'admin@lucerne.com'::text)) WITH CHECK ((auth.email() = 'admin@lucerne.com'::text));
-
-
---
--- Name: employees employees_manager_team; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY employees_manager_team ON public.employees FOR SELECT TO authenticated USING ((manager_id IN ( SELECT employees_1.id
-   FROM public.employees employees_1
-  WHERE (employees_1.user_id = auth.uid()))));
 
 
 --
@@ -806,12 +1251,48 @@ CREATE POLICY employees_own_update ON public.employees FOR UPDATE TO authenticat
 
 
 --
--- Name: employees employees_see_manager; Type: POLICY; Schema: public; Owner: -
+-- Name: assessment_feedback feedback_assessment_access; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY employees_see_manager ON public.employees FOR SELECT TO authenticated USING ((id IN ( SELECT employees_1.manager_id
-   FROM public.employees employees_1
-  WHERE ((employees_1.user_id = auth.uid()) AND (employees_1.manager_id IS NOT NULL)))));
+CREATE POLICY feedback_assessment_access ON public.assessment_feedback TO authenticated USING ((assessment_id IN ( SELECT a.id
+   FROM public.assessments a
+  WHERE ((auth.email() = 'admin@lucerne.com'::text) OR (a.employee_id = ( SELECT employees.id
+           FROM public.employees
+          WHERE (employees.user_id = auth.uid()))) OR (a.employee_id IN ( SELECT employees.id
+           FROM public.employees
+          WHERE (employees.manager_id = ( SELECT employees_1.id
+                   FROM public.employees employees_1
+                  WHERE (employees_1.user_id = auth.uid()))))))))) WITH CHECK ((assessment_id IN ( SELECT a.id
+   FROM public.assessments a
+  WHERE ((auth.email() = 'admin@lucerne.com'::text) OR (a.employee_id = ( SELECT employees.id
+           FROM public.employees
+          WHERE (employees.user_id = auth.uid()))) OR (a.employee_id IN ( SELECT employees.id
+           FROM public.employees
+          WHERE (employees.manager_id = ( SELECT employees_1.id
+                   FROM public.employees employees_1
+                  WHERE (employees_1.user_id = auth.uid())))))))));
+
+
+--
+-- Name: kudos; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.kudos ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: kudos kudos_own_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY kudos_own_insert ON public.kudos FOR INSERT TO authenticated WITH CHECK ((giver_id = ( SELECT employees.id
+   FROM public.employees
+  WHERE (employees.user_id = auth.uid()))));
+
+
+--
+-- Name: kudos kudos_public_read; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY kudos_public_read ON public.kudos FOR SELECT TO authenticated USING (true);
 
 
 --
