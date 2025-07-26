@@ -12,7 +12,12 @@
       "Bash(supabase db reset:*)",
       "Bash(psql:*)",
       "Bash(supabase db push:*)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }

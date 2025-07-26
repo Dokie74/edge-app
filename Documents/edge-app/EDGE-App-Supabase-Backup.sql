@@ -21,9 +21,15 @@ DROP POLICY IF EXISTS training_requests_own_access ON public.training_requests;
 DROP POLICY IF EXISTS training_requests_manager_access ON public.training_requests;
 DROP POLICY IF EXISTS training_requests_admin_access ON public.training_requests;
 DROP POLICY IF EXISTS security_audit_admin_read ON public.security_audit;
+DROP POLICY IF EXISTS review_cycles_update_admin ON public.review_cycles;
+DROP POLICY IF EXISTS review_cycles_select_all ON public.review_cycles;
 DROP POLICY IF EXISTS review_cycles_manager_read ON public.review_cycles;
+DROP POLICY IF EXISTS review_cycles_insert_admin ON public.review_cycles;
 DROP POLICY IF EXISTS review_cycles_admin_access ON public.review_cycles;
+DROP POLICY IF EXISTS notifications_update_own ON public.notifications;
+DROP POLICY IF EXISTS notifications_select_own ON public.notifications;
 DROP POLICY IF EXISTS notifications_own_access ON public.notifications;
+DROP POLICY IF EXISTS notifications_insert_own ON public.notifications;
 DROP POLICY IF EXISTS messages_participant_access ON public.manager_employee_messages;
 DROP POLICY IF EXISTS messages_admin_access ON public.manager_employee_messages;
 DROP POLICY IF EXISTS manager_notes_own_access ON public.manager_notes;
@@ -36,10 +42,16 @@ DROP POLICY IF EXISTS employees_admin_all_access ON public.employees;
 DROP POLICY IF EXISTS employee_goals_own_access ON public.employee_development_goals;
 DROP POLICY IF EXISTS employee_goals_manager_access ON public.employee_development_goals;
 DROP POLICY IF EXISTS employee_goals_admin_access ON public.employee_development_goals;
+DROP POLICY IF EXISTS development_plans_update_own ON public.development_plans;
+DROP POLICY IF EXISTS development_plans_select_own ON public.development_plans;
+DROP POLICY IF EXISTS development_plans_insert_own ON public.development_plans;
 DROP POLICY IF EXISTS development_plans_access ON public.development_plans;
 DROP POLICY IF EXISTS company_rocks_read ON public.company_rocks;
 DROP POLICY IF EXISTS company_rocks_admin ON public.company_rocks;
+DROP POLICY IF EXISTS assessments_update_own ON public.assessments;
+DROP POLICY IF EXISTS assessments_select_own ON public.assessments;
 DROP POLICY IF EXISTS assessments_manager_team ON public.assessments;
+DROP POLICY IF EXISTS assessments_insert_own ON public.assessments;
 DROP POLICY IF EXISTS assessments_employee_own ON public.assessments;
 DROP POLICY IF EXISTS assessments_admin_access ON public.assessments;
 DROP POLICY IF EXISTS assessment_scorecard_metrics_all_policy ON public.assessment_scorecard_metrics;
@@ -62,21 +74,29 @@ ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_giver_id
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_reviewed_by_fkey;
+ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.company_rocks DROP CONSTRAINT IF EXISTS company_rocks_review_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_review_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_cycle_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_scorecard_metrics DROP CONSTRAINT IF EXISTS assessment_scorecard_metrics_assessment_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_rocks DROP CONSTRAINT IF EXISTS assessment_rocks_assessment_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_given_by_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_assessment_id_fkey;
+DROP TRIGGER IF EXISTS update_review_cycles_updated_at ON public.review_cycles;
+DROP TRIGGER IF EXISTS update_assessments_updated_at ON public.assessments;
 DROP TRIGGER IF EXISTS trg_manager_review_completed ON public.assessments;
 DROP TRIGGER IF EXISTS trg_assessment_submitted ON public.assessments;
 DROP INDEX IF EXISTS public.idx_training_requests_status;
 DROP INDEX IF EXISTS public.idx_training_requests_employee;
+DROP INDEX IF EXISTS public.idx_review_cycles_status;
+DROP INDEX IF EXISTS public.idx_review_cycles_dates;
+DROP INDEX IF EXISTS public.idx_review_cycles_created_at;
 DROP INDEX IF EXISTS public.idx_notifications_unread;
 DROP INDEX IF EXISTS public.idx_notifications_type;
 DROP INDEX IF EXISTS public.idx_notifications_recipient_id;
+DROP INDEX IF EXISTS public.idx_notifications_read_at;
 DROP INDEX IF EXISTS public.idx_notifications_created_at;
 DROP INDEX IF EXISTS public.idx_messages_to_employee;
 DROP INDEX IF EXISTS public.idx_messages_from_employee;
@@ -84,10 +104,16 @@ DROP INDEX IF EXISTS public.idx_manager_notes_manager_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_employee_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_created_at;
 DROP INDEX IF EXISTS public.idx_development_plans_status;
+DROP INDEX IF EXISTS public.idx_development_plans_manager_id;
 DROP INDEX IF EXISTS public.idx_development_plans_employee_id;
 DROP INDEX IF EXISTS public.idx_development_plans_created_at;
 DROP INDEX IF EXISTS public.idx_development_goals_status;
 DROP INDEX IF EXISTS public.idx_development_goals_employee;
+DROP INDEX IF EXISTS public.idx_assessments_updated_at;
+DROP INDEX IF EXISTS public.idx_assessments_status;
+DROP INDEX IF EXISTS public.idx_assessments_employee_id;
+DROP INDEX IF EXISTS public.idx_assessments_cycle_id;
+DROP INDEX IF EXISTS public.idx_assessments_created_at;
 ALTER TABLE IF EXISTS ONLY public.training_requests DROP CONSTRAINT IF EXISTS training_requests_pkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_pkey;
 ALTER TABLE IF EXISTS ONLY public.review_cycles DROP CONSTRAINT IF EXISTS review_cycles_pkey;
@@ -127,17 +153,20 @@ DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
 DROP TABLE IF EXISTS public.assessment_rocks;
 DROP TABLE IF EXISTS public.assessment_feedback;
 DROP FUNCTION IF EXISTS public.upsert_development_goal(p_goal_id uuid, p_goal_type text, p_title text, p_description text, p_target_date date, p_priority text, p_status text);
+DROP FUNCTION IF EXISTS public.update_updated_at_column();
 DROP FUNCTION IF EXISTS public.update_manager_note(p_note_id uuid, p_title text, p_content text, p_category text, p_priority text);
 DROP FUNCTION IF EXISTS public.update_employee(p_employee_id uuid, p_name text, p_email text, p_job_title text, p_role text, p_manager_id uuid, p_is_active boolean);
 DROP FUNCTION IF EXISTS public.update_assessment_field(p_assessment_id bigint, p_field_name text, p_field_value text);
 DROP FUNCTION IF EXISTS public.update_assessment(p_assessment_id bigint, p_updates jsonb);
 DROP FUNCTION IF EXISTS public.submit_training_request(p_request_type text, p_title text, p_description text, p_provider text, p_estimated_cost numeric, p_preferred_date date, p_business_justification text);
 DROP FUNCTION IF EXISTS public.submit_self_assessment(p_assessment_id bigint);
+DROP FUNCTION IF EXISTS public.submit_development_plan(p_goals text, p_objectives text, p_skills_to_develop text, p_resources_needed text, p_success_metrics text, p_target_completion_date date, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals text, p_skills_to_develop text, p_timeline text);
 DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals jsonb, p_skills_to_develop jsonb, p_timeline text);
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.simple_activate_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.save_manager_note(p_employee_id uuid, p_title text, p_content text, p_category text, p_priority text);
+DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_feedback text, p_rating integer, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_manager_feedback text);
 DROP FUNCTION IF EXISTS public.notify_manager_assessment_submitted();
 DROP FUNCTION IF EXISTS public.notify_employee_manager_review_completed();
@@ -158,6 +187,7 @@ DROP FUNCTION IF EXISTS public.get_my_team();
 DROP FUNCTION IF EXISTS public.get_my_role();
 DROP FUNCTION IF EXISTS public.get_my_name();
 DROP FUNCTION IF EXISTS public.get_my_feedback_received(p_limit integer);
+DROP FUNCTION IF EXISTS public.get_my_development_plans();
 DROP FUNCTION IF EXISTS public.get_my_development_goals();
 DROP FUNCTION IF EXISTS public.get_my_assessments();
 DROP FUNCTION IF EXISTS public.get_manager_employees();
@@ -186,11 +216,13 @@ DROP FUNCTION IF EXISTS public.delete_manager_note(p_note_id uuid);
 DROP FUNCTION IF EXISTS public.debug_auth_uid();
 DROP FUNCTION IF EXISTS public.create_simple_review_cycle(p_name text, p_start_date date, p_end_date date);
 DROP FUNCTION IF EXISTS public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data jsonb);
+DROP FUNCTION IF EXISTS public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data json);
 DROP FUNCTION IF EXISTS public.create_employee(p_name text, p_email text, p_job_title text, p_role text, p_manager_id uuid, p_temp_password text);
 DROP FUNCTION IF EXISTS public.close_review_cycle(_csrf_token text, _nonce text, _timestamp bigint, p_cycle_id text);
 DROP FUNCTION IF EXISTS public.close_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.check_user_permission(required_permission text);
 DROP FUNCTION IF EXISTS public.add_assessment_feedback(p_assessment_id bigint, p_feedback text);
+DROP FUNCTION IF EXISTS public.activate_review_cycle_with_assessments(p_cycle_id uuid, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.activate_review_cycle_with_assessments(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.activate_review_cycle(p_cycle_id bigint);
 DROP SCHEMA IF EXISTS public;
@@ -305,6 +337,136 @@ BEGIN
         'cycle_id', p_cycle_id,
         'assessments_created', v_assessment_count,
         'cycle_name', v_cycle_record.name
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to activate review cycle: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: activate_review_cycle_with_assessments(uuid, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.activate_review_cycle_with_assessments(p_cycle_id uuid, _csrf_token text DEFAULT NULL::text, _nonce text DEFAULT NULL::text, _timestamp text DEFAULT NULL::text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    v_cycle_record review_cycles%ROWTYPE;
+    v_assessment_count INTEGER := 0;
+    v_employee_record RECORD;
+    v_assessment_id UUID;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Check if user is admin
+    IF v_employee_role != 'admin' THEN
+        RETURN json_build_object('error', 'Access denied: Admin privileges required');
+    END IF;
+    
+    -- Get and validate the review cycle
+    SELECT * INTO v_cycle_record
+    FROM review_cycles 
+    WHERE id = p_cycle_id;
+    
+    IF v_cycle_record.id IS NULL THEN
+        RETURN json_build_object('error', 'Review cycle not found');
+    END IF;
+    
+    -- Check if cycle is in a valid state for activation
+    IF v_cycle_record.status = 'active' THEN
+        RETURN json_build_object('error', 'Review cycle is already active');
+    END IF;
+    
+    IF v_cycle_record.status = 'closed' THEN
+        RETURN json_build_object('error', 'Cannot activate a closed review cycle');
+    END IF;
+    
+    -- Update review cycle status to active
+    UPDATE review_cycles 
+    SET 
+        status = 'active',
+        updated_at = NOW()
+    WHERE id = p_cycle_id;
+    
+    -- Create assessments for all active employees
+    FOR v_employee_record IN 
+        SELECT id, name, email, manager_id
+        FROM employees 
+        WHERE is_active = true
+    LOOP
+        -- Insert assessment record
+        INSERT INTO assessments (
+            employee_id,
+            cycle_id,
+            self_assessment_status,
+            manager_review_status,
+            due_date,
+            created_at,
+            updated_at
+        ) VALUES (
+            v_employee_record.id,
+            p_cycle_id,
+            'not_started',
+            'pending',
+            v_cycle_record.end_date,
+            NOW(),
+            NOW()
+        ) RETURNING id INTO v_assessment_id;
+        
+        v_assessment_count := v_assessment_count + 1;
+        
+        -- Create notification for employee about new review cycle
+        BEGIN
+            PERFORM create_notification(
+                v_employee_record.id,
+                v_current_employee_id,
+                'review_cycle_opened',
+                'New Review Cycle Started',
+                'A new review cycle "' || v_cycle_record.name || '" has been activated. Please complete your self-assessment by ' || v_cycle_record.end_date::DATE
+            );
+        EXCEPTION
+            WHEN undefined_function THEN
+                -- Ignore if notification function doesn't exist
+                NULL;
+        END;
+        
+        -- Create notification for manager if employee has one
+        IF v_employee_record.manager_id IS NOT NULL THEN
+            BEGIN
+                PERFORM create_notification(
+                    v_employee_record.manager_id,
+                    v_current_employee_id,
+                    'review_cycle_opened',
+                    'New Review Cycle - Team Member Assessment',
+                    'Review cycle "' || v_cycle_record.name || '" activated. Your team member ' || v_employee_record.name || ' will need manager review.'
+                );
+            EXCEPTION
+                WHEN undefined_function THEN
+                    -- Ignore if notification function doesn't exist
+                    NULL;
+            END;
+        END IF;
+    END LOOP;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Review cycle activated successfully',
+        'cycle_id', p_cycle_id,
+        'cycle_name', v_cycle_record.name,
+        'assessments_created', v_assessment_count,
+        'status', 'active'
     );
     
 EXCEPTION
@@ -677,6 +839,42 @@ $$;
 
 
 --
+-- Name: create_notification(uuid, uuid, text, text, text, json); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data json DEFAULT NULL::json) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_notification_id UUID;
+BEGIN
+    -- Insert notification
+    INSERT INTO notifications (
+        recipient_id,
+        sender_id,
+        type,
+        title,
+        message,
+        data,
+        created_at,
+        updated_at
+    ) VALUES (
+        p_recipient_id,
+        p_sender_id,
+        p_type,
+        p_title,
+        p_message,
+        COALESCE(p_data, '{}'::json),
+        NOW(),
+        NOW()
+    ) RETURNING id INTO v_notification_id;
+    
+    RETURN v_notification_id;
+END;
+$$;
+
+
+--
 -- Name: create_notification(uuid, uuid, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -850,96 +1048,80 @@ DECLARE
     result JSON;
 BEGIN
     -- Get current user's employee ID and role
-    SELECT id, role INTO v_current_employee_id, v_employee_role
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
+    SELECT e.id, e.role INTO v_current_employee_id, v_employee_role
+    FROM employees e 
+    WHERE e.user_id = auth.uid() AND e.is_active = true;
     
     IF v_current_employee_id IS NULL OR v_employee_role != 'admin' THEN
         RETURN json_build_object('error', 'Access denied: Admin privileges required');
     END IF;
     
-    -- Gather comprehensive statistics
+    -- Build comprehensive admin statistics
     SELECT json_build_object(
-        'employees', json_build_object(
-            'total', (SELECT COUNT(*) FROM employees WHERE is_active = true),
-            'by_role', (
-                SELECT json_object_agg(role, count)
-                FROM (
-                    SELECT role, COUNT(*) as count
-                    FROM employees 
-                    WHERE is_active = true
-                    GROUP BY role
-                ) role_counts
-            )
+        'total_employees', (SELECT COUNT(*) FROM employees WHERE is_active = true),
+        'total_managers', (SELECT COUNT(*) FROM employees WHERE role = 'manager' AND is_active = true),
+        'active_review_cycles', (SELECT COUNT(*) FROM review_cycles WHERE status = 'active'),
+        'pending_assessments', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE rc.status = 'active' 
+            AND a.self_assessment_status = 'not_started'
         ),
-        'review_cycles', json_build_object(
-            'total', (SELECT COUNT(*) FROM review_cycles),
-            'active', (SELECT COUNT(*) FROM review_cycles WHERE status = 'active'),
-            'upcoming', (SELECT COUNT(*) FROM review_cycles WHERE status = 'upcoming'),
-            'closed', (SELECT COUNT(*) FROM review_cycles WHERE status = 'closed')
+        'completed_assessments', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE rc.status = 'active' 
+            AND a.self_assessment_status = 'completed'
         ),
-        'assessments', json_build_object(
-            'total', (SELECT COUNT(*) FROM assessments),
-            'completed', (SELECT COUNT(*) FROM assessments WHERE self_assessment_status = 'submitted'),
-            'manager_reviews_pending', (SELECT COUNT(*) FROM assessments WHERE self_assessment_status = 'submitted' AND manager_review_status = 'pending'),
-            'manager_reviews_completed', (SELECT COUNT(*) FROM assessments WHERE manager_review_status = 'completed'),
-            'completion_rate', ROUND(
-                CASE 
-                    WHEN (SELECT COUNT(*) FROM assessments) > 0 THEN
-                        (SELECT COUNT(*)::DECIMAL FROM assessments WHERE self_assessment_status = 'submitted') /
-                        (SELECT COUNT(*)::DECIMAL FROM assessments) * 100
-                    ELSE 0
-                END, 2
-            )
+        'pending_manager_reviews', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE rc.status = 'active' 
+            AND a.manager_review_status = 'pending'
+            AND a.self_assessment_status = 'completed'
         ),
-        'development_plans', json_build_object(
-            'total', (SELECT COUNT(*) FROM development_plans),
-            'submitted', (SELECT COUNT(*) FROM development_plans WHERE status = 'submitted'),
-            'under_review', (SELECT COUNT(*) FROM development_plans WHERE status = 'under_review'),
-            'approved', (SELECT COUNT(*) FROM development_plans WHERE status = 'approved'),
-            'needs_revision', (SELECT COUNT(*) FROM development_plans WHERE status = 'needs_revision')
+        'completed_manager_reviews', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE rc.status = 'active' 
+            AND a.manager_review_status = 'completed'
         ),
-        'notifications', json_build_object(
-            'total_sent', (SELECT COUNT(*) FROM notifications WHERE 1=1), -- Handle case where notifications table might not exist
-            'unread', (SELECT COUNT(*) FROM notifications WHERE read_at IS NULL AND 1=1)
+        'development_plans_submitted', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE status = 'submitted'
+        ),
+        'development_plans_under_review', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE status = 'under_review'
+        ),
+        'development_plans_approved', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE status = 'approved'
         ),
         'recent_activity', (
-            SELECT json_agg(activity_data)
-            FROM (
-                SELECT json_build_object(
-                    'type', 'assessment_submitted',
-                    'description', e.name || ' submitted self-assessment',
-                    'timestamp', a.updated_at,
-                    'employee_name', e.name
-                ) as activity_data
-                FROM assessments a
-                JOIN employees e ON a.employee_id = e.id
-                WHERE a.self_assessment_status = 'submitted'
-                AND a.updated_at > NOW() - INTERVAL '7 days'
-                
-                UNION ALL
-                
-                SELECT json_build_object(
-                    'type', 'development_plan_submitted',
-                    'description', e.name || ' submitted development plan: ' || dp.title,
-                    'timestamp', dp.created_at,
-                    'employee_name', e.name
-                ) as activity_data
-                FROM development_plans dp
-                JOIN employees e ON dp.employee_id = e.id
-                WHERE dp.created_at > NOW() - INTERVAL '7 days'
-                
-                ORDER BY (activity_data->>'timestamp')::timestamptz DESC
-                LIMIT 10
-            ) recent_activities
+            SELECT json_agg(
+                json_build_object(
+                    'type', 'assessment_completion',
+                    'employee_name', e.name,
+                    'cycle_name', rc.name,
+                    'completed_at', a.updated_at
+                )
+                ORDER BY a.updated_at DESC
+            )
+            FROM assessments a
+            JOIN employees e ON a.employee_id = e.id
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE a.self_assessment_status = 'completed'
+            AND a.updated_at >= NOW() - INTERVAL '7 days'
+            LIMIT 10
         )
     ) INTO result;
     
-    RETURN result;
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to get admin dashboard stats: ' || SQLERRM);
+    RETURN COALESCE(result, '{}'::json);
 END;
 $$;
 
@@ -1331,46 +1513,76 @@ DECLARE
     result JSON;
 BEGIN
     -- Get current user's employee ID and role
-    SELECT id, role INTO v_current_employee_id, v_employee_role
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
+    SELECT e.id, e.role INTO v_current_employee_id, v_employee_role
+    FROM employees e 
+    WHERE e.user_id = auth.uid() AND e.is_active = true;
     
     IF v_current_employee_id IS NULL THEN
         RETURN '[]'::json;
     END IF;
     
-    -- Check if user is manager or admin
-    IF v_employee_role NOT IN ('manager', 'admin') THEN
-        RETURN '[]'::json;
-    END IF;
-    
-    -- Get development plans for direct reports
-    SELECT json_agg(plan_data ORDER BY dp.created_at DESC) INTO result
-    FROM (
-        SELECT json_build_object(
-            'id', dp.id,
-            'employee_id', dp.employee_id,
-            'employee_name', e.name,
-            'employee_email', e.email,
-            'employee_job_title', COALESCE(e.job_title, ''),
-            'title', dp.title,
-            'description', dp.description,
-            'goals', dp.goals,
-            'skills_to_develop', dp.skills_to_develop,
-            'timeline', dp.timeline,
-            'status', dp.status,
-            'manager_feedback', dp.manager_feedback,
-            'manager_reviewed_at', dp.manager_reviewed_at,
-            'created_at', dp.created_at,
-            'updated_at', dp.updated_at,
-            'days_since_submission', EXTRACT(days FROM NOW() - dp.created_at)::INTEGER
-        ) as plan_data
+    -- Get development plans for review based on role
+    IF v_employee_role = 'admin' THEN
+        -- Admin can see all plans
+        SELECT json_agg(
+            json_build_object(
+                'id', dp.id,
+                'employee_id', dp.employee_id,
+                'employee_name', e.name,
+                'employee_email', e.email,
+                'manager_id', dp.manager_id,
+                'manager_name', m.name,
+                'goals', dp.goals,
+                'objectives', dp.objectives,
+                'skills_to_develop', dp.skills_to_develop,
+                'resources_needed', dp.resources_needed,
+                'success_metrics', dp.success_metrics,
+                'target_completion_date', dp.target_completion_date,
+                'status', dp.status,
+                'manager_feedback', dp.manager_feedback,
+                'manager_rating', dp.manager_rating,
+                'submission_date', dp.submission_date,
+                'review_date', dp.review_date,
+                'created_at', dp.created_at,
+                'updated_at', dp.updated_at
+            ) ORDER BY dp.created_at DESC
+        ) INTO result
         FROM development_plans dp
         JOIN employees e ON dp.employee_id = e.id
-        WHERE (e.manager_id = v_current_employee_id OR v_employee_role = 'admin')
-        AND e.is_active = true
-        ORDER BY dp.created_at DESC
-    ) ordered_plans;
+        LEFT JOIN employees m ON dp.manager_id = m.id
+        WHERE dp.status IN ('submitted', 'under_review');
+        
+    ELSE
+        -- Manager can see plans for their direct reports
+        SELECT json_agg(
+            json_build_object(
+                'id', dp.id,
+                'employee_id', dp.employee_id,
+                'employee_name', e.name,
+                'employee_email', e.email,
+                'manager_id', dp.manager_id,
+                'manager_name', m.name,
+                'goals', dp.goals,
+                'objectives', dp.objectives,
+                'skills_to_develop', dp.skills_to_develop,
+                'resources_needed', dp.resources_needed,
+                'success_metrics', dp.success_metrics,
+                'target_completion_date', dp.target_completion_date,
+                'status', dp.status,
+                'manager_feedback', dp.manager_feedback,
+                'manager_rating', dp.manager_rating,
+                'submission_date', dp.submission_date,
+                'review_date', dp.review_date,
+                'created_at', dp.created_at,
+                'updated_at', dp.updated_at
+            ) ORDER BY dp.created_at DESC
+        ) INTO result
+        FROM development_plans dp
+        JOIN employees e ON dp.employee_id = e.id
+        LEFT JOIN employees m ON dp.manager_id = m.id
+        WHERE dp.manager_id = v_current_employee_id 
+        AND dp.status IN ('submitted', 'under_review');
+    END IF;
     
     RETURN COALESCE(result, '[]'::json);
 END;
@@ -1397,87 +1609,68 @@ BEGIN
         RETURN json_build_object('error', 'Employee record not found');
     END IF;
     
-    -- Gather employee-specific statistics
+    -- Build employee-specific statistics
     SELECT json_build_object(
-        'assessments', json_build_object(
-            'total', (
-                SELECT COUNT(*) 
-                FROM assessments 
-                WHERE employee_id = v_current_employee_id
-            ),
-            'completed', (
-                SELECT COUNT(*) 
-                FROM assessments 
-                WHERE employee_id = v_current_employee_id
-                AND self_assessment_status = 'submitted'
-            ),
-            'pending', (
-                SELECT COUNT(*) 
-                FROM assessments 
-                WHERE employee_id = v_current_employee_id
-                AND self_assessment_status IN ('not_started', 'in_progress')
-            ),
-            'manager_reviews_completed', (
-                SELECT COUNT(*) 
-                FROM assessments 
-                WHERE employee_id = v_current_employee_id
-                AND manager_review_status = 'completed'
-            )
+        'pending_assessments', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE a.employee_id = v_current_employee_id
+            AND rc.status = 'active'
+            AND a.self_assessment_status = 'not_started'
         ),
-        'development_plans', json_build_object(
-            'total', (
-                SELECT COUNT(*) 
-                FROM development_plans 
-                WHERE employee_id = v_current_employee_id
-            ),
-            'approved', (
-                SELECT COUNT(*) 
-                FROM development_plans 
-                WHERE employee_id = v_current_employee_id
-                AND status = 'approved'
-            ),
-            'under_review', (
-                SELECT COUNT(*) 
-                FROM development_plans 
-                WHERE employee_id = v_current_employee_id
-                AND status IN ('submitted', 'under_review')
-            ),
-            'needs_revision', (
-                SELECT COUNT(*) 
-                FROM development_plans 
-                WHERE employee_id = v_current_employee_id
-                AND status = 'needs_revision'
-            )
+        'completed_assessments', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE a.employee_id = v_current_employee_id
+            AND rc.status = 'active'
+            AND a.self_assessment_status = 'completed'
         ),
-        'notifications', json_build_object(
-            'unread_count', (
-                SELECT COUNT(*) 
-                FROM notifications 
-                WHERE recipient_id = v_current_employee_id AND read_at IS NULL AND 1=1
-            )
+        'awaiting_manager_review', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE a.employee_id = v_current_employee_id
+            AND rc.status = 'active'
+            AND a.self_assessment_status = 'completed'
+            AND a.manager_review_status = 'pending'
         ),
-        'profile', (
-            SELECT json_build_object(
-                'name', name,
-                'job_title', job_title,
-                'email', email,
-                'role', role,
-                'manager_name', (
-                    SELECT m.name 
-                    FROM employees m 
-                    WHERE m.id = e.manager_id
+        'development_plans_draft', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE employee_id = v_current_employee_id 
+            AND status = 'draft'
+        ),
+        'development_plans_submitted', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE employee_id = v_current_employee_id 
+            AND status = 'submitted'
+        ),
+        'development_plans_approved', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE employee_id = v_current_employee_id 
+            AND status = 'approved'
+        ),
+        'recent_feedback', (
+            SELECT json_agg(
+                json_build_object(
+                    'type', 'assessment_review',
+                    'cycle_name', rc.name,
+                    'status', a.manager_review_status,
+                    'reviewed_at', a.updated_at
                 )
+                ORDER BY a.updated_at DESC
             )
-            FROM employees e
-            WHERE e.id = v_current_employee_id
+            FROM assessments a
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE a.employee_id = v_current_employee_id
+            AND a.manager_review_status = 'completed'
+            AND a.updated_at >= NOW() - INTERVAL '30 days'
+            LIMIT 5
         )
     ) INTO result;
     
-    RETURN result;
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to get employee dashboard stats: ' || SQLERRM);
+    RETURN COALESCE(result, '{}'::json);
 END;
 $$;
 
@@ -1701,107 +1894,67 @@ DECLARE
     result JSON;
 BEGIN
     -- Get current user's employee ID and role
-    SELECT id, role INTO v_current_employee_id, v_employee_role
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
+    SELECT e.id, e.role INTO v_current_employee_id, v_employee_role
+    FROM employees e 
+    WHERE e.user_id = auth.uid() AND e.is_active = true;
     
     IF v_current_employee_id IS NULL THEN
         RETURN json_build_object('error', 'Employee record not found');
     END IF;
     
-    IF v_employee_role NOT IN ('manager', 'admin') THEN
-        RETURN json_build_object('error', 'Access denied: Manager privileges required');
-    END IF;
-    
-    -- Gather manager-specific statistics
+    -- Build manager-specific statistics
     SELECT json_build_object(
-        'team', json_build_object(
-            'total_members', (
-                SELECT COUNT(*) 
-                FROM employees 
-                WHERE manager_id = v_current_employee_id AND is_active = true
-            ),
-            'team_members', (
-                SELECT json_agg(json_build_object(
-                    'id', id,
-                    'name', name,
-                    'job_title', job_title,
-                    'email', email
-                ))
-                FROM employees 
-                WHERE manager_id = v_current_employee_id AND is_active = true
-                ORDER BY name
-            )
+        'team_members', (
+            SELECT COUNT(*) FROM employees 
+            WHERE manager_id = v_current_employee_id AND is_active = true
         ),
-        'assessments', json_build_object(
-            'pending_reviews', (
-                SELECT COUNT(*) 
-                FROM assessments a
-                JOIN employees e ON a.employee_id = e.id
-                WHERE e.manager_id = v_current_employee_id
-                AND a.self_assessment_status = 'submitted'
-                AND COALESCE(a.manager_review_status, 'pending') = 'pending'
-            ),
-            'completed_reviews', (
-                SELECT COUNT(*) 
-                FROM assessments a
-                JOIN employees e ON a.employee_id = e.id
-                WHERE e.manager_id = v_current_employee_id
-                AND a.manager_review_status = 'completed'
-            ),
-            'team_completion_rate', ROUND(
-                CASE 
-                    WHEN (SELECT COUNT(*) FROM assessments a JOIN employees e ON a.employee_id = e.id WHERE e.manager_id = v_current_employee_id) > 0 THEN
-                        (SELECT COUNT(*)::DECIMAL 
-                         FROM assessments a
-                         JOIN employees e ON a.employee_id = e.id
-                         WHERE e.manager_id = v_current_employee_id
-                         AND a.self_assessment_status = 'submitted') /
-                        (SELECT COUNT(*)::DECIMAL 
-                         FROM assessments a
-                         JOIN employees e ON a.employee_id = e.id
-                         WHERE e.manager_id = v_current_employee_id) * 100
-                    ELSE 0
-                END, 2
-            )
+        'pending_reviews', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN employees e ON a.employee_id = e.id
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE e.manager_id = v_current_employee_id
+            AND rc.status = 'active'
+            AND a.manager_review_status = 'pending'
+            AND a.self_assessment_status = 'completed'
         ),
-        'development_plans', json_build_object(
-            'pending_review', (
-                SELECT COUNT(*) 
-                FROM development_plans dp
-                JOIN employees e ON dp.employee_id = e.id
-                WHERE e.manager_id = v_current_employee_id
-                AND dp.status = 'submitted'
-            ),
-            'approved', (
-                SELECT COUNT(*) 
-                FROM development_plans dp
-                JOIN employees e ON dp.employee_id = e.id
-                WHERE e.manager_id = v_current_employee_id
-                AND dp.status = 'approved'
-            ),
-            'needs_revision', (
-                SELECT COUNT(*) 
-                FROM development_plans dp
-                JOIN employees e ON dp.employee_id = e.id
-                WHERE e.manager_id = v_current_employee_id
-                AND dp.status = 'needs_revision'
-            )
+        'completed_reviews', (
+            SELECT COUNT(*) 
+            FROM assessments a
+            JOIN employees e ON a.employee_id = e.id
+            JOIN review_cycles rc ON a.cycle_id = rc.id
+            WHERE e.manager_id = v_current_employee_id
+            AND rc.status = 'active'
+            AND a.manager_review_status = 'completed'
         ),
-        'notifications', json_build_object(
-            'unread_count', (
-                SELECT COUNT(*) 
-                FROM notifications 
-                WHERE recipient_id = v_current_employee_id AND read_at IS NULL AND 1=1
+        'development_plans_to_review', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE manager_id = v_current_employee_id 
+            AND status = 'submitted'
+        ),
+        'development_plans_reviewed', (
+            SELECT COUNT(*) FROM development_plans 
+            WHERE manager_id = v_current_employee_id 
+            AND status IN ('approved', 'rejected')
+        ),
+        'team_performance', (
+            SELECT json_agg(
+                json_build_object(
+                    'employee_name', e.name,
+                    'assessment_status', a.self_assessment_status,
+                    'manager_review_status', a.manager_review_status,
+                    'last_updated', a.updated_at
+                )
+                ORDER BY e.name
             )
+            FROM employees e
+            LEFT JOIN assessments a ON e.id = a.employee_id
+            LEFT JOIN review_cycles rc ON a.cycle_id = rc.id AND rc.status = 'active'
+            WHERE e.manager_id = v_current_employee_id AND e.is_active = true
         )
     ) INTO result;
     
-    RETURN result;
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to get manager dashboard stats: ' || SQLERRM);
+    RETURN COALESCE(result, '{}'::json);
 END;
 $$;
 
@@ -1911,6 +2064,55 @@ CREATE FUNCTION public.get_my_development_goals() RETURNS TABLE(goal_id uuid, go
     FROM employee_development_goals g
     WHERE g.employee_id = (SELECT id FROM employees WHERE user_id = auth.uid())
     ORDER BY g.created_at DESC;
+$$;
+
+
+--
+-- Name: get_my_development_plans(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_my_development_plans() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID
+    SELECT id INTO v_current_employee_id
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN '[]'::json;
+    END IF;
+    
+    -- Get development plans for current employee
+    SELECT json_agg(
+        json_build_object(
+            'id', dp.id,
+            'goals', dp.goals,
+            'objectives', dp.objectives,
+            'skills_to_develop', dp.skills_to_develop,
+            'resources_needed', dp.resources_needed,
+            'success_metrics', dp.success_metrics,
+            'target_completion_date', dp.target_completion_date,
+            'status', dp.status,
+            'manager_feedback', dp.manager_feedback,
+            'manager_rating', dp.manager_rating,
+            'submission_date', dp.submission_date,
+            'review_date', dp.review_date,
+            'created_at', dp.created_at,
+            'updated_at', dp.updated_at,
+            'manager_name', m.name
+        ) ORDER BY dp.created_at DESC
+    ) INTO result
+    FROM development_plans dp
+    LEFT JOIN employees m ON dp.manager_id = m.id
+    WHERE dp.employee_id = v_current_employee_id;
+    
+    RETURN COALESCE(result, '[]'::json);
+END;
 $$;
 
 
@@ -2316,12 +2518,13 @@ BEGIN
         RETURN 0;
     END IF;
     
+    -- Count unread notifications
     SELECT COUNT(*) INTO v_count
-    FROM notifications
-    WHERE recipient_id = v_current_employee_id
+    FROM notifications 
+    WHERE recipient_id = v_current_employee_id 
     AND read_at IS NULL;
     
-    RETURN v_count;
+    RETURN COALESCE(v_count, 0);
 END;
 $$;
 
@@ -2346,26 +2549,26 @@ BEGIN
         RETURN '[]'::json;
     END IF;
     
-    -- Get notifications for this user
-    SELECT json_agg(notification_data ORDER BY created_at DESC) INTO result
-    FROM (
-        SELECT json_build_object(
+    -- Get notifications for current user
+    SELECT json_agg(
+        json_build_object(
             'id', n.id,
+            'recipient_id', n.recipient_id,
+            'sender_id', n.sender_id,
+            'sender_name', COALESCE(sender.name, 'System'),
             'type', n.type,
             'title', n.title,
             'message', n.message,
-            'data', n.data,
+            'data', COALESCE(n.data, '{}'::json),
             'read_at', n.read_at,
-            'created_at', n.created_at,
-            'sender_name', COALESCE(e.name, 'System'),
-            'is_read', n.read_at IS NOT NULL
-        ) as notification_data
-        FROM notifications n
-        LEFT JOIN employees e ON n.sender_id = e.id
-        WHERE n.recipient_id = v_current_employee_id
-        ORDER BY n.created_at DESC
-        LIMIT 50
-    ) ordered_notifications;
+            'is_read', (n.read_at IS NOT NULL),
+            'created_at', COALESCE(n.created_at, NOW()),
+            'updated_at', COALESCE(n.updated_at, NOW())
+        ) ORDER BY COALESCE(n.created_at, NOW()) DESC
+    ) INTO result
+    FROM notifications n
+    LEFT JOIN employees sender ON n.sender_id = sender.id
+    WHERE n.recipient_id = v_current_employee_id;
     
     RETURN COALESCE(result, '[]'::json);
 END;
@@ -2516,24 +2719,37 @@ CREATE FUNCTION public.mark_notification_read(p_notification_id uuid) RETURNS js
     AS $$
 DECLARE
     v_current_employee_id UUID;
+    v_affected_rows INTEGER;
 BEGIN
     -- Get current user's employee ID
     SELECT id INTO v_current_employee_id
     FROM employees 
     WHERE user_id = auth.uid() AND is_active = true;
     
-    -- Update notification if it belongs to current user
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Update notification read status
     UPDATE notifications 
-    SET read_at = NOW() 
+    SET 
+        read_at = NOW(),
+        updated_at = NOW()
     WHERE id = p_notification_id 
     AND recipient_id = v_current_employee_id
     AND read_at IS NULL;
     
-    IF FOUND THEN
-        RETURN json_build_object('success', true, 'message', 'Notification marked as read');
-    ELSE
+    GET DIAGNOSTICS v_affected_rows = ROW_COUNT;
+    
+    IF v_affected_rows = 0 THEN
         RETURN json_build_object('error', 'Notification not found or already read');
     END IF;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Notification marked as read',
+        'notification_id', p_notification_id
+    );
 END;
 $$;
 
@@ -2726,6 +2942,91 @@ BEGIN
         'plan_id', p_plan_id,
         'status', p_status,
         'employee_name', v_employee_name
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to review development plan: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: review_development_plan(uuid, text, text, integer, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.review_development_plan(p_plan_id uuid, p_status text, p_feedback text DEFAULT NULL::text, p_rating integer DEFAULT NULL::integer, _csrf_token text DEFAULT NULL::text, _nonce text DEFAULT NULL::text, _timestamp text DEFAULT NULL::text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    v_plan_record development_plans%ROWTYPE;
+    v_employee_name TEXT;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT e.id, e.role INTO v_current_employee_id, v_employee_role
+    FROM employees e 
+    WHERE e.user_id = auth.uid() AND e.is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Get development plan record - FIXED: Use separate SELECT statement
+    SELECT * INTO v_plan_record
+    FROM development_plans 
+    WHERE id = p_plan_id;
+    
+    IF v_plan_record.id IS NULL THEN
+        RETURN json_build_object('error', 'Development plan not found');
+    END IF;
+    
+    -- Check permissions
+    IF v_employee_role != 'admin' AND v_plan_record.manager_id != v_current_employee_id THEN
+        RETURN json_build_object('error', 'Access denied: You can only review plans for your direct reports');
+    END IF;
+    
+    -- Validate status
+    IF p_status NOT IN ('approved', 'rejected', 'under_review') THEN
+        RETURN json_build_object('error', 'Invalid status. Must be: approved, rejected, or under_review');
+    END IF;
+    
+    -- Update development plan
+    UPDATE development_plans 
+    SET 
+        status = p_status,
+        manager_feedback = p_feedback,
+        manager_rating = p_rating,
+        review_date = NOW(),
+        updated_at = NOW()
+    WHERE id = p_plan_id;
+    
+    -- Get employee name for notification - FIXED: Use separate SELECT statement
+    SELECT name INTO v_employee_name
+    FROM employees 
+    WHERE id = v_plan_record.employee_id;
+    
+    -- Create notification for employee
+    BEGIN
+        PERFORM create_notification(
+            v_plan_record.employee_id,
+            v_current_employee_id,
+            'development_plan_reviewed',
+            'Development Plan ' || INITCAP(p_status),
+            'Your development plan has been ' || p_status || 
+            CASE WHEN p_feedback IS NOT NULL THEN '. Manager feedback: ' || p_feedback ELSE '.' END
+        );
+    EXCEPTION
+        WHEN undefined_function THEN
+            NULL; -- Ignore if notification function doesn't exist
+    END;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Development plan reviewed successfully',
+        'plan_id', p_plan_id,
+        'status', p_status
     );
     
 EXCEPTION
@@ -3021,6 +3322,85 @@ BEGIN
             WHEN undefined_function THEN
                 -- Ignore if notification function doesn't exist
                 NULL;
+        END;
+    END IF;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Development plan submitted successfully',
+        'plan_id', v_plan_id
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to submit development plan: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: submit_development_plan(text, text, text, text, text, date, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_development_plan(p_goals text, p_objectives text DEFAULT NULL::text, p_skills_to_develop text DEFAULT NULL::text, p_resources_needed text DEFAULT NULL::text, p_success_metrics text DEFAULT NULL::text, p_target_completion_date date DEFAULT NULL::date, _csrf_token text DEFAULT NULL::text, _nonce text DEFAULT NULL::text, _timestamp text DEFAULT NULL::text) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_manager_id UUID;
+    v_plan_id UUID;
+BEGIN
+    -- Get current user's employee ID and manager
+    SELECT e.id, e.manager_id INTO v_current_employee_id, v_manager_id
+    FROM employees e 
+    WHERE e.user_id = auth.uid() AND e.is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Insert development plan
+    INSERT INTO development_plans (
+        employee_id,
+        manager_id,
+        goals,
+        objectives,
+        skills_to_develop,
+        resources_needed,
+        success_metrics,
+        target_completion_date,
+        status,
+        submission_date,
+        created_at,
+        updated_at
+    ) VALUES (
+        v_current_employee_id,
+        v_manager_id,
+        p_goals,
+        p_objectives,
+        p_skills_to_develop,
+        p_resources_needed,
+        p_success_metrics,
+        p_target_completion_date,
+        'submitted',
+        NOW(),
+        NOW(),
+        NOW()
+    ) RETURNING id INTO v_plan_id;
+    
+    -- Create notification for manager if exists
+    IF v_manager_id IS NOT NULL THEN
+        BEGIN
+            PERFORM create_notification(
+                v_manager_id,
+                v_current_employee_id,
+                'development_plan_submitted',
+                'New Development Plan Submitted',
+                'A team member has submitted a development plan for your review.'
+            );
+        EXCEPTION
+            WHEN undefined_function THEN
+                NULL; -- Ignore if notification function doesn't exist
         END;
     END IF;
     
@@ -3452,6 +3832,20 @@ $$;
 
 
 --
+-- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: upsert_development_goal(uuid, text, text, text, date, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3644,6 +4038,13 @@ CREATE TABLE public.assessments (
     manager_feedback jsonb DEFAULT '{}'::jsonb,
     employee_notified boolean DEFAULT false,
     manager_notified boolean DEFAULT false,
+    cycle_id bigint,
+    due_date date,
+    self_assessment_data jsonb,
+    manager_review_data jsonb,
+    manager_notes text,
+    overall_rating integer,
+    CONSTRAINT assessments_overall_rating_check CHECK (((overall_rating >= 1) AND (overall_rating <= 5))),
     CONSTRAINT valid_manager_review_status CHECK ((manager_review_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'completed'::text])))
 );
 
@@ -3709,6 +4110,15 @@ CREATE TABLE public.development_plans (
     manager_reviewed_by uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    manager_id uuid,
+    objectives text,
+    resources_needed text,
+    success_metrics text,
+    target_completion_date date,
+    manager_rating integer,
+    submission_date timestamp with time zone,
+    review_date timestamp with time zone,
+    CONSTRAINT development_plans_manager_rating_check CHECK (((manager_rating >= 1) AND (manager_rating <= 5))),
     CONSTRAINT valid_plan_status CHECK ((status = ANY (ARRAY['draft'::text, 'submitted'::text, 'under_review'::text, 'approved'::text, 'needs_revision'::text])))
 );
 
@@ -3831,6 +4241,7 @@ CREATE TABLE public.notifications (
     data jsonb DEFAULT '{}'::jsonb,
     read_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT valid_notification_type CHECK ((type = ANY (ARRAY['review_cycle_opened'::text, 'assessment_submitted'::text, 'manager_review_ready'::text, 'manager_review_completed'::text, 'development_plan_submitted'::text, 'development_plan_reviewed'::text, 'assessment_overdue'::text, 'review_reminder'::text])))
 );
 
@@ -4005,14 +4416,14 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 -- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified) FROM stdin;
-1	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
-2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
-3	e956be35-33d7-4870-97b3-63eaae4a690d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
-4	10d1c13c-ea48-45c1-8420-a616f0c314ec	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
-5	3542443c-6cd4-48ba-af2f-0bd3b4243c37	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
-6	da01f7e9-e2f6-43b2-b350-affc7c661751	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
-7	7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f
+COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified, cycle_id, due_date, self_assessment_data, manager_review_data, manager_notes, overall_rating) FROM stdin;
+1	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+3	e956be35-33d7-4870-97b3-63eaae4a690d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+4	10d1c13c-ea48-45c1-8420-a616f0c314ec	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+5	3542443c-6cd4-48ba-af2f-0bd3b4243c37	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+6	da01f7e9-e2f6-43b2-b350-affc7c661751	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+7	7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
 \.
 
 
@@ -4028,7 +4439,7 @@ COPY public.company_rocks (id, review_cycle_id, description, owner_name, target_
 -- Data for Name: development_plans; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.development_plans (id, employee_id, title, description, goals, skills_to_develop, timeline, status, manager_feedback, manager_reviewed_at, manager_reviewed_by, created_at, updated_at) FROM stdin;
+COPY public.development_plans (id, employee_id, title, description, goals, skills_to_develop, timeline, status, manager_feedback, manager_reviewed_at, manager_reviewed_by, created_at, updated_at, manager_id, objectives, resources_needed, success_metrics, target_completion_date, manager_rating, submission_date, review_date) FROM stdin;
 \.
 
 
@@ -4085,7 +4496,7 @@ c1198e13-48e6-4a39-8f92-f270da0c2652	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	da01f7
 -- Data for Name: notifications; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.notifications (id, recipient_id, sender_id, type, title, message, data, read_at, created_at) FROM stdin;
+COPY public.notifications (id, recipient_id, sender_id, type, title, message, data, read_at, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -4339,6 +4750,41 @@ ALTER TABLE ONLY public.training_requests
 
 
 --
+-- Name: idx_assessments_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_created_at ON public.assessments USING btree (created_at);
+
+
+--
+-- Name: idx_assessments_cycle_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_cycle_id ON public.assessments USING btree (cycle_id);
+
+
+--
+-- Name: idx_assessments_employee_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_employee_id ON public.assessments USING btree (employee_id);
+
+
+--
+-- Name: idx_assessments_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_status ON public.assessments USING btree (self_assessment_status, manager_review_status);
+
+
+--
+-- Name: idx_assessments_updated_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_assessments_updated_at ON public.assessments USING btree (updated_at);
+
+
+--
 -- Name: idx_development_goals_employee; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4364,6 +4810,13 @@ CREATE INDEX idx_development_plans_created_at ON public.development_plans USING 
 --
 
 CREATE INDEX idx_development_plans_employee_id ON public.development_plans USING btree (employee_id);
+
+
+--
+-- Name: idx_development_plans_manager_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_development_plans_manager_id ON public.development_plans USING btree (manager_id);
 
 
 --
@@ -4416,6 +4869,13 @@ CREATE INDEX idx_notifications_created_at ON public.notifications USING btree (c
 
 
 --
+-- Name: idx_notifications_read_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_notifications_read_at ON public.notifications USING btree (read_at);
+
+
+--
 -- Name: idx_notifications_recipient_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4434,6 +4894,27 @@ CREATE INDEX idx_notifications_type ON public.notifications USING btree (type);
 --
 
 CREATE INDEX idx_notifications_unread ON public.notifications USING btree (recipient_id, read_at) WHERE (read_at IS NULL);
+
+
+--
+-- Name: idx_review_cycles_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_review_cycles_created_at ON public.review_cycles USING btree (created_at);
+
+
+--
+-- Name: idx_review_cycles_dates; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_review_cycles_dates ON public.review_cycles USING btree (start_date, end_date);
+
+
+--
+-- Name: idx_review_cycles_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_review_cycles_status ON public.review_cycles USING btree (status);
 
 
 --
@@ -4462,6 +4943,20 @@ CREATE TRIGGER trg_assessment_submitted AFTER UPDATE ON public.assessments FOR E
 --
 
 CREATE TRIGGER trg_manager_review_completed AFTER UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION public.notify_employee_manager_review_completed();
+
+
+--
+-- Name: assessments update_assessments_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_assessments_updated_at BEFORE UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: review_cycles update_review_cycles_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_review_cycles_updated_at BEFORE UPDATE ON public.review_cycles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -4497,6 +4992,14 @@ ALTER TABLE ONLY public.assessment_scorecard_metrics
 
 
 --
+-- Name: assessments assessments_cycle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT assessments_cycle_id_fkey FOREIGN KEY (cycle_id) REFERENCES public.review_cycles(id) ON DELETE CASCADE;
+
+
+--
 -- Name: assessments assessments_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4526,6 +5029,14 @@ ALTER TABLE ONLY public.company_rocks
 
 ALTER TABLE ONLY public.development_plans
     ADD CONSTRAINT development_plans_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: development_plans development_plans_manager_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.development_plans
+    ADD CONSTRAINT development_plans_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id) ON DELETE SET NULL;
 
 
 --
@@ -4779,6 +5290,17 @@ CREATE POLICY assessments_employee_own ON public.assessments TO authenticated US
 
 
 --
+-- Name: assessments assessments_insert_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY assessments_insert_own ON public.assessments FOR INSERT TO authenticated WITH CHECK (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
+
+
+--
 -- Name: assessments assessments_manager_team; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -4791,6 +5313,36 @@ CREATE POLICY assessments_manager_team ON public.assessments TO authenticated US
   WHERE (employees.manager_id IN ( SELECT employees_1.id
            FROM public.employees employees_1
           WHERE (employees_1.user_id = auth.uid()))))));
+
+
+--
+-- Name: assessments assessments_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY assessments_select_own ON public.assessments FOR SELECT TO authenticated USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (employee_id IN ( SELECT e.id
+   FROM public.employees e
+  WHERE (e.manager_id IN ( SELECT employees.id
+           FROM public.employees
+          WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
+
+
+--
+-- Name: assessments assessments_update_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY assessments_update_own ON public.assessments FOR UPDATE TO authenticated USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (employee_id IN ( SELECT e.id
+   FROM public.employees e
+  WHERE (e.manager_id IN ( SELECT employees.id
+           FROM public.employees
+          WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
 
 
 --
@@ -4830,6 +5382,41 @@ CREATE POLICY development_plans_access ON public.development_plans USING (((empl
   WHERE (e.manager_id IN ( SELECT employees.id
            FROM public.employees
           WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true))))))));
+
+
+--
+-- Name: development_plans development_plans_insert_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY development_plans_insert_own ON public.development_plans FOR INSERT TO authenticated WITH CHECK ((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))));
+
+
+--
+-- Name: development_plans development_plans_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY development_plans_select_own ON public.development_plans FOR SELECT TO authenticated USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (manager_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
+
+
+--
+-- Name: development_plans development_plans_update_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY development_plans_update_own ON public.development_plans FOR UPDATE TO authenticated USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (manager_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
 
 
 --
@@ -4989,10 +5576,39 @@ CREATE POLICY messages_participant_access ON public.manager_employee_messages TO
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: notifications notifications_insert_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY notifications_insert_own ON public.notifications FOR INSERT TO authenticated WITH CHECK (((recipient_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (sender_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true))))));
+
+
+--
 -- Name: notifications notifications_own_access; Type: POLICY; Schema: public; Owner: -
 --
 
 CREATE POLICY notifications_own_access ON public.notifications USING ((recipient_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))));
+
+
+--
+-- Name: notifications notifications_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY notifications_select_own ON public.notifications FOR SELECT TO authenticated USING ((recipient_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))));
+
+
+--
+-- Name: notifications notifications_update_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY notifications_update_own ON public.notifications FOR UPDATE TO authenticated USING ((recipient_id IN ( SELECT employees.id
    FROM public.employees
   WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))));
 
@@ -5011,6 +5627,15 @@ CREATE POLICY review_cycles_admin_access ON public.review_cycles TO authenticate
 
 
 --
+-- Name: review_cycles review_cycles_insert_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY review_cycles_insert_admin ON public.review_cycles FOR INSERT TO authenticated WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true)))));
+
+
+--
 -- Name: review_cycles review_cycles_manager_read; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -5019,6 +5644,22 @@ CREATE POLICY review_cycles_manager_read ON public.review_cycles FOR SELECT TO a
   WHERE ((employees.user_id = auth.uid()) AND (employees.id IN ( SELECT DISTINCT employees_1.manager_id
            FROM public.employees employees_1
           WHERE (employees_1.manager_id IS NOT NULL))))))));
+
+
+--
+-- Name: review_cycles review_cycles_select_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY review_cycles_select_all ON public.review_cycles FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: review_cycles review_cycles_update_admin; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY review_cycles_update_admin ON public.review_cycles FOR UPDATE TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true)))));
 
 
 --
