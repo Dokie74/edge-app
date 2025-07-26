@@ -42,10 +42,12 @@ DROP POLICY IF EXISTS employees_admin_all_access ON public.employees;
 DROP POLICY IF EXISTS employee_goals_own_access ON public.employee_development_goals;
 DROP POLICY IF EXISTS employee_goals_manager_access ON public.employee_development_goals;
 DROP POLICY IF EXISTS employee_goals_admin_access ON public.employee_development_goals;
+DROP POLICY IF EXISTS employee_departments_select_own ON public.employee_departments;
 DROP POLICY IF EXISTS development_plans_update_own ON public.development_plans;
 DROP POLICY IF EXISTS development_plans_select_own ON public.development_plans;
 DROP POLICY IF EXISTS development_plans_insert_own ON public.development_plans;
 DROP POLICY IF EXISTS development_plans_access ON public.development_plans;
+DROP POLICY IF EXISTS departments_select_all ON public.departments;
 DROP POLICY IF EXISTS company_rocks_read ON public.company_rocks;
 DROP POLICY IF EXISTS company_rocks_admin ON public.company_rocks;
 DROP POLICY IF EXISTS assessments_update_own ON public.assessments;
@@ -73,6 +75,8 @@ ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_receiver
 ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_giver_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_department_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_reviewed_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_employee_id_fkey;
@@ -103,6 +107,8 @@ DROP INDEX IF EXISTS public.idx_messages_from_employee;
 DROP INDEX IF EXISTS public.idx_manager_notes_manager_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_employee_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_created_at;
+DROP INDEX IF EXISTS public.idx_employee_departments_employee_id;
+DROP INDEX IF EXISTS public.idx_employee_departments_department_id;
 DROP INDEX IF EXISTS public.idx_development_plans_status;
 DROP INDEX IF EXISTS public.idx_development_plans_manager_id;
 DROP INDEX IF EXISTS public.idx_development_plans_employee_id;
@@ -126,7 +132,11 @@ ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_pkey;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_email_key;
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_pkey;
+ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_pkey;
+ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_employee_id_department_id_key;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_pkey;
+ALTER TABLE IF EXISTS ONLY public.departments DROP CONSTRAINT IF EXISTS departments_pkey;
+ALTER TABLE IF EXISTS ONLY public.departments DROP CONSTRAINT IF EXISTS departments_name_key;
 ALTER TABLE IF EXISTS ONLY public.company_rocks DROP CONSTRAINT IF EXISTS company_rocks_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS assessments_pkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_scorecard_metrics DROP CONSTRAINT IF EXISTS assessment_scorecard_metrics_pkey;
@@ -134,6 +144,8 @@ ALTER TABLE IF EXISTS ONLY public.assessment_rocks DROP CONSTRAINT IF EXISTS ass
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_pkey;
 ALTER TABLE IF EXISTS public.security_audit ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.peer_feedback ALTER COLUMN feedback_id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.employee_departments ALTER COLUMN id DROP DEFAULT;
+ALTER TABLE IF EXISTS public.departments ALTER COLUMN id DROP DEFAULT;
 DROP TABLE IF EXISTS public.training_requests;
 DROP SEQUENCE IF EXISTS public.security_audit_id_seq;
 DROP TABLE IF EXISTS public.security_audit;
@@ -146,7 +158,11 @@ DROP TABLE IF EXISTS public.manager_employee_messages;
 DROP TABLE IF EXISTS public.kudos;
 DROP TABLE IF EXISTS public.employees;
 DROP TABLE IF EXISTS public.employee_development_goals;
+DROP SEQUENCE IF EXISTS public.employee_departments_id_seq;
+DROP TABLE IF EXISTS public.employee_departments;
 DROP TABLE IF EXISTS public.development_plans;
+DROP SEQUENCE IF EXISTS public.departments_id_seq;
+DROP TABLE IF EXISTS public.departments;
 DROP TABLE IF EXISTS public.company_rocks;
 DROP TABLE IF EXISTS public.assessments;
 DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
@@ -165,6 +181,7 @@ DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_descripti
 DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals jsonb, p_skills_to_develop jsonb, p_timeline text);
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.simple_activate_review_cycle(p_cycle_id bigint);
+DROP FUNCTION IF EXISTS public.set_employee_departments(p_employee_id uuid, p_department_ids integer[]);
 DROP FUNCTION IF EXISTS public.save_manager_note(p_employee_id uuid, p_title text, p_content text, p_category text, p_priority text);
 DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_feedback text, p_rating integer, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_manager_feedback text);
@@ -196,8 +213,10 @@ DROP FUNCTION IF EXISTS public.get_kudos_wall();
 DROP FUNCTION IF EXISTS public.get_feedback_wall(p_limit integer, p_feedback_type text);
 DROP FUNCTION IF EXISTS public.get_employees_simple();
 DROP FUNCTION IF EXISTS public.get_employees_for_feedback();
+DROP FUNCTION IF EXISTS public.get_employee_with_departments(p_employee_id uuid);
 DROP FUNCTION IF EXISTS public.get_employee_profile();
 DROP FUNCTION IF EXISTS public.get_employee_notes(p_employee_id uuid);
+DROP FUNCTION IF EXISTS public.get_employee_departments(p_employee_id uuid);
 DROP FUNCTION IF EXISTS public.get_employee_dashboard_stats();
 DROP FUNCTION IF EXISTS public.get_development_plans_for_review();
 DROP FUNCTION IF EXISTS public.get_development_plans();
@@ -210,6 +229,7 @@ DROP FUNCTION IF EXISTS public.get_all_review_cycles_for_admin();
 DROP FUNCTION IF EXISTS public.get_all_employees_simple();
 DROP FUNCTION IF EXISTS public.get_all_employees_for_admin();
 DROP FUNCTION IF EXISTS public.get_all_employees();
+DROP FUNCTION IF EXISTS public.get_all_departments();
 DROP FUNCTION IF EXISTS public.get_admin_dashboard_stats();
 DROP FUNCTION IF EXISTS public.get_active_review_cycles_with_status();
 DROP FUNCTION IF EXISTS public.delete_manager_note(p_note_id uuid);
@@ -222,7 +242,7 @@ DROP FUNCTION IF EXISTS public.close_review_cycle(_csrf_token text, _nonce text,
 DROP FUNCTION IF EXISTS public.close_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.check_user_permission(required_permission text);
 DROP FUNCTION IF EXISTS public.add_assessment_feedback(p_assessment_id bigint, p_feedback text);
-DROP FUNCTION IF EXISTS public.activate_review_cycle_with_assessments(p_cycle_id uuid, _csrf_token text, _nonce text, _timestamp text);
+DROP FUNCTION IF EXISTS public.activate_review_cycle_with_assessments(p_cycle_id text, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.activate_review_cycle_with_assessments(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.activate_review_cycle(p_cycle_id bigint);
 DROP SCHEMA IF EXISTS public;
@@ -347,10 +367,10 @@ $$;
 
 
 --
--- Name: activate_review_cycle_with_assessments(uuid, text, text, text); Type: FUNCTION; Schema: public; Owner: -
+-- Name: activate_review_cycle_with_assessments(text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.activate_review_cycle_with_assessments(p_cycle_id uuid, _csrf_token text DEFAULT NULL::text, _nonce text DEFAULT NULL::text, _timestamp text DEFAULT NULL::text) RETURNS json
+CREATE FUNCTION public.activate_review_cycle_with_assessments(p_cycle_id text, _csrf_token text DEFAULT NULL::text, _nonce text DEFAULT NULL::text, _timestamp text DEFAULT NULL::text) RETURNS json
     LANGUAGE plpgsql SECURITY DEFINER
     AS $$
 DECLARE
@@ -359,8 +379,17 @@ DECLARE
     v_cycle_record review_cycles%ROWTYPE;
     v_assessment_count INTEGER := 0;
     v_employee_record RECORD;
-    v_assessment_id UUID;
+    v_assessment_id BIGINT;
+    v_actual_cycle_id BIGINT;
 BEGIN
+    -- Convert string parameter to BIGINT
+    BEGIN
+        v_actual_cycle_id := p_cycle_id::BIGINT;
+    EXCEPTION
+        WHEN OTHERS THEN
+            RETURN json_build_object('error', 'Invalid cycle ID format: ' || p_cycle_id);
+    END;
+    
     -- Get current user's employee ID and role
     SELECT id, role INTO v_current_employee_id, v_employee_role
     FROM employees 
@@ -378,7 +407,7 @@ BEGIN
     -- Get and validate the review cycle
     SELECT * INTO v_cycle_record
     FROM review_cycles 
-    WHERE id = p_cycle_id;
+    WHERE id = v_actual_cycle_id;
     
     IF v_cycle_record.id IS NULL THEN
         RETURN json_build_object('error', 'Review cycle not found');
@@ -398,18 +427,21 @@ BEGIN
     SET 
         status = 'active',
         updated_at = NOW()
-    WHERE id = p_cycle_id;
+    WHERE id = v_actual_cycle_id;
     
     -- Create assessments for all active employees
+    -- Using review_cycle_id (NOT NULL) instead of cycle_id (nullable)
     FOR v_employee_record IN 
         SELECT id, name, email, manager_id
         FROM employees 
         WHERE is_active = true
     LOOP
-        -- Insert assessment record
+        -- Insert assessment record using review_cycle_id
         INSERT INTO assessments (
             employee_id,
-            cycle_id,
+            review_cycle_id,  -- This is the NOT NULL column that needs the value
+            cycle_id,         -- Also set this for backward compatibility
+            status,
             self_assessment_status,
             manager_review_status,
             due_date,
@@ -417,7 +449,9 @@ BEGIN
             updated_at
         ) VALUES (
             v_employee_record.id,
-            p_cycle_id,
+            v_actual_cycle_id,  -- review_cycle_id (NOT NULL)
+            v_actual_cycle_id,  -- cycle_id (nullable, for compatibility)
+            'not_started',
             'not_started',
             'pending',
             v_cycle_record.end_date,
@@ -429,33 +463,47 @@ BEGIN
         
         -- Create notification for employee about new review cycle
         BEGIN
-            PERFORM create_notification(
+            INSERT INTO notifications (
+                recipient_id,
+                sender_id,
+                type,
+                title,
+                message,
+                created_at
+            ) VALUES (
                 v_employee_record.id,
                 v_current_employee_id,
                 'review_cycle_opened',
                 'New Review Cycle Started',
-                'A new review cycle "' || v_cycle_record.name || '" has been activated. Please complete your self-assessment by ' || v_cycle_record.end_date::DATE
+                'A new review cycle "' || v_cycle_record.name || '" has been activated. Please complete your self-assessment by ' || v_cycle_record.end_date::DATE,
+                NOW()
             );
         EXCEPTION
-            WHEN undefined_function THEN
-                -- Ignore if notification function doesn't exist
-                NULL;
+            WHEN OTHERS THEN
+                NULL; -- Ignore notification errors
         END;
         
         -- Create notification for manager if employee has one
         IF v_employee_record.manager_id IS NOT NULL THEN
             BEGIN
-                PERFORM create_notification(
+                INSERT INTO notifications (
+                    recipient_id,
+                    sender_id,
+                    type,
+                    title,
+                    message,
+                    created_at
+                ) VALUES (
                     v_employee_record.manager_id,
                     v_current_employee_id,
                     'review_cycle_opened',
                     'New Review Cycle - Team Member Assessment',
-                    'Review cycle "' || v_cycle_record.name || '" activated. Your team member ' || v_employee_record.name || ' will need manager review.'
+                    'Review cycle "' || v_cycle_record.name || '" activated. Your team member ' || v_employee_record.name || ' will need manager review.',
+                    NOW()
                 );
             EXCEPTION
-                WHEN undefined_function THEN
-                    -- Ignore if notification function doesn't exist
-                    NULL;
+                WHEN OTHERS THEN
+                    NULL; -- Ignore notification errors
             END;
         END IF;
     END LOOP;
@@ -463,7 +511,7 @@ BEGIN
     RETURN json_build_object(
         'success', true,
         'message', 'Review cycle activated successfully',
-        'cycle_id', p_cycle_id,
+        'cycle_id', v_actual_cycle_id,
         'cycle_name', v_cycle_record.name,
         'assessments_created', v_assessment_count,
         'status', 'active'
@@ -1056,7 +1104,7 @@ BEGIN
         RETURN json_build_object('error', 'Access denied: Admin privileges required');
     END IF;
     
-    -- Build comprehensive admin statistics
+    -- Build comprehensive admin statistics using review_cycle_id
     SELECT json_build_object(
         'total_employees', (SELECT COUNT(*) FROM employees WHERE is_active = true),
         'total_managers', (SELECT COUNT(*) FROM employees WHERE role = 'manager' AND is_active = true),
@@ -1064,64 +1112,42 @@ BEGIN
         'pending_assessments', (
             SELECT COUNT(*) 
             FROM assessments a
-            JOIN review_cycles rc ON a.cycle_id = rc.id
+            JOIN review_cycles rc ON a.review_cycle_id = rc.id
             WHERE rc.status = 'active' 
-            AND a.self_assessment_status = 'not_started'
+            AND (a.self_assessment_status = 'not_started' OR a.status = 'not_started')
         ),
         'completed_assessments', (
             SELECT COUNT(*) 
             FROM assessments a
-            JOIN review_cycles rc ON a.cycle_id = rc.id
+            JOIN review_cycles rc ON a.review_cycle_id = rc.id
             WHERE rc.status = 'active' 
-            AND a.self_assessment_status = 'completed'
-        ),
-        'pending_manager_reviews', (
-            SELECT COUNT(*) 
-            FROM assessments a
-            JOIN review_cycles rc ON a.cycle_id = rc.id
-            WHERE rc.status = 'active' 
-            AND a.manager_review_status = 'pending'
-            AND a.self_assessment_status = 'completed'
-        ),
-        'completed_manager_reviews', (
-            SELECT COUNT(*) 
-            FROM assessments a
-            JOIN review_cycles rc ON a.cycle_id = rc.id
-            WHERE rc.status = 'active' 
-            AND a.manager_review_status = 'completed'
-        ),
-        'development_plans_submitted', (
-            SELECT COUNT(*) FROM development_plans 
-            WHERE status = 'submitted'
-        ),
-        'development_plans_under_review', (
-            SELECT COUNT(*) FROM development_plans 
-            WHERE status = 'under_review'
-        ),
-        'development_plans_approved', (
-            SELECT COUNT(*) FROM development_plans 
-            WHERE status = 'approved'
-        ),
-        'recent_activity', (
-            SELECT json_agg(
-                json_build_object(
-                    'type', 'assessment_completion',
-                    'employee_name', e.name,
-                    'cycle_name', rc.name,
-                    'completed_at', a.updated_at
-                )
-                ORDER BY a.updated_at DESC
-            )
-            FROM assessments a
-            JOIN employees e ON a.employee_id = e.id
-            JOIN review_cycles rc ON a.cycle_id = rc.id
-            WHERE a.self_assessment_status = 'completed'
-            AND a.updated_at >= NOW() - INTERVAL '7 days'
-            LIMIT 10
+            AND (a.self_assessment_status = 'completed' OR a.status = 'completed')
         )
     ) INTO result;
     
     RETURN COALESCE(result, '{}'::json);
+END;
+$$;
+
+
+--
+-- Name: get_all_departments(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_all_departments() RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN (
+        SELECT json_agg(
+            json_build_object(
+                'id', id,
+                'name', name,
+                'description', description
+            ) ORDER BY name
+        )
+        FROM departments
+    );
 END;
 $$;
 
@@ -1676,6 +1702,30 @@ $$;
 
 
 --
+-- Name: get_employee_departments(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_employee_departments(p_employee_id uuid) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN (
+        SELECT json_agg(
+            json_build_object(
+                'id', d.id,
+                'name', d.name,
+                'description', d.description
+            )
+        )
+        FROM employee_departments ed
+        JOIN departments d ON ed.department_id = d.id
+        WHERE ed.employee_id = p_employee_id
+    );
+END;
+$$;
+
+
+--
 -- Name: get_employee_notes(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1752,6 +1802,76 @@ CREATE FUNCTION public.get_employee_profile() RETURNS TABLE(employee_id uuid, na
     FROM employees e
     LEFT JOIN employees m ON e.manager_id = m.id
     WHERE e.user_id = auth.uid();
+$$;
+
+
+--
+-- Name: get_employee_with_departments(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_employee_with_departments(p_employee_id uuid) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    result JSON;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Check if user is admin
+    IF v_employee_role != 'admin' THEN
+        RETURN json_build_object('error', 'Access denied: Admin privileges required');
+    END IF;
+    
+    -- Get employee details with departments
+    SELECT json_build_object(
+        'employee', json_build_object(
+            'id', e.id,
+            'name', e.name,
+            'email', e.email,
+            'job_title', e.job_title,
+            'role', e.role,
+            'manager_id', e.manager_id,
+            'is_active', e.is_active,
+            'created_at', e.created_at,
+            'updated_at', e.updated_at
+        ),
+        'departments', COALESCE(
+            (SELECT json_agg(d.id)
+             FROM employee_departments ed
+             JOIN departments d ON ed.department_id = d.id
+             WHERE ed.employee_id = e.id),
+            '[]'::json
+        ),
+        'department_names', COALESCE(
+            (SELECT json_agg(d.name)
+             FROM employee_departments ed
+             JOIN departments d ON ed.department_id = d.id
+             WHERE ed.employee_id = e.id),
+            '[]'::json
+        )
+    ) INTO result
+    FROM employees e
+    WHERE e.id = p_employee_id;
+    
+    IF result IS NULL THEN
+        RETURN json_build_object('error', 'Employee not found');
+    END IF;
+    
+    RETURN result;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to get employee details: ' || SQLERRM);
+END;
 $$;
 
 
@@ -3118,6 +3238,57 @@ $$;
 
 
 --
+-- Name: set_employee_departments(uuid, integer[]); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_employee_departments(p_employee_id uuid, p_department_ids integer[]) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_current_employee_id UUID;
+    v_employee_role TEXT;
+    dept_id INTEGER;
+BEGIN
+    -- Get current user's employee ID and role
+    SELECT id, role INTO v_current_employee_id, v_employee_role
+    FROM employees 
+    WHERE user_id = auth.uid() AND is_active = true;
+    
+    IF v_current_employee_id IS NULL THEN
+        RETURN json_build_object('error', 'Employee record not found');
+    END IF;
+    
+    -- Check if user is admin
+    IF v_employee_role != 'admin' THEN
+        RETURN json_build_object('error', 'Access denied: Admin privileges required');
+    END IF;
+    
+    -- Remove existing department associations
+    DELETE FROM employee_departments WHERE employee_id = p_employee_id;
+    
+    -- Add new department associations
+    IF p_department_ids IS NOT NULL THEN
+        FOREACH dept_id IN ARRAY p_department_ids
+        LOOP
+            INSERT INTO employee_departments (employee_id, department_id)
+            VALUES (p_employee_id, dept_id)
+            ON CONFLICT (employee_id, department_id) DO NOTHING;
+        END LOOP;
+    END IF;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Employee departments updated successfully'
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to update employee departments: ' || SQLERRM);
+END;
+$$;
+
+
+--
 -- Name: simple_activate_review_cycle(bigint); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4093,6 +4264,39 @@ ALTER TABLE public.company_rocks ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTIT
 
 
 --
+-- Name: departments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.departments (
+    id integer NOT NULL,
+    name text NOT NULL,
+    description text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: departments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.departments_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: departments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.departments_id_seq OWNED BY public.departments.id;
+
+
+--
 -- Name: development_plans; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4121,6 +4325,38 @@ CREATE TABLE public.development_plans (
     CONSTRAINT development_plans_manager_rating_check CHECK (((manager_rating >= 1) AND (manager_rating <= 5))),
     CONSTRAINT valid_plan_status CHECK ((status = ANY (ARRAY['draft'::text, 'submitted'::text, 'under_review'::text, 'approved'::text, 'needs_revision'::text])))
 );
+
+
+--
+-- Name: employee_departments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.employee_departments (
+    id integer NOT NULL,
+    employee_id uuid,
+    department_id integer,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: employee_departments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.employee_departments_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: employee_departments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.employee_departments_id_seq OWNED BY public.employee_departments.id;
 
 
 --
@@ -4375,6 +4611,20 @@ CREATE TABLE public.training_requests (
 
 
 --
+-- Name: departments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.departments ALTER COLUMN id SET DEFAULT nextval('public.departments_id_seq'::regclass);
+
+
+--
+-- Name: employee_departments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_departments ALTER COLUMN id SET DEFAULT nextval('public.employee_departments_id_seq'::regclass);
+
+
+--
 -- Name: peer_feedback feedback_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -4417,13 +4667,14 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 --
 
 COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified, cycle_id, due_date, self_assessment_data, manager_review_data, manager_notes, overall_rating) FROM stdin;
-1	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
-2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
-3	e956be35-33d7-4870-97b3-63eaae4a690d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
-4	10d1c13c-ea48-45c1-8420-a616f0c314ec	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
-5	3542443c-6cd4-48ba-af2f-0bd3b4243c37	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
-6	da01f7e9-e2f6-43b2-b350-affc7c661751	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
-7	7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-25 16:56:12.272007+00	not_started	\N	\N	2025-07-25 20:09:47.726237+00	pending	{}	f	f	1	\N	\N	\N	\N	\N
+13	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:01:49.840981+00	not_started	\N	\N	2025-07-26 03:01:49.840981+00	pending	{}	f	f	5	2025-08-29	\N	\N	\N	\N
+14	44b5d47e-2c01-4831-82a0-febc2b69d5b2	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:01:49.840981+00	not_started	\N	\N	2025-07-26 03:01:49.840981+00	pending	{}	f	f	5	2025-08-29	\N	\N	\N	\N
+15	7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:01:49.840981+00	not_started	\N	\N	2025-07-26 03:01:49.840981+00	pending	{}	f	f	5	2025-08-29	\N	\N	\N	\N
+16	d3483958-b145-4d9b-8651-abdfbed5a337	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:01:49.840981+00	not_started	\N	\N	2025-07-26 03:01:49.840981+00	pending	{}	f	f	5	2025-08-29	\N	\N	\N	\N
+17	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	4	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:02:06.919007+00	not_started	\N	\N	2025-07-26 03:02:06.919007+00	pending	{}	f	f	4	2025-08-29	\N	\N	\N	\N
+18	44b5d47e-2c01-4831-82a0-febc2b69d5b2	4	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:02:06.919007+00	not_started	\N	\N	2025-07-26 03:02:06.919007+00	pending	{}	f	f	4	2025-08-29	\N	\N	\N	\N
+19	7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	4	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:02:06.919007+00	not_started	\N	\N	2025-07-26 03:02:06.919007+00	pending	{}	f	f	4	2025-08-29	\N	\N	\N	\N
+20	d3483958-b145-4d9b-8651-abdfbed5a337	4	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-26 03:02:06.919007+00	not_started	\N	\N	2025-07-26 03:02:06.919007+00	pending	{}	f	f	4	2025-08-29	\N	\N	\N	\N
 \.
 
 
@@ -4436,10 +4687,36 @@ COPY public.company_rocks (id, review_cycle_id, description, owner_name, target_
 
 
 --
+-- Data for Name: departments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.departments (id, name, description, created_at, updated_at) FROM stdin;
+1	Executive	Executive leadership and management	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+2	Accounting	Financial and accounting operations	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+3	Engineering	Product development and engineering	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+4	Quality	Quality assurance and control	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+5	Sales	Sales and customer relations	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+6	Purchasing	Procurement and vendor management	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+7	Warehouse	Inventory and logistics	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+8	Machining	Manufacturing and machining operations	2025-07-26 02:34:51.580294+00	2025-07-26 02:34:51.580294+00
+\.
+
+
+--
 -- Data for Name: development_plans; Type: TABLE DATA; Schema: public; Owner: -
 --
 
 COPY public.development_plans (id, employee_id, title, description, goals, skills_to_develop, timeline, status, manager_feedback, manager_reviewed_at, manager_reviewed_by, created_at, updated_at, manager_id, objectives, resources_needed, success_metrics, target_completion_date, manager_rating, submission_date, review_date) FROM stdin;
+\.
+
+
+--
+-- Data for Name: employee_departments; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.employee_departments (id, employee_id, department_id, created_at) FROM stdin;
+1	7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	3	2025-07-26 02:48:29.993247+00
+2	7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	6	2025-07-26 02:48:29.993247+00
 \.
 
 
@@ -4456,13 +4733,10 @@ COPY public.employee_development_goals (goal_id, employee_id, goal_type, title, 
 --
 
 COPY public.employees (id, user_id, name, email, job_title, manager_id, is_active, created_at, role, updated_at) FROM stdin;
-3cdb0da7-4808-4a1f-8e10-02208cfa0c33	3c22d17f-efac-4b8f-9d6f-59af18f92331	Manager	manager@lucerne.com	\N	\N	t	2025-07-23 20:32:54.398754+00	manager	2025-07-25 17:18:31.93607+00
 270a21d0-bd05-4a7a-93bb-6abefa1e61a7	cd31bc16-c8c0-4a99-a35a-872928d5f763	Admin	admin@lucerne.com	Admin	\N	t	2025-07-24 03:15:54.139185+00	admin	2025-07-25 17:18:31.93607+00
-e956be35-33d7-4870-97b3-63eaae4a690d	15dd4da0-2c94-452c-9213-5598a9e6c548	Employee 1	employee1@lucerne.com	\N	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	t	2025-07-23 20:33:55.130244+00	employee	2025-07-25 17:18:31.93607+00
-10d1c13c-ea48-45c1-8420-a616f0c314ec	\N	Test Employee	test@lucerne.com	Developer	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	t	2025-07-24 03:41:52.798721+00	employee	2025-07-25 17:18:31.93607+00
-3542443c-6cd4-48ba-af2f-0bd3b4243c37	\N	John Doe	john@lucerne.com	Developer	\N	t	2025-07-24 03:47:07.323624+00	employee	2025-07-25 17:18:31.93607+00
-7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	\N	Employee 3	employee3@lucerne.com	TestTitle3	3cdb0da7-4808-4a1f-8e10-02208cfa0c33	t	2025-07-25 16:25:44.301709+00	employee	2025-07-25 17:18:31.93607+00
-da01f7e9-e2f6-43b2-b350-affc7c661751	\N	Jane Smith	jane@lucerne.com	Designer	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	t	2025-07-24 03:47:07.323624+00	employee	2025-07-25 20:04:00.134597+00
+44b5d47e-2c01-4831-82a0-febc2b69d5b2	\N	John Manager	john.manager@lucerne.com	Manager Accounting	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	t	2025-07-26 02:25:19.092151+00	manager	2025-07-26 02:25:19.092151+00
+7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	\N	Bob Developer	bob.developer@lucerne.com	Frontend Developer	44b5d47e-2c01-4831-82a0-febc2b69d5b2	t	2025-07-26 02:29:48.271022+00	employee	2025-07-26 02:29:48.271022+00
+d3483958-b145-4d9b-8651-abdfbed5a337	\N	Jane Employee	jane.employee@lucerne.com	Software Developer	44b5d47e-2c01-4831-82a0-febc2b69d5b2	t	2025-07-26 02:39:47.854823+00	employee	2025-07-26 02:39:47.854823+00
 \.
 
 
@@ -4471,7 +4745,6 @@ da01f7e9-e2f6-43b2-b350-affc7c661751	\N	Jane Smith	jane@lucerne.com	Designer	270
 --
 
 COPY public.kudos (id, giver_id, receiver_id, core_value, message, created_at) FROM stdin;
-1	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	e956be35-33d7-4870-97b3-63eaae4a690d	Passionate about our purpose	Great test	2025-07-24 18:31:42.402507+00
 \.
 
 
@@ -4488,7 +4761,7 @@ COPY public.manager_employee_messages (message_id, from_employee_id, to_employee
 --
 
 COPY public.manager_notes (id, manager_id, employee_id, title, content, category, priority, created_at, updated_at) FROM stdin;
-c1198e13-48e6-4a39-8f92-f270da0c2652	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	da01f7e9-e2f6-43b2-b350-affc7c661751	df	zsdfg	general	medium	2025-07-25 20:20:49.747274+00	2025-07-25 20:20:49.747274+00
+f0fcfda9-3e20-4bb7-8ed5-0ed2e84a79f0	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	44b5d47e-2c01-4831-82a0-febc2b69d5b2	Good Job	They did a Test Test	performance	medium	2025-07-26 02:46:02.534584+00	2025-07-26 02:46:02.534584+00
 \.
 
 
@@ -4497,6 +4770,20 @@ c1198e13-48e6-4a39-8f92-f270da0c2652	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	da01f7
 --
 
 COPY public.notifications (id, recipient_id, sender_id, type, title, message, data, read_at, created_at, updated_at) FROM stdin;
+2a93026b-a3d7-491f-b4b2-b7442e59c412	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+755d3181-9602-48b2-91c2-2442119defbb	44b5d47e-2c01-4831-82a0-febc2b69d5b2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+fe94da40-b897-43cf-b88f-7fe1abd8b266	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q4 2024 Performance Review" activated. Your team member John Manager will need manager review.	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+c5b3bc01-52f2-43f2-892a-5b0b92276731	7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+fa17c50b-d35e-4848-807b-d2e887f4b25f	44b5d47e-2c01-4831-82a0-febc2b69d5b2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q4 2024 Performance Review" activated. Your team member Bob Developer will need manager review.	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+75722072-cab5-4306-b38c-e1384f1eb4e4	d3483958-b145-4d9b-8651-abdfbed5a337	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+19f66627-6a2f-469a-95c2-38a5ec91f957	44b5d47e-2c01-4831-82a0-febc2b69d5b2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q4 2024 Performance Review" activated. Your team member Jane Employee will need manager review.	{}	\N	2025-07-26 03:01:49.840981+00	2025-07-26 03:01:49.840981+00
+04cc0e81-f812-4c4d-8032-d496f9947e7a	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
+f78a4fd5-78e2-44dc-90a4-e89ee3ed13bf	44b5d47e-2c01-4831-82a0-febc2b69d5b2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
+7128be97-06c1-40d2-bf8d-395cd406309d	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q4 2024 Performance Review" activated. Your team member John Manager will need manager review.	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
+e50aac54-1fb7-410b-abab-1286c777c976	7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
+a2f9d78a-627a-412b-a5e0-5a6c0c57842e	44b5d47e-2c01-4831-82a0-febc2b69d5b2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q4 2024 Performance Review" activated. Your team member Bob Developer will need manager review.	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
+728e8dbd-d068-4099-9e0e-7967d1b986e4	d3483958-b145-4d9b-8651-abdfbed5a337	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle Started	A new review cycle "Q4 2024 Performance Review" has been activated. Please complete your self-assessment by 2025-08-29	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
+7f5b2beb-662f-47cb-ad5f-77d39d02eb0e	44b5d47e-2c01-4831-82a0-febc2b69d5b2	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q4 2024 Performance Review" activated. Your team member Jane Employee will need manager review.	{}	\N	2025-07-26 03:02:06.919007+00	2025-07-26 03:02:06.919007+00
 \.
 
 
@@ -4505,8 +4792,6 @@ COPY public.notifications (id, recipient_id, sender_id, type, title, message, da
 --
 
 COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, feedback_timestamp, category, message, is_anonymous, helpful_count, created_at, updated_at) FROM stdin;
-5	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	e956be35-33d7-4870-97b3-63eaae4a690d	positive	2025-07-25 15:23:10.576312+00	teamwork	Great collaboration on the project!	f	0	2025-07-25 15:23:10.576312+00	2025-07-25 15:23:10.576312+00
-6	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	7a43088e-e387-4f8c-b5bc-8bf7ee2d52e3	constructive	2025-07-25 18:43:52.254761+00	communication	You suck bigglt	t	0	2025-07-25 18:43:52.254761+00	2025-07-25 18:43:52.254761+00
 \.
 
 
@@ -4515,9 +4800,8 @@ COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, f
 --
 
 COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description, updated_at) FROM stdin;
-2	Test Q3 2025 Cycle	2025-07-01	2025-09-30	upcoming	2025-07-25 16:51:46.269884+00	quarterly	\N	2025-07-25 20:53:06.947319+00
-1	Test@2025Q3	2025-07-01	2025-09-30	active	2025-07-25 16:24:06.646381+00	quarterly	\N	2025-07-25 20:53:06.947319+00
-3	Q3ReviewFinalTest	2025-07-01	2025-09-30	closed	2025-07-25 16:57:09.016246+00	quarterly	\N	2025-07-25 20:53:35.320938+00
+5	Q4 2024 Performance Review	2025-07-25	2025-08-29	closed	2025-07-26 02:40:27.620148+00	quarterly	\N	2025-07-26 03:02:02.548782+00
+4	Q4 2024 Performance Review	2025-07-25	2025-08-29	active	2025-07-26 02:30:21.469198+00	quarterly	\N	2025-07-26 03:02:06.919007+00
 \.
 
 
@@ -4531,6 +4815,11 @@ COPY public.security_audit (id, user_id, employee_id, action, resource, success,
 3	\N	\N	review_cycle_activated	cycle_id:1	t	\N	\N	2025-07-25 16:56:12.272007+00
 4	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	employee_updated	employee_id:da01f7e9-e2f6-43b2-b350-affc7c661751,changes:manager_id,	t	\N	\N	2025-07-25 20:04:00.134597+00
 5	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_closed	cycle_id:3,name:Q3ReviewFinalTest	t	\N	\N	2025-07-25 20:53:35.320938+00
+6	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	employee_created	employee_id:44b5d47e-2c01-4831-82a0-febc2b69d5b2,role:manager	t	\N	\N	2025-07-26 02:25:19.092151+00
+7	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	employee_created	employee_id:10d7912a-6c81-4e59-8991-6821987f2456,role:employee	t	\N	\N	2025-07-26 02:29:09.831739+00
+8	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	employee_created	employee_id:7c24fa62-4a0d-4854-a7e3-7c6e0ef4707b,role:employee	t	\N	\N	2025-07-26 02:29:48.271022+00
+9	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	employee_created	employee_id:d3483958-b145-4d9b-8651-abdfbed5a337,role:employee	t	\N	\N	2025-07-26 02:39:47.854823+00
+10	cd31bc16-c8c0-4a99-a35a-872928d5f763	270a21d0-bd05-4a7a-93bb-6abefa1e61a7	review_cycle_closed	cycle_id:5,name:Q4 2024 Performance Review	t	\N	\N	2025-07-26 03:02:02.548782+00
 \.
 
 
@@ -4567,7 +4856,7 @@ SELECT pg_catalog.setval('public.assessment_scorecard_metrics_id_seq', 1, false)
 -- Name: assessments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.assessments_id_seq', 7, true);
+SELECT pg_catalog.setval('public.assessments_id_seq', 20, true);
 
 
 --
@@ -4575,6 +4864,20 @@ SELECT pg_catalog.setval('public.assessments_id_seq', 7, true);
 --
 
 SELECT pg_catalog.setval('public.company_rocks_id_seq', 1, false);
+
+
+--
+-- Name: departments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.departments_id_seq', 8, true);
+
+
+--
+-- Name: employee_departments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
+--
+
+SELECT pg_catalog.setval('public.employee_departments_id_seq', 2, true);
 
 
 --
@@ -4595,14 +4898,14 @@ SELECT pg_catalog.setval('public.peer_feedback_feedback_id_seq', 6, true);
 -- Name: review_cycles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.review_cycles_id_seq', 3, true);
+SELECT pg_catalog.setval('public.review_cycles_id_seq', 5, true);
 
 
 --
 -- Name: security_audit_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.security_audit_id_seq', 5, true);
+SELECT pg_catalog.setval('public.security_audit_id_seq', 10, true);
 
 
 --
@@ -4646,11 +4949,43 @@ ALTER TABLE ONLY public.company_rocks
 
 
 --
+-- Name: departments departments_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.departments
+    ADD CONSTRAINT departments_name_key UNIQUE (name);
+
+
+--
+-- Name: departments departments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.departments
+    ADD CONSTRAINT departments_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: development_plans development_plans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.development_plans
     ADD CONSTRAINT development_plans_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: employee_departments employee_departments_employee_id_department_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_departments
+    ADD CONSTRAINT employee_departments_employee_id_department_id_key UNIQUE (employee_id, department_id);
+
+
+--
+-- Name: employee_departments employee_departments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_departments
+    ADD CONSTRAINT employee_departments_pkey PRIMARY KEY (id);
 
 
 --
@@ -4824,6 +5159,20 @@ CREATE INDEX idx_development_plans_manager_id ON public.development_plans USING 
 --
 
 CREATE INDEX idx_development_plans_status ON public.development_plans USING btree (status);
+
+
+--
+-- Name: idx_employee_departments_department_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_employee_departments_department_id ON public.employee_departments USING btree (department_id);
+
+
+--
+-- Name: idx_employee_departments_employee_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_employee_departments_employee_id ON public.employee_departments USING btree (employee_id);
 
 
 --
@@ -5045,6 +5394,22 @@ ALTER TABLE ONLY public.development_plans
 
 ALTER TABLE ONLY public.development_plans
     ADD CONSTRAINT development_plans_manager_reviewed_by_fkey FOREIGN KEY (manager_reviewed_by) REFERENCES public.employees(id) ON DELETE SET NULL;
+
+
+--
+-- Name: employee_departments employee_departments_department_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_departments
+    ADD CONSTRAINT employee_departments_department_id_fkey FOREIGN KEY (department_id) REFERENCES public.departments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: employee_departments employee_departments_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_departments
+    ADD CONSTRAINT employee_departments_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
 
 
 --
@@ -5366,6 +5731,19 @@ CREATE POLICY company_rocks_read ON public.company_rocks FOR SELECT TO authentic
 
 
 --
+-- Name: departments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.departments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: departments departments_select_all; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY departments_select_all ON public.departments FOR SELECT TO authenticated USING (true);
+
+
+--
 -- Name: development_plans; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -5415,6 +5793,27 @@ CREATE POLICY development_plans_update_own ON public.development_plans FOR UPDAT
   WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (manager_id IN ( SELECT employees.id
    FROM public.employees
   WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
+
+
+--
+-- Name: employee_departments; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.employee_departments ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: employee_departments employee_departments_select_own; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY employee_departments_select_own ON public.employee_departments FOR SELECT TO authenticated USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))) OR (employee_id IN ( SELECT e.id
+   FROM public.employees e
+  WHERE (e.manager_id IN ( SELECT employees.id
+           FROM public.employees
+          WHERE ((employees.user_id = auth.uid()) AND (employees.is_active = true)))))) OR (EXISTS ( SELECT 1
    FROM public.employees
   WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text) AND (employees.is_active = true))))));
 

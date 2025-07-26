@@ -9,9 +9,11 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     email: '',
     jobTitle: '',
     role: 'employee',
-    managerId: ''
+    managerId: '',
+    departmentIds: []
   });
   const [managers, setManagers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -19,6 +21,7 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
 
   useEffect(() => {
     fetchManagers();
+    fetchDepartments();
   }, []);
 
   const fetchManagers = async () => {
@@ -30,8 +33,29 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const response = await supabase.rpc('get_all_departments');
+      if (response.data) {
+        setDepartments(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+    }
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (error) setError('');
+  };
+
+  const handleDepartmentToggle = (departmentId) => {
+    setFormData(prev => ({
+      ...prev,
+      departmentIds: prev.departmentIds.includes(departmentId)
+        ? prev.departmentIds.filter(id => id !== departmentId)
+        : [...prev.departmentIds, departmentId]
+    }));
     if (error) setError('');
   };
 
@@ -73,6 +97,18 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       });
 
       if (result.success) {
+        // If departments are selected, assign them to the employee
+        if (formData.departmentIds.length > 0) {
+          try {
+            await supabase.rpc('set_employee_departments', {
+              p_employee_id: result.data.employee_id,
+              p_department_ids: formData.departmentIds
+            });
+          } catch (deptErr) {
+            console.error('Error setting employee departments:', deptErr);
+            // Still show success, but note the department assignment may have failed
+          }
+        }
         setSuccess(result);
       } else {
         setError(result.error || 'Failed to create employee');
@@ -153,6 +189,14 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
                   <span className="text-gray-400">Job Title:</span>
                   <span className="text-white ml-2">{formData.jobTitle}</span>
                 </div>
+                {formData.departmentIds.length > 0 && (
+                  <div className="col-span-2">
+                    <span className="text-gray-400">Departments:</span>
+                    <span className="text-white ml-2">
+                      {departments.filter(d => formData.departmentIds.includes(d.id)).map(d => d.name).join(', ')}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -318,6 +362,35 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Departments */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Departments (Optional)
+            </label>
+            <div className="grid grid-cols-2 gap-2 p-3 bg-gray-700 border border-gray-600 rounded-md">
+              {departments.map((department) => (
+                <label
+                  key={department.id}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-600 p-2 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.departmentIds.includes(department.id)}
+                    onChange={() => handleDepartmentToggle(department.id)}
+                    className="w-4 h-4 text-cyan-600 bg-gray-800 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
+                    disabled={loading}
+                  />
+                  <span className="text-white text-sm">{department.name}</span>
+                </label>
+              ))}
+            </div>
+            {formData.departmentIds.length > 0 && (
+              <p className="text-xs text-gray-400">
+                Selected: {departments.filter(d => formData.departmentIds.includes(d.id)).map(d => d.name).join(', ')}
+              </p>
+            )}
           </div>
 
           {/* Info Box */}

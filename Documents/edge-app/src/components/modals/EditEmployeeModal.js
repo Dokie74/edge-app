@@ -13,16 +13,20 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     jobTitle: employee?.job_title || '',
     role: employee?.role || 'employee',
     managerId: employee?.manager_id || '',
-    isActive: employee?.is_active !== false
+    isActive: employee?.is_active !== false,
+    departmentIds: []
   });
   
   const [managers, setManagers] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [hasChanges, setHasChanges] = useState(false);
 
   useEffect(() => {
     fetchManagers();
+    fetchDepartments();
+    fetchEmployeeDetails();
   }, []);
 
   useEffect(() => {
@@ -33,7 +37,8 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       jobTitle: employee?.job_title || '',
       role: employee?.role || 'employee',
       managerId: employee?.manager_id || '',
-      isActive: employee?.is_active !== false
+      isActive: employee?.is_active !== false,
+      departmentIds: []
     };
     
     const changed = Object.keys(formData).some(key => formData[key] !== original[key]);
@@ -49,8 +54,46 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const response = await supabase.rpc('get_all_departments');
+      if (response.data) {
+        setDepartments(response.data);
+      }
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+    }
+  };
+
+  const fetchEmployeeDetails = async () => {
+    try {
+      const response = await supabase.rpc('get_employee_with_departments', {
+        p_employee_id: employee.id
+      });
+      if (response.data && !response.data.error) {
+        const departments = response.data.departments || [];
+        setFormData(prev => ({
+          ...prev,
+          departmentIds: departments
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching employee details:', err);
+    }
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (error) setError('');
+  };
+
+  const handleDepartmentToggle = (departmentId) => {
+    setFormData(prev => ({
+      ...prev,
+      departmentIds: prev.departmentIds.includes(departmentId)
+        ? prev.departmentIds.filter(id => id !== departmentId)
+        : [...prev.departmentIds, departmentId]
+    }));
     if (error) setError('');
   };
 
@@ -95,6 +138,17 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       const result = await AdminService.updateEmployee(employee.id, updateData);
 
       if (result.success) {
+        // Update departments if they changed
+        try {
+          await supabase.rpc('set_employee_departments', {
+            p_employee_id: employee.id,
+            p_department_ids: formData.departmentIds
+          });
+        } catch (deptErr) {
+          console.error('Error updating employee departments:', deptErr);
+          // Still proceed with success, but note the department update may have failed
+        }
+
         if (onComplete) onComplete();
         closeModal();
         // Show success message
@@ -269,6 +323,35 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
                 </option>
               ))}
             </select>
+          </div>
+
+          {/* Departments */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Departments (Optional)
+            </label>
+            <div className="grid grid-cols-2 gap-2 p-3 bg-gray-700 border border-gray-600 rounded-md">
+              {departments.map((department) => (
+                <label
+                  key={department.id}
+                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-600 p-2 rounded"
+                >
+                  <input
+                    type="checkbox"
+                    checked={formData.departmentIds.includes(department.id)}
+                    onChange={() => handleDepartmentToggle(department.id)}
+                    className="w-4 h-4 text-cyan-600 bg-gray-800 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
+                    disabled={loading}
+                  />
+                  <span className="text-white text-sm">{department.name}</span>
+                </label>
+              ))}
+            </div>
+            {formData.departmentIds.length > 0 && (
+              <p className="text-xs text-gray-400">
+                Selected: {departments.filter(d => formData.departmentIds.includes(d.id)).map(d => d.name).join(', ')}
+              </p>
+            )}
           </div>
 
           {/* Change Indicator */}
