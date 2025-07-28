@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "Bash(npx kill-port:*)",
+      "Bash(rm:*)",
+      "Bash(del database-*.sql)",
+      "Bash(touch:*)",
+      "Bash(ls:*)",
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(supabase db reset:*)",
+      "Bash(psql:*)",
+      "Bash(supabase db push:*)",
+      "Bash(del:*)",
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(node:*)",
+      "Bash(npm:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx tailwindcss:*)",
+      "Bash(python:*)",
+      "Bash(powershell:*)",
+      "Bash(sed:*)",
+      "Bash(dir:*)"
+    ],
+    "deny": []
+  }
+}
