@@ -3,42 +3,36 @@ import { supabase } from './supabaseClient';
 export class TeamService {
   static async getMyTeam() {
     try {
+      console.log('Calling reliable get_my_team function');
       const { data, error } = await supabase.rpc('get_my_team');
+      
       if (error) {
-        // If function doesn't exist, return empty array for now
-        if (error.code === 'PGRST202') {
-          console.warn('get_my_team function not found, returning empty array');
-          return [];
-        }
+        console.error('Error from get_my_team:', error);
         throw error;
       }
+      
+      console.log('Team data received:', data);
       return data || [];
     } catch (error) {
-      if (error.code === 'PGRST202') {
-        console.warn('get_my_team function not found, returning empty array');
-        return [];
-      }
+      console.error('Error in getMyTeam:', error);
       throw error;
     }
   }
 
   static async getTeamAssessments() {
     try {
+      console.log('Calling reliable get_team_assessments function');
       const { data, error } = await supabase.rpc('get_team_assessments');
+      
       if (error) {
-        // If function doesn't exist, return empty array for now
-        if (error.code === 'PGRST202') {
-          console.warn('get_team_assessments function not found, returning empty array');
-          return [];
-        }
+        console.error('Error from get_team_assessments:', error);
         throw error;
       }
+      
+      console.log('Team assessments received:', data);
       return data || [];
     } catch (error) {
-      if (error.code === 'PGRST202') {
-        console.warn('get_team_assessments function not found, returning empty array');
-        return [];
-      }
+      console.error('Error in getTeamAssessments:', error);
       throw error;
     }
   }

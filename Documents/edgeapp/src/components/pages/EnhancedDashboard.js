@@ -34,7 +34,9 @@ export default function EnhancedDashboard() {
       setLoading(true);
       setError(null);
       const data = await NotificationService.getDashboardStats(userRole);
+      console.log('Dashboard stats received:', JSON.stringify(data, null, 2));
       setStats(data);
+      
     } catch (err) {
       console.error('Error fetching dashboard stats:', err);
       setError(err.message);
@@ -66,14 +68,29 @@ export default function EnhancedDashboard() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-cyan-400 flex items-center">
-          <BarChart3 className="mr-3" size={36} />
-          Dashboard
-        </h1>
-        <p className="text-gray-400 mt-2">
-          Welcome back, {userName}! Here's your performance overview.
-        </p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-4xl font-bold text-cyan-400 flex items-center">
+            <BarChart3 className="mr-3" size={36} />
+            Dashboard
+          </h1>
+          <p className="text-gray-400 mt-2">
+            Welcome back, {userName}! Here's your performance overview.
+          </p>
+        </div>
+        <div className="flex space-x-3">
+          <button
+            onClick={fetchDashboardStats}
+            className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <Activity className="mr-2" size={16} />
+            Refresh Stats
+          </button>
+          {/* Debug info - temporary */}
+          <div className="text-xs text-gray-500 bg-gray-800 px-3 py-2 rounded">
+            Role: {userRole} | Data: {stats ? 'loaded' : 'none'} | Pending: {stats?.assessments?.pending || 0}
+          </div>
+        </div>
       </div>
 
       {/* Role-specific Dashboard Content */}
@@ -216,7 +233,7 @@ const ManagerDashboard = ({ stats }) => {
         />
         <MetricCard
           title="Pending Reviews"
-          value={stats.assessments?.pending_reviews || 0}
+          value={stats.pending_reviews || 0}
           icon={Clock}
           color="yellow"
           subtitle="Awaiting your review"

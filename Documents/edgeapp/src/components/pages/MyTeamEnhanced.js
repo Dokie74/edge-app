@@ -34,17 +34,24 @@ export default function MyTeamEnhanced() {
   const [pendingReviews, setPendingReviews] = useState([]);
   const [completedReviews, setCompletedReviews] = useState([]);
   const [developmentPlans, setDevelopmentPlans] = useState([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
 
   // Process assessments for workflow display
   useEffect(() => {
     if (teamAssessments) {
+      console.log('Team assessments received:', teamAssessments);
+      
       const pending = teamAssessments.filter(assessment => 
-        assessment.self_assessment_status === 'submitted' && 
-        assessment.manager_review_status === 'pending'
+        assessment.self_assessment_status === 'employee_complete' && 
+        assessment.manager_review_status === 'pending' &&
+        assessment.cycle_status === 'active'  // Only show active cycles
       );
       const completed = teamAssessments.filter(assessment => 
         assessment.manager_review_status === 'completed'
       );
+      
+      console.log('Pending reviews filtered:', pending);
+      console.log('Completed reviews filtered:', completed);
       
       setPendingReviews(pending);
       setCompletedReviews(completed);
@@ -66,15 +73,11 @@ export default function MyTeamEnhanced() {
   };
 
   const handleReviewAssessment = (assessment) => {
-    // Navigate to manager review interface
+    // Navigate to assessment page for manager review
     setActivePage({ 
-      name: 'Manager Review', 
+      name: 'Assessment', 
       props: { 
-        assessmentId: assessment.assessment_id,
-        employeeId: assessment.employee_id,
-        employeeName: assessment.employee_name,
-        cycleId: assessment.cycle_id,
-        cycleName: assessment.cycle_name
+        assessmentId: assessment.assessment_id
       } 
     });
   };
@@ -204,7 +207,13 @@ export default function MyTeamEnhanced() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setSelectedTab(tab.id)}
+              onClick={() => {
+                setSelectedTab(tab.id);
+                // Reset employee filter when switching tabs
+                if (tab.id === 'overview' || tab.id === 'development') {
+                  setSelectedEmployeeId(null);
+                }
+              }}
               className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
                 selectedTab === tab.id
                   ? 'border-cyan-500 text-cyan-400'
@@ -268,8 +277,23 @@ export default function MyTeamEnhanced() {
                       variant="secondary" 
                       size="sm"
                       onClick={() => {
-                        // View employee assessments
-                        setActivePage({ name: 'My Reviews', props: { employeeId: member.id } });
+                        // Filter to show this employee's reviews and switch to appropriate tab
+                        setSelectedEmployeeId(member.id);
+                        const employeePendingReviews = pendingReviews.filter(assessment => 
+                          assessment.employee_id === member.id
+                        );
+                        const employeeCompletedReviews = completedReviews.filter(assessment => 
+                          assessment.employee_id === member.id
+                        );
+                        
+                        // Switch to the tab that has reviews for this employee, or pending by default
+                        if (employeePendingReviews.length > 0) {
+                          setSelectedTab('pending');
+                        } else if (employeeCompletedReviews.length > 0) {
+                          setSelectedTab('completed');
+                        } else {
+                          setSelectedTab('pending');
+                        }
                       }}
                     >
                       <FileText size={14} className="mr-1" />
@@ -285,8 +309,26 @@ export default function MyTeamEnhanced() {
 
       {selectedTab === 'pending' && (
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Pending Reviews</h2>
-          {pendingReviews.length === 0 ? (
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">
+              Pending Reviews
+              {selectedEmployeeId && (
+                <span className="text-gray-400 text-sm ml-2">
+                  (Filtered for {team.find(m => m.id === selectedEmployeeId)?.name})
+                </span>
+              )}
+            </h2>
+            {selectedEmployeeId && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSelectedEmployeeId(null)}
+              >
+                Show All
+              </Button>
+            )}
+          </div>
+          {(selectedEmployeeId ? pendingReviews.filter(r => r.employee_id === selectedEmployeeId) : pendingReviews).length === 0 ? (
             <div className="text-center py-12">
               <Clock size={64} className="mx-auto text-gray-500 mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No Pending Reviews</h3>
@@ -294,7 +336,7 @@ export default function MyTeamEnhanced() {
             </div>
           ) : (
             <div className="space-y-4">
-              {pendingReviews.map((assessment) => (
+              {(selectedEmployeeId ? pendingReviews.filter(r => r.employee_id === selectedEmployeeId) : pendingReviews).map((assessment) => (
                 <div key={assessment.assessment_id} className="bg-gray-800 rounded-lg p-6 border border-gray-700 border-l-4 border-l-yellow-500">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
@@ -333,9 +375,10 @@ export default function MyTeamEnhanced() {
                       <Button 
                         variant="primary"
                         onClick={() => handleReviewAssessment(assessment)}
+                        className="bg-yellow-600 hover:bg-yellow-700 border-yellow-600"
                       >
-                        <Eye className="mr-2" size={16} />
-                        Review Assessment
+                        <Edit className="mr-2" size={16} />
+                        Start Manager Review
                       </Button>
                     </div>
                   </div>
@@ -348,8 +391,26 @@ export default function MyTeamEnhanced() {
 
       {selectedTab === 'completed' && (
         <div className="space-y-6">
-          <h2 className="text-xl font-semibold text-white mb-4">Completed Reviews</h2>
-          {completedReviews.length === 0 ? (
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-white">
+              Completed Reviews
+              {selectedEmployeeId && (
+                <span className="text-gray-400 text-sm ml-2">
+                  (Filtered for {team.find(m => m.id === selectedEmployeeId)?.name})
+                </span>
+              )}
+            </h2>
+            {selectedEmployeeId && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setSelectedEmployeeId(null)}
+              >
+                Show All
+              </Button>
+            )}
+          </div>
+          {(selectedEmployeeId ? completedReviews.filter(r => r.employee_id === selectedEmployeeId) : completedReviews).length === 0 ? (
             <div className="text-center py-12">
               <CheckCircle size={64} className="mx-auto text-gray-500 mb-4" />
               <h3 className="text-xl font-semibold text-white mb-2">No Completed Reviews</h3>
@@ -357,7 +418,7 @@ export default function MyTeamEnhanced() {
             </div>
           ) : (
             <div className="space-y-4">
-              {completedReviews.map((assessment) => (
+              {(selectedEmployeeId ? completedReviews.filter(r => r.employee_id === selectedEmployeeId) : completedReviews).map((assessment) => (
                 <div key={assessment.assessment_id} className="bg-gray-800 rounded-lg p-6 border border-gray-700 border-l-4 border-l-green-500">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">

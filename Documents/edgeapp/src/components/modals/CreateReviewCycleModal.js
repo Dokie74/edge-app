@@ -45,17 +45,41 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
       setLoading(true);
       setError('');
 
-      const { data, error: rpcError } = await supabase.rpc('create_simple_review_cycle', {
+      // Step 1: Create the review cycle
+      const { data: createData, error: createError } = await supabase.rpc('create_simple_review_cycle', {
         p_name: formData.name.trim(),
         p_start_date: formData.startDate,
         p_end_date: formData.endDate
       });
 
-      if (rpcError) throw rpcError;
+      if (createError) throw createError;
 
-      if (data?.error) {
-        setError(data.error);
+      if (createData?.error) {
+        setError(createData.error);
         return;
+      }
+
+      // Step 2: Activate the review cycle using the new reliable function
+      const cycleId = createData?.cycle_id;
+      if (cycleId) {
+        try {
+          console.log('Activating review cycle with reliable function:', cycleId);
+          const { data: activateData, error: activateError } = await supabase.rpc('activate_review_cycle', {
+            p_cycle_id: cycleId
+          });
+          
+          if (activateError) throw activateError;
+          
+          if (activateData?.error) {
+            console.error('Activation error:', activateData.error);
+            alert(`Review cycle created but failed to activate: ${activateData.error}`);
+          } else {
+            alert(`Review cycle activated successfully! Created ${activateData.assessments_created} assessments for all employees.`);
+          }
+        } catch (err) {
+          console.error('Error activating review cycle:', err);
+          alert(`Review cycle created but failed to activate: ${err.message}`);
+        }
       }
 
       // Success - call completion callback and close modal
@@ -64,7 +88,6 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
       }
       
       closeModal();
-      alert('Review cycle created successfully!');
       
     } catch (err) {
       console.error('Error creating review cycle:', err);

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus, Square } from 'lucide-react';
 import { useAdmin } from '../../hooks';
 import { useApp } from '../../contexts';
-import { AdminService } from '../../services';
+import { AdminService, supabase } from '../../services';
 import { getStatusBadgeColor, formatDate, validateRequired, validateDateRange } from '../../utils';
 
 export default function Admin() {
@@ -373,7 +373,166 @@ export default function Admin() {
         )}
       </div>
 
+      {/* Review Oversight Section */}
+      <ReviewOversightSection />
+
     </div>
   );
 }
+
+// Review Oversight Component for Admin Dashboard
+const ReviewOversightSection = () => {
+  const { setActivePage } = useApp();
+  const [reviewStats, setReviewStats] = useState({
+    total: 0,
+    pending_employee: 0,
+    pending_manager: 0,
+    completed: 0,
+    overdue: 0
+  });
+  const [recentReviews, setRecentReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchReviewOversight();
+  }, []);
+
+  const fetchReviewOversight = async () => {
+    try {
+      setLoading(true);
+      // This would be a custom RPC function to get admin oversight data
+      const { data: stats, error: statsError } = await supabase.rpc('get_admin_review_stats');
+      const { data: recent, error: recentError } = await supabase.rpc('get_recent_review_activity');
+      
+      if (!statsError && stats) {
+        setReviewStats(stats[0] || reviewStats);
+      }
+      if (!recentError && recent) {
+        setRecentReviews(recent || []);
+      }
+    } catch (err) {
+      console.error('Error fetching review oversight:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewAssessment = (assessmentId) => {
+    setActivePage({ 
+      name: 'Assessment', 
+      props: { assessmentId } 
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="mt-8 bg-gray-800 rounded-lg p-6">
+        <h2 className="text-xl font-semibold text-white mb-4">Review Process Oversight</h2>
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8 bg-gray-800 rounded-lg p-6">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center">
+          <Square className="mr-2 text-cyan-400" size={24} />
+          <h2 className="text-xl font-semibold text-white">Review Process Oversight</h2>
+        </div>
+        <button 
+          onClick={fetchReviewOversight}
+          className="text-cyan-400 hover:text-cyan-300 text-sm"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-gray-700 rounded-lg p-4 text-center">
+          <div className="text-2xl font-bold text-white">{reviewStats.total}</div>
+          <div className="text-sm text-gray-400">Total Reviews</div>
+        </div>
+        <div className="bg-yellow-900 bg-opacity-50 rounded-lg p-4 text-center border border-yellow-700">
+          <div className="text-2xl font-bold text-yellow-400">{reviewStats.pending_employee}</div>
+          <div className="text-sm text-yellow-300">Employee Pending</div>
+        </div>
+        <div className="bg-orange-900 bg-opacity-50 rounded-lg p-4 text-center border border-orange-700">
+          <div className="text-2xl font-bold text-orange-400">{reviewStats.pending_manager}</div>
+          <div className="text-sm text-orange-300">Manager Pending</div>
+        </div>
+        <div className="bg-green-900 bg-opacity-50 rounded-lg p-4 text-center border border-green-700">
+          <div className="text-2xl font-bold text-green-400">{reviewStats.completed}</div>
+          <div className="text-sm text-green-300">Completed</div>
+        </div>
+        <div className="bg-red-900 bg-opacity-50 rounded-lg p-4 text-center border border-red-700">
+          <div className="text-2xl font-bold text-red-400">{reviewStats.overdue}</div>
+          <div className="text-sm text-red-300">Overdue</div>
+        </div>
+      </div>
+
+      {/* Recent Activity */}
+      <div>
+        <h3 className="text-lg font-semibold text-white mb-4">Recent Review Activity</h3>
+        {recentReviews.length > 0 ? (
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {recentReviews.map((review, index) => (
+              <div key={index} className="bg-gray-700 rounded-lg p-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-cyan-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-medium text-xs">
+                        {review.employee_name?.split(' ').map(n => n[0]).join('') || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <div className="text-white font-medium">{review.employee_name}</div>
+                      <div className="text-sm text-gray-400">{review.cycle_name}</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="text-center">
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      review.self_assessment_status === 'employee_complete' ? 'bg-green-600 text-green-100' :
+                      review.self_assessment_status === 'in_progress' ? 'bg-yellow-600 text-yellow-100' :
+                      'bg-gray-600 text-gray-100'
+                    }`}>
+                      {review.self_assessment_status?.replace('_', ' ') || 'Not Started'}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">Employee</div>
+                  </div>
+                  <div className="text-center">
+                    <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      review.manager_review_status === 'completed' ? 'bg-green-600 text-green-100' :
+                      review.manager_review_status === 'pending' ? 'bg-orange-600 text-orange-100' :
+                      'bg-gray-600 text-gray-100'
+                    }`}>
+                      {review.manager_review_status || 'Not Started'}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-1">Manager</div>
+                  </div>
+                  <button
+                    onClick={() => handleViewAssessment(review.assessment_id)}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    View
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <Square size={48} className="mx-auto mb-4 text-gray-500" />
+            <p className="text-gray-400">No recent review activity</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 

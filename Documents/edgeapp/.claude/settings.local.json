@@ -25,7 +25,10 @@
       "Bash(python:*)",
       "Bash(powershell:*)",
       "Bash(sed:*)",
-      "Bash(dir:*)"
+      "Bash(dir:*)",
+      "Bash(npx supabase:*)",
+      "Bash(cat:*)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

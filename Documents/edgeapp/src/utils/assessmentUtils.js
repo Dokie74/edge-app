@@ -4,6 +4,50 @@ import { Calendar, Clock, CheckCircle, Award, User } from 'lucide-react';
 export const getStatusDisplay = (assessment) => {
   // Use self_assessment_status if available, otherwise fall back to status
   const currentStatus = assessment.self_assessment_status || assessment.status;
+  const cycleStatus = assessment.review_cycle_status;
+  const managerReviewStatus = assessment.manager_review_status;
+  const employeeAcknowledgment = assessment.employee_acknowledgment;
+  
+  // If the review cycle is closed, none of the assessments should be considered "active"
+  const isCycleClosed = cycleStatus === 'closed';
+  
+  // Special handling for different workflow states
+  if (isCycleClosed) {
+    return {
+      label: 'Review Cycle Closed', 
+      color: 'text-gray-400',
+      bgColor: 'bg-gray-600',
+      actionLabel: 'View History',
+      description: 'This review cycle has been closed',
+      icon: Calendar,
+      isActive: false
+    };
+  }
+  
+  // Handle manager review completion and employee acknowledgment workflow
+  if (managerReviewStatus === 'completed' && !employeeAcknowledgment) {
+    return {
+      label: 'Manager Review Complete - Acknowledge Required', 
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-600',
+      actionLabel: 'Review & Acknowledge',
+      description: 'Your manager has completed their review. Please review and acknowledge.',
+      icon: Award,
+      isActive: cycleStatus === 'active'
+    };
+  }
+  
+  if (managerReviewStatus === 'completed' && employeeAcknowledgment) {
+    return {
+      label: 'Review Process Complete', 
+      color: 'text-green-400',
+      bgColor: 'bg-green-600',
+      actionLabel: 'View Results',
+      description: 'Your performance review is fully complete',
+      icon: CheckCircle,
+      isActive: false
+    };
+  }
   
   const statusMap = {
     'not_started': { 
@@ -13,7 +57,7 @@ export const getStatusDisplay = (assessment) => {
       actionLabel: 'Start',
       description: 'Begin your self-assessment',
       icon: Calendar,
-      isActive: true
+      isActive: cycleStatus === 'active'  // Only active if cycle is active
     },
     'in_progress': { 
       label: 'In Progress', 
@@ -22,25 +66,25 @@ export const getStatusDisplay = (assessment) => {
       actionLabel: 'Continue',
       description: 'Complete your self-assessment',
       icon: Clock,
-      isActive: true
+      isActive: cycleStatus === 'active'  // Only active if cycle is active
     },
     'employee_complete': { 
-      label: 'Submitted', 
+      label: 'Waiting for Manager Review', 
       color: 'text-blue-400',
       bgColor: 'bg-blue-600',
       actionLabel: 'View',
-      description: 'Waiting for manager review',
+      description: 'Your manager is reviewing your assessment',
       icon: User,
-      isActive: true
+      isActive: cycleStatus === 'active'  // Only active if cycle is active
     },
     'manager_complete': { 
-      label: 'Manager Complete', 
+      label: 'Manager Review Complete', 
       color: 'text-purple-400',
       bgColor: 'bg-purple-600',
       actionLabel: 'View',
       description: 'Review completed by manager',
       icon: Award,
-      isActive: true
+      isActive: cycleStatus === 'active'  // Only active if cycle is active
     },
     'finalized': { 
       label: 'Finalized', 

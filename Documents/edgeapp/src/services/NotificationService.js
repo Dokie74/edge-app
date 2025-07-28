@@ -251,34 +251,29 @@ export class NotificationService {
     }
   }
 
-  // Get dashboard statistics
+  // Get dashboard statistics using the new unified function
   static async getDashboardStats(userRole) {
     try {
-      let functionName;
-      switch (userRole) {
-        case 'admin':
-          functionName = 'get_admin_dashboard_stats';
-          break;
-        case 'manager':
-          functionName = 'get_manager_dashboard_stats';
-          break;
-        default:
-          functionName = 'get_employee_dashboard_stats';
-      }
-
-      const { data, error } = await supabase.rpc(functionName);
-      if (error) throw error;
+      console.log(`Calling unified get_dashboard_stats for role: ${userRole}`);
       
-      // Parse JSON response
-      if (typeof data === 'string') {
-        return JSON.parse(data);
+      const { data, error } = await supabase.rpc('get_dashboard_stats', {
+        p_role: userRole
+      });
+      
+      if (error) {
+        console.error('Database error from get_dashboard_stats:', error);
+        throw error;
       }
+      
+      console.log('Dashboard stats received:', data);
       return data || {};
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
       throw new Error(`Failed to fetch dashboard statistics: ${error.message}`);
     }
   }
+
+
 
   // Helper function to format notification time
   static formatNotificationTime(timestamp) {
