@@ -28,7 +28,7 @@
     "test:all": "npm run test:ci && npm run test:e2e",
     "lint": "echo 'Linting not configured - using build-time checks'",
     "type-check": "tsc --noEmit",
-    "preinstall": "echo 'Installing dependencies with security fixes...'",
+    "vercel-build": "npm install --legacy-peer-deps && npm run build",
     "eject": "react-scripts eject"
   },
   "browserslist": {
