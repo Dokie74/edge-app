@@ -1,13 +1,11 @@
 {
   "version": 2,
-  "buildCommand": "cd Documents/edgeapp && npm install --legacy-peer-deps && npm run build",
-  "outputDirectory": "Documents/edgeapp/build",
   "builds": [
     {
-      "src": "Documents/edgeapp/package.json",
+      "src": "package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "Documents/edgeapp/build"
+        "distDir": "build"
       }
     }
   ],
