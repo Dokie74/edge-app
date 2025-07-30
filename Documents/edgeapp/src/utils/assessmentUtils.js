@@ -151,3 +151,65 @@ export const getAssessmentProgress = (assessment) => {
       return { percentage: 0, step: 'Unknown' };
   }
 };
+
+/**
+ * Calculates a numerical score (1-5) from an assessment
+ * Uses overall satisfaction, GWC ratings, and other metrics
+ */
+export const calculateAssessmentScore = (assessment) => {
+  if (!assessment) return null;
+  
+  const scores = [];
+  
+  // Overall satisfaction (already 1-5 scale)
+  if (assessment.overall_satisfaction) {
+    const satisfaction = typeof assessment.overall_satisfaction === 'string' 
+      ? parseInt(assessment.overall_satisfaction) 
+      : assessment.overall_satisfaction;
+    if (satisfaction >= 1 && satisfaction <= 5) {
+      scores.push(satisfaction);
+    }
+  }
+  
+  // GWC fields: convert boolean to 1-5 scale
+  // true = 5 (excellent), false = 1 (poor), null/undefined = 3 (neutral)
+  const gwcFields = ['gwc_gets_it', 'gwc_wants_it', 'gwc_capacity'];
+  gwcFields.forEach(field => {
+    if (assessment[field] === true) {
+      scores.push(5);
+    } else if (assessment[field] === false) {
+      scores.push(1);
+    } else if (assessment[field] !== undefined && assessment[field] !== null) {
+      scores.push(3); // neutral for any other defined value
+    }
+  });
+  
+  // If no scores available, return null
+  if (scores.length === 0) return null;
+  
+  // Calculate average and round to 1 decimal place
+  const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  return Math.round(average * 10) / 10;
+};
+
+/**
+ * Gets historical scores for trend analysis
+ * Groups assessments by cycle and calculates scores
+ */
+export const getAssessmentTrends = (assessments) => {
+  if (!assessments || assessments.length === 0) return [];
+  
+  return assessments
+    .map(assessment => ({
+      cycleName: assessment.cycle_name,
+      cycleEndDate: assessment.cycle_end_date,
+      selfScore: calculateAssessmentScore(assessment),
+      managerScore: assessment.manager_overall_rating ? 
+        (typeof assessment.manager_overall_rating === 'string' ? 
+          parseInt(assessment.manager_overall_rating) : 
+          assessment.manager_overall_rating) : null,
+      isComplete: assessment.employee_acknowledged_at !== null
+    }))
+    .filter(trend => trend.selfScore !== null || trend.managerScore !== null)
+    .sort((a, b) => new Date(a.cycleEndDate) - new Date(b.cycleEndDate));
+};

@@ -19,13 +19,14 @@ import {
   MessageSquare,
   Star,
   ThumbsUp,
-  X
+  X,
+  BarChart3
 } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { LoadingSpinner, ErrorMessage, Button } from '../ui';
 import { QuickHealthCheck } from '../ui/TeamHealthPulse';
 import { MetricCard } from '../analytics/ChartComponents';
-import { formatDate } from '../../utils';
+import { formatDate, calculateAssessmentScore, getAssessmentTrends } from '../../utils';
 import RoleBasedAnalyticsService, { EmployeeDashboardData } from '../../services/RoleBasedAnalyticsService';
 import { FeedbackService } from '../../services';
 
@@ -36,6 +37,8 @@ export default function EmployeeDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [feedbackReceived, setFeedbackReceived] = useState<any[]>([]);
+  const [dismissedFeedback, setDismissedFeedback] = useState<Set<number>>(new Set());
+  const [assessmentTrends, setAssessmentTrends] = useState<any[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
 
   useEffect(() => {
@@ -51,6 +54,12 @@ export default function EmployeeDashboard() {
       setError(null);
       const data = await RoleBasedAnalyticsService.getEmployeeDashboard(user!.id);
       setDashboardData(data);
+      
+      // Calculate assessment trends if assessments are available
+      if (data?.assessments) {
+        const trends = getAssessmentTrends(data.assessments);
+        setAssessmentTrends(trends);
+      }
     } catch (err: any) {
       console.error('Error fetching employee dashboard:', err);
       setError(err.message);
@@ -78,7 +87,13 @@ export default function EmployeeDashboard() {
   };
 
   const handleDismissFeedback = (feedbackId: number) => {
+    setDismissedFeedback(prev => new Set([...prev, feedbackId]));
+    // Also remove from current display
     setFeedbackReceived(prev => prev.filter(f => f.feedback_id !== feedbackId));
+  };
+
+  const getVisibleFeedback = () => {
+    return feedbackReceived.filter(f => !dismissedFeedback.has(f.feedback_id));
   };
 
   const getGreeting = () => {
@@ -154,31 +169,25 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
-      {/* Personal KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Quick Stats - Compact */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <MetricCard
-          title="Pending Tasks"
+          title="Active Reviews"
           value={dashboardData.personalStats.pendingAssessments}
           icon={Clock}
           color={dashboardData.personalStats.pendingAssessments > 0 ? 'yellow' : 'green'}
         />
         <MetricCard
-          title="Completed"
+          title="Recent Feedback"
+          value={getVisibleFeedback().length}
+          icon={Inbox}
+          color="orange"
+        />
+        <MetricCard
+          title="Completed Reviews"
           value={dashboardData.personalStats.completedAssessments}
           icon={CheckCircle}
           color="green"
-        />
-        <MetricCard
-          title="Team Satisfaction"
-          value={dashboardData.departmentInfo.avgSatisfaction.toFixed(1)}
-          icon={Award}
-          color="blue"
-        />
-        <MetricCard
-          title="Dept Progress"
-          value={`${dashboardData.departmentInfo.departmentGoalsProgress}%`}
-          icon={TrendingUp}
-          color="purple"
         />
       </div>
 
@@ -200,7 +209,7 @@ export default function EmployeeDashboard() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* My Tasks - Priority Section */}
+        {/* My Tasks & Priorities - Enhanced */}
         <div className="lg:col-span-2 bg-gray-800 rounded-lg p-6 border border-gray-700">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-white flex items-center">
@@ -216,49 +225,92 @@ export default function EmployeeDashboard() {
             </Button>
           </div>
           
-          {dashboardData.myTasks.length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-300">All caught up!</h3>
-              <p className="mt-1 text-sm text-gray-400">You have no pending tasks right now.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {dashboardData.myTasks.map((task) => (
-                <div 
-                  key={task.id} 
-                  className={`p-4 rounded-lg border-l-4 ${getTaskPriorityColor(task.priority)} cursor-pointer hover:bg-gray-700/30 transition-colors`}
-                  onClick={() => {
-                    if (task.type === 'assessment') {
-                      navigate(`/assessment/${task.id}`);
-                    }
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-white font-medium text-sm">{task.title}</h3>
-                      <p className="text-gray-400 text-xs mt-1">
-                        Due: {formatDate(task.dueDate)}
-                      </p>
-                      <div className="flex items-center mt-2 space-x-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
-                          task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-blue-500/20 text-blue-400'
-                        }`}>
-                          {task.priority.toUpperCase()}
-                        </span>
-                        <span className="text-gray-500 text-xs capitalize">
-                          {task.type.replace('_', ' ')}
-                        </span>
+          <div className="space-y-4">
+            {/* 🎺 TRUMPETED Feedback Wall Notifications */}
+            {getVisibleFeedback().map(feedback => (
+              <div 
+                key={`feedback-${feedback.feedback_id}`}
+                className="p-4 rounded-lg border-l-4 border-l-orange-500 bg-gradient-to-r from-orange-900/20 to-orange-800/10 cursor-pointer hover:bg-orange-800/20 transition-all duration-200 shadow-md"
+                onClick={() => navigate('/feedback')}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <div className="p-1.5 rounded-full bg-orange-500/20 animate-pulse">
+                        <Star size={14} className="text-orange-400" />
                       </div>
+                      <span className="text-orange-400 font-medium text-sm">🎺 New Feedback Received!</span>
+                      <span className="px-2 py-1 rounded-full text-xs bg-orange-500/20 text-orange-400 font-medium">
+                        HIGH PRIORITY
+                      </span>
                     </div>
-                    <ArrowRight size={16} className="text-gray-400" />
+                    <h3 className="text-white font-medium text-sm mb-1">
+                      Feedback from {feedback.is_anonymous ? 'Anonymous' : feedback.giver_name}
+                    </h3>
+                    <p className="text-gray-300 text-sm line-clamp-2 mb-2">{feedback.message}</p>
+                    <p className="text-orange-400 text-xs">
+                      Click to view on Feedback Wall • {formatDate(feedback.created_at)}
+                    </p>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDismissFeedback(feedback.feedback_id);
+                    }}
+                    className="ml-4 text-gray-400 hover:text-white transition-colors p-1"
+                    title="Dismiss notification"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-              ))}
-            </div>
-          )}
+              </div>
+            ))}
+
+            {/* Regular Tasks */}
+            {dashboardData.myTasks.length === 0 && getVisibleFeedback().length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle className="mx-auto h-12 w-12 text-green-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-300">All caught up!</h3>
+                <p className="mt-1 text-sm text-gray-400">You have no pending tasks or feedback right now.</p>
+              </div>
+            ) : (
+              <>
+                {dashboardData.myTasks.map((task) => (
+                  <div 
+                    key={task.id} 
+                    className={`p-4 rounded-lg border-l-4 ${getTaskPriorityColor(task.priority)} cursor-pointer hover:bg-gray-700/30 transition-colors`}
+                    onClick={() => {
+                      if (task.type === 'assessment') {
+                        navigate(`/assessment/${task.id}`);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-white font-medium text-sm">{task.title}</h3>
+                        <p className="text-gray-400 text-xs mt-1">
+                          Due: {formatDate(task.dueDate)}
+                        </p>
+                        <div className="flex items-center mt-2 space-x-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            task.priority === 'high' ? 'bg-red-500/20 text-red-400' :
+                            task.priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>
+                            {task.priority.toUpperCase()}
+                          </span>
+                          <span className="text-gray-500 text-xs capitalize">
+                            {task.type.replace('_', ' ')}
+                          </span>
+                        </div>
+                      </div>
+                      <ArrowRight size={16} className="text-gray-400" />
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Department Info & Quick Stats */}
@@ -332,127 +384,51 @@ export default function EmployeeDashboard() {
             </div>
           </div>
 
-          {/* Debug Section - Temporary */}
-          <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4">
-            <h3 className="text-red-400 font-medium mb-2">🐛 Debug Info</h3>
-            <p className="text-red-300 text-sm">Feedback count: {feedbackReceived.length}</p>
-            <p className="text-red-300 text-sm">Loading: {feedbackLoading ? 'Yes' : 'No'}</p>
-            <p className="text-red-300 text-sm">Should show section: {feedbackReceived.length > 0 ? 'YES' : 'NO'}</p>
-            <p className="text-red-300 text-sm">Array type: {Array.isArray(feedbackReceived) ? 'Array' : typeof feedbackReceived}</p>
-            <button 
-              onClick={fetchRecentFeedback}
-              className="mt-2 bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded text-sm"
-            >
-              Force Refresh
-            </button>
-          </div>
 
-          {/* Recent Feedback - Always show for debugging */}
-          {true && (
-            <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white flex items-center">
-                  <Inbox className="mr-2" size={18} />
-                  Recent Feedback
-                </h2>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={fetchRecentFeedback}
-                    className="text-gray-400 hover:text-white transition-colors"
-                    title="Refresh feedback"
-                  >
-                    🔄
-                  </button>
-                  <button
-                    onClick={() => navigate('/feedback')}
-                    className="text-orange-400 hover:text-orange-300 text-sm transition-colors"
-                  >
-                    View All
-                  </button>
+          {/* Assessment Score Trends */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-white flex items-center">
+                <TrendingUp className="mr-2" size={18} />
+                My Assessment Trends
+              </h2>
+              <button
+                onClick={() => navigate('/reviews')}
+                className="text-cyan-400 hover:text-cyan-300 text-sm transition-colors"
+              >
+                View History
+              </button>
+            </div>
+            
+            {assessmentTrends.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-cyan-400">
+                      {assessmentTrends[assessmentTrends.length - 1]?.selfScore || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-400">Latest Self Score</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-400">
+                      {assessmentTrends[assessmentTrends.length - 1]?.managerScore || 'N/A'}
+                    </div>
+                    <div className="text-xs text-gray-400">Latest Manager Score</div>
+                  </div>
+                </div>
+                <div className="text-center py-4">
+                  <div className="text-sm text-gray-400">
+                    📈 Based on {assessmentTrends.length} completed assessment{assessmentTrends.length !== 1 ? 's' : ''}
+                  </div>
                 </div>
               </div>
-              
-              <div className="space-y-3">
-                {feedbackReceived.length > 0 ? (
-                  feedbackReceived.map(feedback => (
-                    <FeedbackCard 
-                      key={feedback.feedback_id} 
-                      feedback={feedback} 
-                      onDismiss={handleDismissFeedback}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-400 text-sm">No recent feedback</p>
-                  </div>
-                )}
+            ) : (
+              <div className="text-center py-6">
+                <BarChart3 className="mx-auto h-8 w-8 text-gray-500" />
+                <p className="text-gray-400 text-sm mt-2">Complete assessments to see your trends</p>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Personal Notifications */}
-      {dashboardData.notifications.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-            <AlertCircle className="mr-2" size={18} />
-            Personal Notifications
-          </h2>
-          <div className="space-y-3">
-            {dashboardData.notifications.map((notification) => (
-              <div 
-                key={notification.id} 
-                className={`p-4 rounded-lg border-l-4 ${
-                  notification.type === 'warning' 
-                    ? 'border-l-yellow-500 bg-yellow-900/10' 
-                    : 'border-l-blue-500 bg-blue-900/10'
-                }`}
-              >
-                <h3 className="text-white font-medium text-sm">{notification.title}</h3>
-                <p className="text-gray-300 text-sm mt-1">{notification.message}</p>
-                <p className="text-gray-500 text-xs mt-2">{formatDate(notification.timestamp)}</p>
-              </div>
-            ))}
+            )}
           </div>
-        </div>
-      )}
-
-      {/* Quick Actions */}
-      <div className="bg-gradient-to-r from-gray-800 to-gray-700 rounded-lg p-6 border border-gray-600">
-        <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Button 
-            className="flex flex-col items-center space-y-2 h-16"
-            onClick={() => navigate('/reviews')}
-          >
-            <Calendar size={20} />
-            <span className="text-sm">My Reviews</span>
-          </Button>
-          <Button 
-            className="flex flex-col items-center space-y-2 h-16" 
-            variant="secondary"
-            onClick={() => navigate('/development')}
-          >
-            <BookOpen size={20} />
-            <span className="text-sm">Development</span>
-          </Button>
-          <Button 
-            className="flex flex-col items-center space-y-2 h-16" 
-            variant="secondary"
-            onClick={() => navigate('/feedback')}
-          >
-            <Award size={20} />
-            <span className="text-sm">Feedback</span>
-          </Button>
-          <Button 
-            className="flex flex-col items-center space-y-2 h-16" 
-            variant="secondary"
-            onClick={() => navigate('/help')}
-          >
-            <BookOpen size={20} />
-            <span className="text-sm">Help Guide</span>
-          </Button>
         </div>
       </div>
 
