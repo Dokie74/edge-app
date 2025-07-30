@@ -1,32 +1,32 @@
 {
   "version": 2,
+  "buildCommand": "cd Documents/edgeapp && npm install --legacy-peer-deps && npm run build",
+  "outputDirectory": "Documents/edgeapp/build",
   "builds": [
     {
-      "src": "package.json",
+      "src": "Documents/edgeapp/package.json",
       "use": "@vercel/static-build",
       "config": {
-        "distDir": "build"
+        "distDir": "Documents/edgeapp/build"
       }
     }
   ],
-  "routes": [
+  "rewrites": [
     {
-      "src": "/static/(.*)",
-      "headers": {
-        "cache-control": "public, max-age=31536000, immutable"
-      }
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
-  "env": {
-    "REACT_APP_SUPABASE_URL": "@supabase_url",
-    "REACT_APP_SUPABASE_ANON_KEY": "@supabase_anon_key",
-    "REACT_APP_ENV": "production"
-  },
   "headers": [
+    {
+      "source": "/static/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
