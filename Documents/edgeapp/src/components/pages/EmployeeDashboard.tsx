@@ -29,15 +29,17 @@ import { MetricCard } from '../analytics/ChartComponents';
 import { formatDate, calculateAssessmentScore, getAssessmentTrends } from '../../utils';
 import RoleBasedAnalyticsService, { EmployeeDashboardData } from '../../services/RoleBasedAnalyticsService';
 import { FeedbackService } from '../../services';
+import { useAssessments } from '../../hooks';
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
   const { userName, user } = useApp();
+  const { assessments } = useAssessments();
   const [dashboardData, setDashboardData] = useState<EmployeeDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [feedbackReceived, setFeedbackReceived] = useState<any[]>([]);
-  const [dismissedFeedback, setDismissedFeedback] = useState<Set<number>>(new Set());
+  const [dismissedFeedback, setDismissedFeedback] = useState<number[]>([]);
   const [assessmentTrends, setAssessmentTrends] = useState<any[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
 
@@ -48,6 +50,14 @@ export default function EmployeeDashboard() {
     }
   }, [user?.id]);
 
+  // Calculate assessment trends when assessments change
+  useEffect(() => {
+    if (assessments && assessments.length > 0) {
+      const trends = getAssessmentTrends(assessments);
+      setAssessmentTrends(trends);
+    }
+  }, [assessments]);
+
   const fetchEmployeeDashboard = async () => {
     try {
       setLoading(true);
@@ -55,11 +65,7 @@ export default function EmployeeDashboard() {
       const data = await RoleBasedAnalyticsService.getEmployeeDashboard(user!.id);
       setDashboardData(data);
       
-      // Calculate assessment trends if assessments are available
-      if (data?.assessments) {
-        const trends = getAssessmentTrends(data.assessments);
-        setAssessmentTrends(trends);
-      }
+      // Assessment trends will be calculated from useAssessments hook
     } catch (err: any) {
       console.error('Error fetching employee dashboard:', err);
       setError(err.message);
@@ -87,13 +93,13 @@ export default function EmployeeDashboard() {
   };
 
   const handleDismissFeedback = (feedbackId: number) => {
-    setDismissedFeedback(prev => new Set([...prev, feedbackId]));
+    setDismissedFeedback(prev => [...prev, feedbackId]);
     // Also remove from current display
     setFeedbackReceived(prev => prev.filter(f => f.feedback_id !== feedbackId));
   };
 
   const getVisibleFeedback = () => {
-    return feedbackReceived.filter(f => !dismissedFeedback.has(f.feedback_id));
+    return feedbackReceived.filter(f => !dismissedFeedback.includes(f.feedback_id));
   };
 
   const getGreeting = () => {
@@ -162,27 +168,30 @@ export default function EmployeeDashboard() {
           </div>
           <div className="text-right">
             <div className="text-cyan-400 text-2xl font-bold">
-              {dashboardData.personalStats.goalsProgress}%
+              {dashboardData.personalStats.completedAssessments}
             </div>
-            <div className="text-gray-400 text-sm">Goals Progress</div>
+            <div className="text-gray-400 text-sm">Completed Reviews</div>
           </div>
         </div>
       </div>
 
       {/* Quick Stats - Compact */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${getVisibleFeedback().length > 0 ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
         <MetricCard
           title="Active Reviews"
           value={dashboardData.personalStats.pendingAssessments}
           icon={Clock}
           color={dashboardData.personalStats.pendingAssessments > 0 ? 'yellow' : 'green'}
         />
-        <MetricCard
-          title="Recent Feedback"
-          value={getVisibleFeedback().length}
-          icon={Inbox}
-          color="orange"
-        />
+        {/* Only show Recent Feedback if there's unseen feedback */}
+        {getVisibleFeedback().length > 0 && (
+          <MetricCard
+            title="New Feedback"
+            value={getVisibleFeedback().length}
+            icon={Inbox}
+            color="yellow"
+          />
+        )}
         <MetricCard
           title="Completed Reviews"
           value={dashboardData.personalStats.completedAssessments}
@@ -191,20 +200,6 @@ export default function EmployeeDashboard() {
         />
       </div>
 
-      {/* Feedback Received KPI - Separate */}
-      {feedbackReceived.length > 0 && (
-        <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm font-medium">Feedback Received</p>
-              <p className="text-2xl font-bold text-white mt-1">{feedbackReceived.length}</p>
-            </div>
-            <div className="p-3 rounded-full bg-yellow-500/10 ring-1 ring-yellow-500/20">
-              <Inbox size={24} className="text-yellow-400" />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -313,78 +308,8 @@ export default function EmployeeDashboard() {
           </div>
         </div>
 
-        {/* Department Info & Quick Stats */}
+        {/* Right Column - Assessment Trends Only */}
         <div className="space-y-6">
-          
-          {/* Team Health Check */}
-          <QuickHealthCheck />
-          
-          {/* Department Overview */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <Users className="mr-2" size={18} />
-              My Department
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">Team Size</span>
-                  <span className="text-white font-medium">{dashboardData.departmentInfo.teamSize}</span>
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-gray-400 text-sm">Team Goals Progress</span>
-                  <span className="text-white font-medium">{dashboardData.departmentInfo.departmentGoalsProgress}%</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${dashboardData.departmentInfo.departmentGoalsProgress}%` }}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-400 text-sm">Avg Satisfaction</span>
-                  <div className="flex items-center space-x-1">
-                    <span className="text-yellow-400 font-medium">
-                      {dashboardData.departmentInfo.avgSatisfaction.toFixed(1)}
-                    </span>
-                    <span className="text-gray-500 text-xs">/5.0</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Recent Activity */}
-          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <Activity className="mr-2" size={18} />
-              Recent Activity
-            </h2>
-            <div className="space-y-3">
-              {dashboardData.recentActivity.length === 0 ? (
-                <p className="text-gray-400 text-sm">No recent activity</p>
-              ) : (
-                dashboardData.recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-cyan-400 rounded-full mt-2" />
-                    <div className="flex-1">
-                      <p className="text-white text-sm font-medium">{activity.action}</p>
-                      <p className="text-gray-400 text-xs">{activity.description}</p>
-                      <p className="text-gray-500 text-xs mt-1">{formatDate(activity.date)}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-
           {/* Assessment Score Trends */}
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <div className="flex items-center justify-between mb-4">
@@ -428,6 +353,31 @@ export default function EmployeeDashboard() {
                 <p className="text-gray-400 text-sm mt-2">Complete assessments to see your trends</p>
               </div>
             )}
+          </div>
+          
+          {/* Company Satisfaction Widget */}
+          <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center">
+              <Award className="mr-2" size={18} />
+              Satisfaction Scores
+            </h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-400">
+                  {dashboardData.departmentInfo.avgSatisfaction.toFixed(1)}
+                </div>
+                <div className="text-xs text-gray-400">Department</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-400">
+                  {dashboardData.departmentInfo.companySatisfaction.toFixed(1)}
+                </div>
+                <div className="text-xs text-gray-400">Company</div>
+              </div>
+            </div>
+            <div className="text-center mt-2">
+              <div className="text-xs text-gray-500">Based on employee satisfaction surveys (1-5 scale)</div>
+            </div>
           </div>
         </div>
       </div>

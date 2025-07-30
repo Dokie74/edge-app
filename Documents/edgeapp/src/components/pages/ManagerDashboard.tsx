@@ -214,8 +214,8 @@ export default function ManagerDashboard() {
           color="purple"
         />
         <MetricCard
-          title="Goals Progress"
-          value={`${dashboardData.teamStats.teamGoalsProgress}%`}
+          title="Company Satisfaction"
+          value={dashboardData.departmentMetrics.companySatisfaction.toFixed(1)}
           icon={TrendingUp}
           color="blue"
         />

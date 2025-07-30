@@ -13,65 +13,52 @@ interface PulseQuestion {
 
 const PULSE_QUESTIONS: PulseQuestion[] = [
   {
-    id: 'daily_satisfaction',
-    question: 'How are you feeling at work today?',
+    id: 'provide_value',
+    question: 'Do you feel you provide value to the company?',
     type: 'scale',
     category: 'satisfaction'
   },
   {
-    id: 'workload_manageable',
-    question: 'Is your current workload manageable?',
-    type: 'boolean',
-    category: 'workload'
-  },
-  {
-    id: 'team_support',
-    question: 'Do you feel supported by your team?',
-    type: 'scale',
-    category: 'support'
-  },
-  {
-    id: 'workplace_safety',
-    question: 'Do you feel safe in your work environment today?',
-    type: 'boolean',
-    category: 'satisfaction'
-  },
-  {
-    id: 'work_quality',
-    question: 'How would you rate the quality of your work today?',
-    type: 'choice',
-    options: ['Excellent', 'Good', 'Needs Improvement', 'Poor'],
-    category: 'engagement'
-  },
-  {
-    id: 'tools_resources',
-    question: 'Do you have the tools and resources needed to do your job effectively?',
-    type: 'boolean',
-    category: 'support'
-  },
-  {
-    id: 'communication_clear',
-    question: 'Are you receiving clear communication about priorities and expectations?',
-    type: 'scale',
-    category: 'support'
-  },
-  {
-    id: 'motivation_level',
-    question: 'How motivated do you feel about your work today?',
-    type: 'scale',
-    category: 'engagement'
-  },
-  {
-    id: 'work_life_balance',
-    question: 'How would you rate your work-life balance today?',
+    id: 'happy_to_start_work',
+    question: 'Were you happy to start work today?',
     type: 'scale',
     category: 'satisfaction'
   },
   {
-    id: 'growth_opportunities',
-    question: 'Do you feel you have opportunities to learn and grow in your role?',
-    type: 'boolean',
-    category: 'engagement'
+    id: 'feel_contribute',
+    question: 'Do you feel you contribute meaningfully to your team?',
+    type: 'scale',
+    category: 'satisfaction'
+  },
+  {
+    id: 'workplace_satisfaction',
+    question: 'How satisfied are you with your workplace today?',
+    type: 'scale',
+    category: 'satisfaction'
+  },
+  {
+    id: 'team_collaboration',
+    question: 'How would you rate your team collaboration today?',
+    type: 'scale',
+    category: 'satisfaction'
+  },
+  {
+    id: 'workload_balance',
+    question: 'How manageable is your workload today?',
+    type: 'scale',
+    category: 'satisfaction'
+  },
+  {
+    id: 'work_environment',
+    question: 'How comfortable is your work environment?',
+    type: 'scale',
+    category: 'satisfaction'
+  },
+  {
+    id: 'job_fulfillment',
+    question: 'How fulfilling is your work today?',
+    type: 'scale',
+    category: 'satisfaction'
   }
 ];
 
@@ -159,8 +146,8 @@ export default function TeamHealthPulse({ onComplete, showRandomQuestion = false
         return (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-400">Very Poor</span>
-              <span className="text-sm text-gray-400">Excellent</span>
+              <span className="text-sm text-gray-400">Strongly Disagree</span>
+              <span className="text-sm text-gray-400">Strongly Agree</span>
             </div>
             <div className="flex space-x-2">
               {[1, 2, 3, 4, 5].map(value => (
@@ -176,40 +163,6 @@ export default function TeamHealthPulse({ onComplete, showRandomQuestion = false
           </div>
         );
 
-      case 'boolean':
-        return (
-          <div className="flex space-x-4">
-            <button
-              onClick={() => handleResponse(true)}
-              className="flex-1 bg-green-600 hover:bg-green-500 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center"
-            >
-              <ThumbsUp size={20} className="mr-2" />
-              Yes
-            </button>
-            <button
-              onClick={() => handleResponse(false)}
-              className="flex-1 bg-red-600 hover:bg-red-500 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center"
-            >
-              <AlertTriangle size={20} className="mr-2" />
-              No
-            </button>
-          </div>
-        );
-
-      case 'choice':
-        return (
-          <div className="space-y-2">
-            {currentQuestion.options?.map(option => (
-              <button
-                key={option}
-                onClick={() => handleResponse(option)}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white py-3 px-4 rounded-lg text-left transition-colors"
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        );
 
       default:
         return null;

@@ -49,6 +49,84 @@ export class TeamHealthService {
     });
   }
 
+  // Save a pulse response with department information
+  static async savePulseResponse(
+    response: PulseResponse, 
+    userName: string, 
+    managerId?: string, 
+    department?: string
+  ): Promise<void> {
+    try {
+      // Enhance the response with additional context
+      const enhancedResponse = {
+        ...response,
+        userName,
+        managerId,
+        department
+      };
+
+      // Get existing responses
+      const existingResponses = this.getAllResponses();
+      
+      // Add new response
+      existingResponses.push(enhancedResponse);
+      
+      // Save back to localStorage
+      localStorage.setItem('pulse_responses', JSON.stringify(existingResponses));
+      
+      // Check if this response should generate an alert
+      this.checkForAlert(enhancedResponse, userName, managerId, department);
+      
+    } catch (error) {
+      console.error('Error saving pulse response:', error);
+      throw error;
+    }
+  }
+
+  // Get team health alerts
+  static getTeamHealthAlerts(): TeamHealthAlert[] {
+    try {
+      const alerts = localStorage.getItem('team_health_alerts');
+      return alerts ? JSON.parse(alerts) : [];
+    } catch (error) {
+      console.error('Error getting team health alerts:', error);
+      return [];
+    }
+  }
+
+  // Check if a response should generate an alert for managers
+  private static checkForAlert(
+    response: any, 
+    userName: string, 
+    managerId?: string, 
+    department?: string
+  ): void {
+    // Generate alerts for low satisfaction scores (1-2 on 1-5 scale)
+    if (response.category === 'satisfaction' && 
+        typeof response.response === 'number' && 
+        response.response <= 2) {
+      
+      const alert: TeamHealthAlert = {
+        id: `alert_${Date.now()}_${response.userId}`,
+        userId: response.userId,
+        userName,
+        managerId,
+        department,
+        questionId: response.questionId,
+        question: response.question,
+        response: response.response,
+        severity: response.response === 1 ? 'high' : 'medium',
+        timestamp: response.timestamp,
+        acknowledged: false
+      };
+
+      // Save alert to localStorage (in production, this would go to database)
+      const existingAlerts = this.getTeamHealthAlerts();
+      existingAlerts.push(alert);
+      localStorage.setItem('team_health_alerts', JSON.stringify(existingAlerts));
+    }
+  }
+
   // Calculate team satisfaction average
   static calculateTeamSatisfaction(departmentName?: string): number {
     const responses = this.getAllResponses();
@@ -87,6 +165,48 @@ export class TeamHealthService {
 
     const average = recentResponses.reduce((sum, response) => 
       sum + response.response, 0) / recentResponses.length;
+    
+    return Math.round(average * 10) / 10;
+  }
+
+  // Calculate department satisfaction score 
+  static calculateDepartmentSatisfaction(department: string): number {
+    const responses = this.getAllResponses();
+    
+    // Filter for satisfaction responses from this department
+    const deptResponses = responses.filter(response => 
+      response.category === 'satisfaction' && 
+      typeof response.response === 'number' &&
+      response.response >= 1 && response.response <= 5 &&
+      (response as any).department === department
+    );
+
+    if (deptResponses.length === 0) {
+      return this.calculateTeamSatisfaction(); // Fallback to overall
+    }
+
+    const average = deptResponses.reduce((sum, response) => 
+      sum + response.response, 0) / deptResponses.length;
+    
+    return Math.round(average * 10) / 10;
+  }
+
+  // Calculate company-wide satisfaction score
+  static calculateCompanySatisfaction(): number {
+    const responses = this.getAllResponses();
+    
+    const satisfactionResponses = responses.filter(response => 
+      response.category === 'satisfaction' && 
+      typeof response.response === 'number' &&
+      response.response >= 1 && response.response <= 5
+    );
+
+    if (satisfactionResponses.length === 0) {
+      return 4.2; // Default fallback
+    }
+
+    const average = satisfactionResponses.reduce((sum, response) => 
+      sum + response.response, 0) / satisfactionResponses.length;
     
     return Math.round(average * 10) / 10;
   }
@@ -290,24 +410,4 @@ export class TeamHealthService {
     }
   }
 
-  // Save pulse response and create alert if negative
-  static async savePulseResponse(response: PulseResponse, userName: string, managerId?: string, department?: string): Promise<void> {
-    try {
-      // Check if response is negative
-      const isNegative = this.isNegativeResponse(response.questionId, response.response);
-      response.isNegative = isNegative;
-      
-      // Save the response
-      const existingResponses = this.getAllResponses();
-      existingResponses.push(response);
-      localStorage.setItem('pulse_responses', JSON.stringify(existingResponses));
-      
-      // Create alert if negative
-      if (isNegative) {
-        await this.createAlert(response, userName, managerId, department);
-      }
-    } catch (error) {
-      console.error('Error saving pulse response:', error);
-    }
-  }
 }

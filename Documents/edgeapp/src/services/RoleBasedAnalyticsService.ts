@@ -15,7 +15,7 @@ export interface EmployeeDashboardData {
     departmentName: string;
     teamSize: number;
     avgSatisfaction: number;
-    departmentGoalsProgress: number;
+    companySatisfaction: number;
   };
   myTasks: Array<{
     id: string;
@@ -46,7 +46,6 @@ export interface ManagerDashboardData {
     pendingReviews: number;
     completedReviews: number;
     teamSatisfactionAvg: number;
-    teamGoalsProgress: number;
     overdueItems: number;
   };
   teamPerformance: Array<{
@@ -74,6 +73,7 @@ export interface ManagerDashboardData {
     totalManagers: number;
     departmentCompletion: number;
     departmentSatisfaction: number;
+    companySatisfaction: number;
   };
 }
 
@@ -170,15 +170,15 @@ class RoleBasedAnalyticsService {
         personalStats: {
           pendingAssessments,
           completedAssessments,
-          goalsProgress: Math.floor(Math.random() * 40) + 60, // Mock for now
+          goalsProgress: 0, // TODO: Implement actual goals tracking system
           lastAssessmentDate: lastAssessment?.updated_at,
           nextDueDate: nextDue?.due_date
         },
         departmentInfo: {
           departmentName: employee.department || 'General',
           teamSize: (colleagues?.length || 0) + 1, // +1 for self
-          avgSatisfaction: TeamHealthService.calculateTeamSatisfaction(employee.department),
-          departmentGoalsProgress: Math.floor(Math.random() * 30) + 70
+          avgSatisfaction: TeamHealthService.calculateDepartmentSatisfaction(employee.department || 'General'),
+          companySatisfaction: TeamHealthService.calculateCompanySatisfaction()
         },
         myTasks: this.generatePersonalTasks(assessments || []),
         recentActivity: this.generatePersonalActivity(employee.name),
@@ -247,7 +247,6 @@ class RoleBasedAnalyticsService {
           pendingReviews,
           completedReviews,
           teamSatisfactionAvg: TeamHealthService.calculateRecentSatisfaction(),
-          teamGoalsProgress: Math.floor(Math.random() * 25) + 70,
           overdueItems: Math.floor(Math.random() * 5) + 1
         },
         teamPerformance: this.generateTeamPerformance(teamMembers || []),
@@ -262,7 +261,8 @@ class RoleBasedAnalyticsService {
           departmentName: manager.department || 'General',
           totalManagers: allManagers?.length || 3,
           departmentCompletion: 85 + Math.floor(Math.random() * 10),
-          departmentSatisfaction: 4.3 + Math.random() * 0.5
+          departmentSatisfaction: TeamHealthService.calculateDepartmentSatisfaction(manager.department || 'General'),
+          companySatisfaction: TeamHealthService.calculateCompanySatisfaction()
         }
       };
       

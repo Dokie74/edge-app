@@ -154,7 +154,8 @@ export const getAssessmentProgress = (assessment) => {
 
 /**
  * Calculates a numerical score (1-5) from an assessment
- * Uses overall satisfaction, GWC ratings, and other metrics
+ * FOR INDIVIDUAL ASSESSMENT TRENDS ONLY - uses GWC and satisfaction
+ * NOTE: Department/Company satisfaction uses popup survey responses, not this function
  */
 export const calculateAssessmentScore = (assessment) => {
   if (!assessment) return null;
@@ -171,7 +172,7 @@ export const calculateAssessmentScore = (assessment) => {
     }
   }
   
-  // GWC fields: convert boolean to 1-5 scale
+  // GWC fields: convert boolean to 1-5 scale (FOR INDIVIDUAL ASSESSMENT TRENDS ONLY)
   // true = 5 (excellent), false = 1 (poor), null/undefined = 3 (neutral)
   const gwcFields = ['gwc_gets_it', 'gwc_wants_it', 'gwc_capacity'];
   gwcFields.forEach(field => {
