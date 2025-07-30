@@ -40,6 +40,13 @@ BACKUP_READY.md
 CLEAN_PROJECT_STRUCTURE.md
 EDGE-App-Code-CleanBackup.txt
 
+# Temporary SQL fix files (keep main backup)
+*_fix_*.sql
+*fix*.sql
+add_*.sql
+create_*.sql
+!EDGE-App-Supabase-Backup.sql
+
 # Developer documentation (keep separate from repo)
 "EDGE (Employee Development & Growth Engine) - Developer's Guide v4.docx"
 
