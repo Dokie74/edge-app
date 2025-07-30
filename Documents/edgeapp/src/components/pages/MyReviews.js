@@ -1,30 +1,39 @@
 // STEP 5: Enhanced MyReviews Page - Replace src/components/pages/MyReviews.js
 // This shows better status information like V4 had
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, Clock, CheckCircle, Award, ArrowRight, Filter } from 'lucide-react';
 import { useAssessments } from '../../hooks';
 import { useApp } from '../../contexts';
 import { getStatusDisplay, filterActiveReviews, filterCompletedReviews, formatDate } from '../../utils';
 
 export default function MyReviews() {
-  const { setActivePage } = useApp();
+  const navigate = useNavigate();
   const { assessments: reviews, loading, error, refresh } = useAssessments();
-  const [filter, setFilter] = useState('all'); // all, active, completed
+  
+  const [filter, setFilter] = useState('active'); // Default to active
 
   const getStatusInfo = (review) => {
     return getStatusDisplay(review);
   };
 
-  const filteredReviews = reviews.filter(review => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return filterActiveReviews([review]).length > 0;
-    if (filter === 'completed') return filterCompletedReviews([review]).length > 0;
-    return true;
-  });
-
   const activeCount = filterActiveReviews(reviews).length;
   const completedCount = filterCompletedReviews(reviews).length;
+
+  // Auto-switch to completed if no active reviews
+  useEffect(() => {
+    if (!loading && activeCount === 0 && completedCount > 0 && filter === 'active') {
+      setFilter('completed');
+    }
+  }, [loading, activeCount, completedCount, filter]);
+
+  const filteredReviews = reviews.filter(review => {
+    const statusInfo = getStatusDisplay(review);
+    if (filter === 'active') return statusInfo.isActive;
+    if (filter === 'completed') return !statusInfo.isActive;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -91,7 +100,6 @@ export default function MyReviews() {
         <div className="border-b border-gray-700">
           <nav className="-mb-px flex space-x-8">
             {[
-              { id: 'all', name: 'All Reviews', count: reviews.length },
               { id: 'active', name: 'Active', count: activeCount },
               { id: 'completed', name: 'Completed', count: completedCount }
             ].map(tab => (
@@ -120,12 +128,15 @@ export default function MyReviews() {
               const statusInfo = getStatusInfo(review);
               const StatusIcon = statusInfo.icon;
               
+              
               return (
-                <div key={review.assessment_id} className="bg-gray-700 p-4 rounded-lg hover:bg-gray-600 transition">
+                <div key={review.id || review.assessment_id} className="bg-gray-700 p-4 rounded-lg hover:bg-gray-600 transition">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-white">{review.cycle_name}</h3>
+                        <h3 className="text-lg font-semibold text-white">
+                          {review.cycle_name || review.review_cycle_name || review.name || 'Unnamed Review'}
+                        </h3>
                         <span className={`px-2 py-1 text-xs rounded-full ${statusInfo.bgColor} text-white flex items-center`}>
                           <StatusIcon size={12} className="mr-1" />
                           {statusInfo.label}
@@ -133,7 +144,13 @@ export default function MyReviews() {
                       </div>
                       
                       <div className="text-sm text-gray-400 space-y-1">
+                        {review.review_period && (
+                          <p>Review Period: {review.review_period}</p>
+                        )}
                         <p>Created: {new Date(review.created_at).toLocaleDateString()}</p>
+                        {review.due_date && (
+                          <p>Due: {new Date(review.due_date).toLocaleDateString()}</p>
+                        )}
                         
                         {/* Show action needed for active reviews */}
                         {statusInfo.isActive && (
@@ -141,8 +158,8 @@ export default function MyReviews() {
                             {review.self_assessment_status === 'not_started' && 'Action needed: Start your self-assessment'}
                             {review.self_assessment_status === 'in_progress' && 'Action needed: Complete your self-assessment'}
                             {review.self_assessment_status === 'employee_complete' && review.manager_review_status === 'pending' && 'Waiting for manager review'}
-                            {review.self_assessment_status === 'employee_complete' && review.manager_review_status === 'completed' && !review.employee_acknowledgment && 'Manager review complete - please acknowledge'}
-                            {review.self_assessment_status === 'employee_complete' && review.manager_review_status === 'completed' && review.employee_acknowledgment && 'Review process complete'}
+                            {review.self_assessment_status === 'employee_complete' && review.manager_review_status === 'completed' && !review.employee_acknowledged_at && 'Manager review complete - please acknowledge'}
+                            {review.self_assessment_status === 'employee_complete' && review.manager_review_status === 'completed' && review.employee_acknowledged_at && 'Review process complete'}
                             {review.self_assessment_status === 'manager_complete' && 'Review complete - view feedback'}
                           </p>
                         )}
@@ -150,10 +167,9 @@ export default function MyReviews() {
                     </div>
                     
                     <button
-                      onClick={() => setActivePage({
-                        name: 'Assessment',
-                        props: { assessmentId: review.assessment_id }
-                      })}
+                      onClick={() => {
+                        navigate(`/assessment/${review.id || review.assessment_id}`);
+                      }}
                       className="flex items-center text-cyan-400 hover:text-cyan-300 transition"
                     >
                       View Details 

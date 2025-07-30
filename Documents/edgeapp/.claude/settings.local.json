@@ -28,7 +28,13 @@
       "Bash(dir:*)",
       "Bash(npx supabase:*)",
       "Bash(cat:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(grep:*)",
+      "Bash(supabase functions:*)",
+      "Bash(supabase link:*)",
+      "Bash(npx cypress open:*)",
+      "Bash(npx cypress run:*)",
+      "Bash(git commit:*)"
     ],
     "deny": []
   }

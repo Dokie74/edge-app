@@ -1,24 +1,46 @@
 // src/components/pages/Dashboard.js - Enhanced V2.5
-import React from 'react';
-import { Calendar, CheckCircle, Clock, Award, TrendingUp, MessageSquare } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, CheckCircle, Clock, Award, TrendingUp, MessageSquare, Inbox, Star, ThumbsUp, X } from 'lucide-react';
 import { useAssessments, useKudos } from '../../hooks';
 import { useApp } from '../../contexts';
 import { getStatusDisplay, filterActiveReviews, filterCompletedReviews, formatDate } from '../../utils';
 import { LoadingSpinner, ErrorMessage, StatusBadge, Button, Card } from '../ui';
+import { FeedbackService } from '../../services';
 
 const Dashboard = () => {
-    const { setActivePage, openModal } = useApp();
+    const navigate = useNavigate();
+    const { openModal } = useApp();
     const { assessments, loading: assessmentsLoading, error: assessmentsError } = useAssessments();
     const { kudos, loading: kudosLoading, error: kudosError } = useKudos();
+    const [feedbackReceived, setFeedbackReceived] = useState([]);
+    const [feedbackLoading, setFeedbackLoading] = useState(true);
     
-    const loading = assessmentsLoading || kudosLoading;
+    const loading = assessmentsLoading || kudosLoading || feedbackLoading;
     const error = assessmentsError || kudosError;
 
+    useEffect(() => {
+        fetchRecentFeedback();
+    }, []);
+
+    const fetchRecentFeedback = async () => {
+        try {
+            setFeedbackLoading(true);
+            const data = await FeedbackService.getMyFeedbackReceived(3); // Get 3 most recent
+            setFeedbackReceived(data || []);
+        } catch (err) {
+            console.error('Error fetching feedback:', err);
+        } finally {
+            setFeedbackLoading(false);
+        }
+    };
+
+    const handleDismissFeedback = (feedbackId) => {
+        setFeedbackReceived(prev => prev.filter(f => f.feedback_id !== feedbackId));
+    };
+
     const handleViewAssessment = (assessment) => {
-        setActivePage({
-            name: 'Assessment',
-            props: { assessmentId: assessment.assessment_id }
-        });
+        navigate(`/assessment/${assessment.assessment_id}`);
     };
 
     if (loading) {
@@ -52,7 +74,7 @@ const Dashboard = () => {
             </header>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
                     <div className="flex items-center justify-between">
                         <div>
@@ -82,10 +104,20 @@ const Dashboard = () => {
                         <Award className="text-purple-400" size={24} />
                     </div>
                 </div>
+
+                <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-gray-400 text-sm">Feedback Received</p>
+                            <p className="text-2xl font-bold text-orange-400">{feedbackReceived.length}</p>
+                        </div>
+                        <Inbox className="text-orange-400" size={24} />
+                    </div>
+                </div>
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div className={`grid grid-cols-1 ${feedbackReceived.length > 0 ? 'lg:grid-cols-2' : ''} gap-8 mb-8`}>
                 {/* Active Reviews */}
                 <div className="bg-gray-800 rounded-lg shadow-2xl p-6">
                     <h2 className="text-2xl font-semibold mb-6 text-cyan-400 flex items-center">
@@ -157,57 +189,43 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Kudos Wall */}
-                <div className="bg-gray-800 rounded-lg shadow-2xl p-6">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-semibold text-yellow-400 flex items-center">
-                            <Award className="mr-3" size={24} />
-                            Kudos Wall
-                        </h2>
-                        {openModal && (
-                            <button
-                                onClick={() => openModal('giveKudo')}
-                                className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-4 rounded-lg transition text-sm"
-                            >
-                                Give Kudos
-                            </button>
-                        )}
-                    </div>
-                    
-                    <div className="space-y-4">
-                        {recentKudos.length > 0 ? (
-                            recentKudos.map(kudo => (
-                                <div key={kudo.kudo_id} className="bg-gray-700 p-4 rounded-lg">
-                                    <div className="flex items-start space-x-3">
-                                        <Award size={16} className="text-yellow-400 mt-1 flex-shrink-0" />
-                                        <div className="flex-1">
-                                            <div className="flex items-center space-x-2 mb-1">
-                                                <span className="text-white font-medium">{kudo.recipient_name}</span>
-                                                <span className="text-gray-400 text-sm">received kudos for</span>
-                                                <span className="px-2 py-1 bg-cyan-600 text-cyan-100 text-xs rounded">
-                                                    {kudo.core_value}
-                                                </span>
-                                            </div>
-                                            <p className="text-gray-300 text-sm">{kudo.message}</p>
-                                            <div className="flex justify-between items-center mt-2">
-                                                <span className="text-gray-500 text-xs">from {kudo.giver_name}</span>
-                                                <span className="text-gray-500 text-xs">
-                                                    {formatDate(kudo.created_at)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-8 text-gray-500">
-                                <Award size={48} className="mx-auto mb-4 text-gray-600" />
-                                <p className="mb-2">No kudos yet!</p>
-                                <p className="text-xs">Be the first to recognize someone's great work.</p>
+
+                {/* Recent Feedback - Only show if feedback exists */}
+                {feedbackReceived.length > 0 && (
+                    <div className="bg-gray-800 rounded-lg shadow-2xl p-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-semibold text-orange-400 flex items-center">
+                                <Inbox className="mr-3" size={24} />
+                                Recent Feedback
+                            </h2>
+                            <div className="flex space-x-2">
+                                <button
+                                    onClick={fetchRecentFeedback}
+                                    className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg transition text-sm"
+                                    title="Refresh feedback"
+                                >
+                                    🔄
+                                </button>
+                                <button
+                                    onClick={() => navigate('/feedback')}
+                                    className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-lg transition text-sm"
+                                >
+                                    View All
+                                </button>
                             </div>
-                        )}
+                        </div>
+                        
+                        <div className="space-y-4">
+                            {feedbackReceived.map(feedback => (
+                                <FeedbackCard 
+                                    key={feedback.feedback_id} 
+                                    feedback={feedback} 
+                                    onDismiss={handleDismissFeedback}
+                                />
+                            ))}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Quick Actions */}
@@ -219,7 +237,7 @@ const Dashboard = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button
-                        onClick={() => setActivePage({ name: 'My Reviews' })}
+                        onClick={() => navigate('/reviews')}
                         className="bg-blue-700 hover:bg-blue-600 text-left p-4 rounded-lg transition group"
                     >
                         <div className="flex items-center">
@@ -233,18 +251,83 @@ const Dashboard = () => {
 
                     {openModal && (
                         <button
-                            onClick={() => openModal('giveKudo')}
-                            className="bg-yellow-700 hover:bg-yellow-600 text-left p-4 rounded-lg transition group"
+                            onClick={() => navigate('/feedback')}
+                            className="bg-orange-700 hover:bg-orange-600 text-left p-4 rounded-lg transition group"
                         >
                             <div className="flex items-center">
-                                <Award size={20} className="text-yellow-400 mr-3" />
+                                <MessageSquare size={20} className="text-orange-400 mr-3" />
                                 <div>
-                                    <p className="text-white font-medium">Give Kudos</p>
-                                    <p className="text-yellow-300 text-sm">Recognize a colleague's great work</p>
+                                    <p className="text-white font-medium">Give Feedback</p>
+                                    <p className="text-orange-300 text-sm">Share feedback with colleagues</p>
                                 </div>
                             </div>
                         </button>
                     )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// Feedback type configuration
+const feedbackTypeConfig = {
+    positive: { 
+        icon: Star, 
+        color: 'text-yellow-400', 
+        bgColor: 'bg-yellow-900', 
+        label: 'Recognition' 
+    },
+    constructive: { 
+        icon: MessageSquare, 
+        color: 'text-blue-400', 
+        bgColor: 'bg-blue-900', 
+        label: 'Growth' 
+    },
+    appreciation: { 
+        icon: ThumbsUp, 
+        color: 'text-green-400', 
+        bgColor: 'bg-green-900', 
+        label: 'Thanks' 
+    }
+};
+
+// Feedback Card Component for Dashboard
+const FeedbackCard = ({ feedback, onDismiss }) => {
+    const typeConfig = feedbackTypeConfig[feedback.feedback_type] || feedbackTypeConfig.positive;
+    const Icon = typeConfig.icon;
+
+    return (
+        <div className="bg-gray-700 p-4 rounded-lg group hover:bg-gray-600 transition-colors">
+            <div className="flex items-start space-x-3">
+                <div className={`p-2 rounded-lg ${typeConfig.bgColor} bg-opacity-50 flex-shrink-0`}>
+                    <Icon size={16} className={typeConfig.color} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-white font-medium">You</span>
+                            <span className="text-gray-400 text-sm">received</span>
+                            <span className={`px-2 py-1 text-xs rounded ${typeConfig.bgColor} ${typeConfig.color}`}>
+                                {typeConfig.label}
+                            </span>
+                        </div>
+                        <button
+                            onClick={() => onDismiss(feedback.feedback_id)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200"
+                            title="Dismiss"
+                        >
+                            <X size={14} />
+                        </button>
+                    </div>
+                    <p className="text-gray-300 text-sm mb-2 line-clamp-2">{feedback.message}</p>
+                    <div className="flex justify-between items-center">
+                        <span className="text-gray-500 text-xs">
+                            from {feedback.is_anonymous ? 'Anonymous' : feedback.giver_name}
+                        </span>
+                        <span className="text-gray-500 text-xs">
+                            {formatDate(feedback.created_at)}
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>

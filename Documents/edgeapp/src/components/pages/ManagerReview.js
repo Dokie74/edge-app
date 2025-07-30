@@ -1,5 +1,6 @@
 // src/components/pages/ManagerReview.js - Manager interface for reviewing employee assessments
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Calendar, 
@@ -19,7 +20,7 @@ import { formatDate } from '../../utils';
 import { supabase } from '../../services';
 
 export default function ManagerReview({ pageProps = {} }) {
-  const { setActivePage } = useApp();
+  const navigate = useNavigate();
   const { 
     assessmentId, 
     employeeId, 
@@ -102,7 +103,7 @@ export default function ManagerReview({ pageProps = {} }) {
       if (updateError) throw updateError;
 
       // Navigate back to My Team
-      setActivePage({ name: 'My Team', props: {} });
+      navigate('/team');
     } catch (err) {
       console.error('Error saving manager review:', err);
       setError(err.message);
@@ -146,7 +147,7 @@ export default function ManagerReview({ pageProps = {} }) {
           <h3 className="text-xl font-semibold text-white mb-2">Assessment Not Found</h3>
           <p className="text-gray-400">The requested assessment could not be found.</p>
           <Button 
-            onClick={() => setActivePage({ name: 'My Team', props: {} })}
+            onClick={() => navigate('/team')}
             className="mt-4"
           >
             Return to My Team
@@ -163,7 +164,7 @@ export default function ManagerReview({ pageProps = {} }) {
         <div className="flex items-center space-x-4">
           <Button 
             variant="secondary" 
-            onClick={() => setActivePage({ name: 'My Team', props: {} })}
+            onClick={() => navigate('/team')}
           >
             <ArrowLeft size={16} className="mr-2" />
             Back to My Team
@@ -360,7 +361,7 @@ export default function ManagerReview({ pageProps = {} }) {
               
               <Button 
                 variant="secondary"
-                onClick={() => setActivePage({ name: 'My Team', props: {} })}
+                onClick={() => navigate('/team')}
                 className="w-full"
               >
                 <ArrowLeft size={16} className="mr-2" />

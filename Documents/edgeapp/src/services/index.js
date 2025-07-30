@@ -8,3 +8,4 @@ export { TeamService } from './teamService';
 export { FeedbackService } from './feedbackService';
 export { NotificationService } from './NotificationService';
 export { ManagerPlaybookService } from './ManagerPlaybookService';
+export { AdminApprovalService } from './adminApprovalService';

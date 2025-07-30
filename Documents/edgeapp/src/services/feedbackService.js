@@ -32,6 +32,17 @@ export class FeedbackService {
     const { data, error } = await supabase.rpc('get_my_feedback_received', {
       p_limit: limit
     });
+    if (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+    return data || [];
+  }
+
+  static async getMyFeedbackGiven(limit = 20) {
+    const { data, error } = await supabase.rpc('get_my_feedback_given', {
+      p_limit: limit
+    });
     if (error) throw error;
     return data || [];
   }

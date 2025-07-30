@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Star, User, Filter, Plus, Clock, ThumbsUp } from 'lucide-react';
+import { MessageSquare, Star, User, Filter, Plus, Clock, ThumbsUp, Send, Inbox } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { Button, LoadingSpinner, ErrorMessage } from '../ui';
 import { formatDate } from '../../utils';
@@ -30,9 +30,12 @@ const feedbackTypeConfig = {
 const FeedbackWall = () => {
   const { openModal } = useApp();
   const [feedback, setFeedback] = useState([]);
+  const [feedbackGiven, setFeedbackGiven] = useState([]);
+  const [feedbackReceived, setFeedbackReceived] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
+  const [view, setView] = useState('wall'); // 'wall', 'given', 'received'
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
@@ -42,9 +45,16 @@ const FeedbackWall = () => {
   const fetchFeedback = async () => {
     try {
       setLoading(true);
-      const data = await FeedbackService.getFeedbackWall(50, filter === 'all' ? null : filter);
-      setFeedback(data);
+      const [wallData, givenData, receivedData] = await Promise.all([
+        FeedbackService.getFeedbackWall(50, filter === 'all' ? null : filter),
+        FeedbackService.getMyFeedbackGiven(20),
+        FeedbackService.getMyFeedbackReceived(20)
+      ]);
+      setFeedback(wallData);
+      setFeedbackGiven(givenData);
+      setFeedbackReceived(receivedData);
     } catch (err) {
+      console.error('FeedbackWall error:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -57,10 +67,18 @@ const FeedbackWall = () => {
     setRefreshing(false);
   };
 
-  const filteredFeedback = feedback.filter(item => {
-    if (filter === 'all') return true;
-    return item.feedback_type === filter;
-  });
+  const getCurrentData = () => {
+    switch (view) {
+      case 'given':
+        return feedbackGiven.filter(item => filter === 'all' || item.feedback_type === filter);
+      case 'received':
+        return feedbackReceived.filter(item => filter === 'all' || item.feedback_type === filter);
+      default:
+        return feedback.filter(item => filter === 'all' || item.feedback_type === filter);
+    }
+  };
+
+  const currentData = getCurrentData();
 
 
   if (loading) {
@@ -85,31 +103,81 @@ const FeedbackWall = () => {
       <header className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-white">Feedback Wall</h1>
+            <h1 className="text-4xl font-bold text-white">
+              {view === 'wall' ? 'Feedback Wall' : 
+               view === 'given' ? 'Feedback Given' : 'Feedback Received'}
+            </h1>
             <p className="text-gray-400 mt-2">
-              Real-time peer feedback fostering continuous dialogue and growth
+              {view === 'wall' ? 'Real-time peer feedback fostering continuous dialogue and growth' :
+               view === 'given' ? 'Feedback you\'ve shared with colleagues' : 'Feedback you\'ve received from colleagues'}
             </p>
           </div>
-          <Button
-            onClick={() => openModal('giveFeedback')}
-            variant="primary"
-          >
-            <Plus size={18} className="mr-2" />
-            Give Feedback
-          </Button>
+          <div className="flex items-center space-x-4">
+            <Button
+              onClick={() => openModal('giveFeedback')}
+              variant="primary"
+            >
+              <Plus size={18} className="mr-2" />
+              Give Feedback
+            </Button>
+          </div>
         </div>
       </header>
+
+      {/* View Toggle */}
+      <div className="mb-6">
+        <div className="flex space-x-1 bg-gray-800 p-1 rounded-lg border border-gray-700 max-w-md">
+          <button
+            onClick={() => setView('wall')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
+              view === 'wall' 
+                ? 'bg-cyan-600 text-white' 
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            <MessageSquare size={16} />
+            <span>Public Wall</span>
+          </button>
+          <button
+            onClick={() => setView('received')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
+              view === 'received' 
+                ? 'bg-cyan-600 text-white' 
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            <Inbox size={16} />
+            <span>Received ({feedbackReceived.length})</span>
+          </button>
+          <button
+            onClick={() => setView('given')}
+            className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md transition-colors ${
+              view === 'given' 
+                ? 'bg-cyan-600 text-white' 
+                : 'text-gray-400 hover:text-white hover:bg-gray-700'
+            }`}
+          >
+            <Send size={16} />
+            <span>Given ({feedbackGiven.length})</span>
+          </button>
+        </div>
+      </div>
 
       {/* Filter Tabs */}
       <div className="mb-6">
         <div className="border-b border-gray-700">
           <nav className="-mb-px flex space-x-8">
-            {[
-              { key: 'all', label: 'All Feedback', count: feedback.length },
-              { key: 'positive', label: 'Recognition', count: feedback.filter(f => f.feedback_type === 'positive').length },
-              { key: 'constructive', label: 'Growth', count: feedback.filter(f => f.feedback_type === 'constructive').length },
-              { key: 'appreciation', label: 'Thanks', count: feedback.filter(f => f.feedback_type === 'appreciation').length }
-            ].map(tab => (
+            {(() => {
+              const baseData = view === 'given' ? feedbackGiven : 
+                              view === 'received' ? feedbackReceived : 
+                              feedback;
+              return [
+                { key: 'all', label: 'All Feedback', count: baseData.length },
+                { key: 'positive', label: 'Recognition', count: baseData.filter(f => f.feedback_type === 'positive').length },
+                { key: 'constructive', label: 'Growth', count: baseData.filter(f => f.feedback_type === 'constructive').length },
+                { key: 'appreciation', label: 'Thanks', count: baseData.filter(f => f.feedback_type === 'appreciation').length }
+              ];
+            })().map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
@@ -130,7 +198,7 @@ const FeedbackWall = () => {
 
         <div className="mt-4 flex items-center justify-between">
           <p className="text-gray-400 text-sm">
-            Showing {filteredFeedback.length} feedback items
+            Showing {currentData.length} feedback items
           </p>
           <Button
             onClick={handleRefresh}
@@ -149,12 +217,12 @@ const FeedbackWall = () => {
       </div>
 
       {/* Feedback Content */}
-      {filteredFeedback.length === 0 ? (
-        <EmptyState filter={filter} onGiveFeedback={() => openModal('giveFeedback')} />
+      {currentData.length === 0 ? (
+        <EmptyState filter={filter} view={view} onGiveFeedback={() => openModal('giveFeedback')} />
       ) : (
         <div className="space-y-4">
-          {filteredFeedback.map(item => (
-            <FeedbackCard key={item.feedback_id} feedback={item} />
+          {currentData.map(item => (
+            <FeedbackCard key={item.feedback_id} feedback={item} view={view} />
           ))}
         </div>
       )}
@@ -200,29 +268,75 @@ const FeedbackWall = () => {
 };
 
 // Empty State Component
-const EmptyState = ({ filter, onGiveFeedback }) => (
-  <div className="text-center py-16">
-    <MessageSquare size={64} className="mx-auto text-gray-500 mb-6" />
-    <h3 className="text-xl font-semibold text-white mb-2">
-      {filter === 'all' ? 'No feedback yet' : `No ${filter} feedback yet`}
-    </h3>
-    <p className="text-gray-400 mb-8 max-w-md mx-auto">
-      {filter === 'all' 
-        ? "Be the first to share feedback with your colleagues! Continuous dialogue helps everyone grow."
-        : `No ${filter} feedback has been shared yet. Start the conversation!`
-      }
-    </p>
-    <Button onClick={onGiveFeedback} variant="primary">
-      <Plus size={18} className="mr-2" />
-      Give First Feedback
-    </Button>
-  </div>
-);
+const EmptyState = ({ filter, view, onGiveFeedback }) => {
+  const getEmptyMessage = () => {
+    if (view === 'given') {
+      return {
+        title: filter === 'all' ? 'No feedback given yet' : `No ${filter} feedback given yet`,
+        message: "Start sharing feedback with your colleagues to help them grow and improve.",
+        buttonText: "Give First Feedback"
+      };
+    } else if (view === 'received') {
+      return {
+        title: filter === 'all' ? 'No feedback received yet' : `No ${filter} feedback received yet`,
+        message: "Feedback from colleagues will appear here. Encourage others to share feedback!",
+        buttonText: "Give Feedback to Others"
+      };
+    }
+    return {
+      title: filter === 'all' ? 'No feedback yet' : `No ${filter} feedback yet`,
+      message: "Be the first to share feedback with your colleagues! Continuous dialogue helps everyone grow.",
+      buttonText: "Give First Feedback"
+    };
+  };
+
+  const emptyState = getEmptyMessage();
+  const Icon = view === 'given' ? Send : view === 'received' ? Inbox : MessageSquare;
+
+  return (
+    <div className="text-center py-16">
+      <Icon size={64} className="mx-auto text-gray-500 mb-6" />
+      <h3 className="text-xl font-semibold text-white mb-2">
+        {emptyState.title}
+      </h3>
+      <p className="text-gray-400 mb-8 max-w-md mx-auto">
+        {emptyState.message}
+      </p>
+      <Button onClick={onGiveFeedback} variant="primary">
+        <Plus size={18} className="mr-2" />
+        {emptyState.buttonText}
+      </Button>
+    </div>
+  );
+};
 
 // Feedback Card Component
-const FeedbackCard = ({ feedback }) => {
+const FeedbackCard = ({ feedback, view = 'wall' }) => {
   const typeConfig = feedbackTypeConfig[feedback.feedback_type] || feedbackTypeConfig.positive;
   const Icon = typeConfig.icon;
+
+  const getDisplayText = () => {
+    if (view === 'given') {
+      return {
+        name: feedback.recipient_name,
+        action: 'received your',
+        from: null
+      };
+    } else if (view === 'received') {
+      return {
+        name: 'You',
+        action: 'received',
+        from: feedback.is_anonymous ? 'Anonymous' : feedback.giver_name
+      };
+    }
+    return {
+      name: feedback.recipient_name,
+      action: 'received',
+      from: feedback.is_anonymous ? 'Anonymous' : feedback.giver_name
+    };
+  };
+
+  const displayText = getDisplayText();
 
   return (
     <div className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-gray-600 transition-colors">
@@ -234,8 +348,8 @@ const FeedbackCard = ({ feedback }) => {
         <div className="flex-1">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
-              <h4 className="text-white font-medium">{feedback.recipient_name}</h4>
-              <span className="text-gray-400">received</span>
+              <h4 className="text-white font-medium">{displayText.name}</h4>
+              <span className="text-gray-400">{displayText.action}</span>
               <span className={`px-2 py-1 text-xs rounded ${typeConfig.bgColor} ${typeConfig.color}`}>
                 {typeConfig.label}
               </span>
@@ -249,9 +363,16 @@ const FeedbackCard = ({ feedback }) => {
           
           <div className="flex items-center justify-between text-sm">
             <div className="flex items-center space-x-4">
-              <span className="text-gray-400">
-                from {feedback.is_anonymous ? 'Anonymous' : feedback.giver_name}
-              </span>
+              {displayText.from && (
+                <span className="text-gray-400">
+                  from {displayText.from}
+                </span>
+              )}
+              {view === 'given' && (
+                <span className="text-gray-400">
+                  to {feedback.recipient_name}
+                </span>
+              )}
               {feedback.category && feedback.category !== 'general' && (
                 <span className="px-2 py-1 bg-gray-700 text-gray-300 rounded text-xs">
                   {feedback.category.replace('_', ' ')}

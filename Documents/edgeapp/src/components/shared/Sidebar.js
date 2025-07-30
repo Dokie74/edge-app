@@ -1,20 +1,25 @@
-// src/components/shared/Sidebar.js - Fixed with proper sign out
+// src/components/shared/Sidebar.js - Updated with React Router navigation
 import React from 'react';
-import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog, HelpCircle } from 'lucide-react';
 import { useApp } from '../../contexts';
 import NotificationCenter from '../ui/NotificationCenter';
 
 const Sidebar = () => {
-  const { activePage, setActivePage, userRole, userName, signOut } = useApp();
-  // Define navigation items with role requirements
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { userRole, userName, signOut } = useApp();
+  
+  // Define navigation items with role requirements and routes
   const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'employee'] },
-    { name: 'My Team', icon: Users, roles: ['admin', 'manager'] },
-    { name: 'Manager Playbook', icon: BookOpen, roles: ['admin', 'manager'] },
-    { name: 'My Reviews', icon: FileText, roles: ['admin', 'manager', 'employee'] },
-    { name: 'Feedback Wall', icon: MessageSquare, roles: ['admin', 'manager', 'employee'] },
-    { name: 'My Development', icon: Target, roles: ['admin', 'manager', 'employee'] },
-    { name: 'Admin', icon: UserCog, roles: ['admin'] },
+    { name: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'employee'], route: '/dashboard' },
+    { name: 'My Team', icon: Users, roles: ['admin', 'manager'], route: '/team' },
+    { name: 'Manager Playbook', icon: BookOpen, roles: ['admin', 'manager'], route: '/playbook' },
+    { name: 'My Reviews', icon: FileText, roles: ['admin', 'manager', 'employee'], route: '/reviews' },
+    { name: 'Feedback Wall', icon: MessageSquare, roles: ['admin', 'manager', 'employee'], route: '/feedback' },
+    { name: 'My Development', icon: Target, roles: ['admin', 'manager', 'employee'], route: '/development' },
+    { name: 'Admin', icon: UserCog, roles: ['admin'], route: '/admin' },
+    { name: 'Help', icon: HelpCircle, roles: ['admin', 'manager', 'employee'], route: '/help' },
   ];
 
   // Filter items based on user role
@@ -41,21 +46,26 @@ const Sidebar = () => {
       
       <nav className="flex-grow overflow-y-auto p-4">
         <ul>
-          {visibleItems.map((item) => (
-            <li key={item.name}>
-              <button
-                onClick={() => setActivePage({ name: item.name, props: {} })}
-                className={`w-full flex items-center p-3 my-2 rounded-lg transition-all duration-200 text-left ${
-                  activePage === item.name
-                    ? 'bg-cyan-500 text-white shadow-lg'
-                    : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-                }`}
-              >
-                <item.icon className="mr-4" size={20} />
-                <span className="font-semibold">{item.name}</span>
-              </button>
-            </li>
-          ))}
+          {visibleItems.map((item) => {
+            const isActive = location.pathname === item.route || 
+                           (item.route === '/dashboard' && location.pathname === '/');
+            
+            return (
+              <li key={item.name}>
+                <button
+                  onClick={() => navigate(item.route)}
+                  className={`w-full flex items-center p-3 my-2 rounded-lg transition-all duration-200 text-left ${
+                    isActive
+                      ? 'bg-cyan-500 text-white shadow-lg'
+                      : 'text-gray-400 hover:bg-gray-700 hover:text-white'
+                  }`}
+                >
+                  <item.icon className="mr-4" size={20} />
+                  <span className="font-semibold">{item.name}</span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </nav>
       

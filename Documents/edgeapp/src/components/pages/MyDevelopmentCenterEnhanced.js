@@ -174,6 +174,7 @@ export default function MyDevelopmentCenterEnhanced() {
           <Button 
             variant="primary"
             onClick={() => setActiveTab('create')}
+            data-testid="create-development-plan-button"
           >
             <Plus size={16} className="mr-2" />
             Create Development Plan
@@ -372,6 +373,7 @@ export default function MyDevelopmentCenterEnhanced() {
                     onChange={(e) => setNewPlan(prev => ({ ...prev, title: e.target.value }))}
                     className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     placeholder="e.g., Leadership Skills Development"
+                    data-testid="development-plan-title-input"
                   />
                 </div>
                 
@@ -383,6 +385,7 @@ export default function MyDevelopmentCenterEnhanced() {
                     value={newPlan.timeline}
                     onChange={(e) => setNewPlan(prev => ({ ...prev, timeline: e.target.value }))}
                     className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    data-testid="development-plan-timeline-select"
                   >
                     <option value="1-3 months">1-3 months</option>
                     <option value="3-6 months">3-6 months</option>
@@ -402,6 +405,7 @@ export default function MyDevelopmentCenterEnhanced() {
                   className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                   rows={3}
                   placeholder="Describe your development objectives and what you hope to achieve..."
+                  data-testid="development-plan-description-textarea"
                 />
               </div>
 
@@ -542,6 +546,7 @@ export default function MyDevelopmentCenterEnhanced() {
                   variant="primary"
                   onClick={handleSubmitPlan}
                   disabled={submitting}
+                  data-testid="submit-development-plan-button"
                 >
                   <Save size={16} className="mr-2" />
                   {submitting ? 'Submitting...' : 'Submit Plan'}

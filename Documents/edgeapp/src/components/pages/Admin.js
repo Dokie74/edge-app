@@ -1,5 +1,6 @@
 // src/components/pages/Admin.js - SIMPLIFIED VERSION FOR TESTING
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus, Square } from 'lucide-react';
 import { useAdmin } from '../../hooks';
 import { useApp } from '../../contexts';
@@ -382,7 +383,7 @@ export default function Admin() {
 
 // Review Oversight Component for Admin Dashboard
 const ReviewOversightSection = () => {
-  const { setActivePage } = useApp();
+  const navigate = useNavigate();
   const [reviewStats, setReviewStats] = useState({
     total: 0,
     pending_employee: 0,
@@ -418,10 +419,7 @@ const ReviewOversightSection = () => {
   };
 
   const handleViewAssessment = (assessmentId) => {
-    setActivePage({ 
-      name: 'Assessment', 
-      props: { assessmentId } 
-    });
+    navigate(`/assessment/${assessmentId}`);
   };
 
   if (loading) {

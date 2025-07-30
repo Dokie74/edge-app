@@ -57,6 +57,8 @@ DROP POLICY IF EXISTS assessment_scorecard_metrics_all_policy ON public.assessme
 DROP POLICY IF EXISTS assessment_scorecard_metrics_access ON public.assessment_scorecard_metrics;
 DROP POLICY IF EXISTS assessment_rocks_all_policy ON public.assessment_rocks;
 DROP POLICY IF EXISTS assessment_rocks_access ON public.assessment_rocks;
+DROP POLICY IF EXISTS "Enable update for own and team assessments" ON public.assessments;
+DROP POLICY IF EXISTS "Enable read access for own and team assessments" ON public.assessments;
 ALTER TABLE IF EXISTS ONLY public.training_requests DROP CONSTRAINT IF EXISTS training_requests_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_user_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_employee_id_fkey;
@@ -70,6 +72,8 @@ ALTER TABLE IF EXISTS ONLY public.manager_employee_messages DROP CONSTRAINT IF E
 ALTER TABLE IF EXISTS ONLY public.manager_employee_messages DROP CONSTRAINT IF EXISTS manager_employee_messages_from_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_receiver_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.kudos DROP CONSTRAINT IF EXISTS kudos_giver_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS fk_admin_revision_requested_by;
+ALTER TABLE IF EXISTS ONLY public.assessments DROP CONSTRAINT IF EXISTS fk_admin_approved_by;
 ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_employee_id_fkey;
@@ -172,15 +176,15 @@ DROP FUNCTION IF EXISTS public.update_assessment(p_assessment_id bigint, p_updat
 DROP FUNCTION IF EXISTS public.test_get_assessment_details(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.submit_training_request(p_request_type text, p_title text, p_description text, p_provider text, p_estimated_cost numeric, p_preferred_date date, p_business_justification text);
 DROP FUNCTION IF EXISTS public.submit_self_assessment(p_assessment_id bigint);
+DROP FUNCTION IF EXISTS public.submit_manager_review(p_assessment_id uuid, p_feedback jsonb);
 DROP FUNCTION IF EXISTS public.submit_manager_review(p_assessment_id bigint, p_feedback jsonb);
-DROP FUNCTION IF EXISTS public.submit_development_plan(p_goals text, p_objectives text, p_skills_to_develop text, p_resources_needed text, p_success_metrics text, p_target_completion_date date, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals text, p_skills_to_develop text, p_timeline text);
-DROP FUNCTION IF EXISTS public.submit_development_plan(p_title text, p_description text, p_goals jsonb, p_skills_to_develop jsonb, p_timeline text);
 DROP FUNCTION IF EXISTS public.start_review_cycle_for_my_team(cycle_id_to_start bigint);
 DROP FUNCTION IF EXISTS public.set_employee_departments(p_employee_id uuid, p_department_ids integer[]);
 DROP FUNCTION IF EXISTS public.save_manager_note(p_employee_id uuid, p_title text, p_content text, p_category text, p_priority text);
 DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_feedback text, p_rating integer, _csrf_token text, _nonce text, _timestamp text);
 DROP FUNCTION IF EXISTS public.review_development_plan(p_plan_id uuid, p_status text, p_manager_feedback text);
+DROP FUNCTION IF EXISTS public.request_manager_review_revision(p_assessment_id bigint, p_revision_notes text);
 DROP FUNCTION IF EXISTS public.notify_manager_assessment_submitted();
 DROP FUNCTION IF EXISTS public.notify_employee_manager_review_completed();
 DROP FUNCTION IF EXISTS public.mark_notification_read(p_notification_id uuid);
@@ -189,19 +193,23 @@ DROP FUNCTION IF EXISTS public.log_security_event(p_action text, p_resource text
 DROP FUNCTION IF EXISTS public.link_employee_to_auth_user(p_employee_id uuid, p_auth_user_id uuid);
 DROP FUNCTION IF EXISTS public.link_current_user_to_employee();
 DROP FUNCTION IF EXISTS public.link_auth_user_to_employee(p_employee_id uuid, p_auth_user_id uuid);
+DROP FUNCTION IF EXISTS public.is_manager_of(manager_user_id uuid, target_employee_id uuid);
 DROP FUNCTION IF EXISTS public.give_peer_feedback(p_recipient_id uuid, p_feedback_type text, p_message text, p_category text, p_is_anonymous boolean);
 DROP FUNCTION IF EXISTS public.give_kudo(p_receiver_id uuid, p_core_value text, p_comment text);
+DROP FUNCTION IF EXISTS public.get_user_role(p_user_id uuid);
 DROP FUNCTION IF EXISTS public.get_user_notifications();
 DROP FUNCTION IF EXISTS public.get_unread_notification_count();
 DROP FUNCTION IF EXISTS public.get_team_status();
 DROP FUNCTION IF EXISTS public.get_team_assessments();
 DROP FUNCTION IF EXISTS public.get_review_cycle_details(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.get_potential_managers();
+DROP FUNCTION IF EXISTS public.get_pending_admin_approvals();
 DROP FUNCTION IF EXISTS public.get_my_training_requests();
 DROP FUNCTION IF EXISTS public.get_my_team();
 DROP FUNCTION IF EXISTS public.get_my_role();
 DROP FUNCTION IF EXISTS public.get_my_name();
 DROP FUNCTION IF EXISTS public.get_my_feedback_received(p_limit integer);
+DROP FUNCTION IF EXISTS public.get_my_feedback_given(p_limit integer);
 DROP FUNCTION IF EXISTS public.get_my_development_plans();
 DROP FUNCTION IF EXISTS public.get_my_development_goals();
 DROP FUNCTION IF EXISTS public.get_my_assessments();
@@ -220,6 +228,7 @@ DROP FUNCTION IF EXISTS public.get_dashboard_stats(p_role text);
 DROP FUNCTION IF EXISTS public.get_current_user_session();
 DROP FUNCTION IF EXISTS public.get_current_user_role();
 DROP FUNCTION IF EXISTS public.get_current_employee_id();
+DROP FUNCTION IF EXISTS public.get_assessment_for_manager_review(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.get_assessment_feedback(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.get_assessment_details(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.get_all_review_cycles_for_admin();
@@ -239,6 +248,7 @@ DROP FUNCTION IF EXISTS public.close_review_cycle(_csrf_token text, _nonce text,
 DROP FUNCTION IF EXISTS public.close_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.check_user_permission(required_permission text);
 DROP FUNCTION IF EXISTS public.auto_link_new_employees();
+DROP FUNCTION IF EXISTS public.approve_manager_review(p_assessment_id bigint, p_admin_notes text);
 DROP FUNCTION IF EXISTS public.add_assessment_feedback(p_assessment_id bigint, p_feedback text);
 DROP FUNCTION IF EXISTS public.activate_review_cycle(p_cycle_id bigint);
 DROP SCHEMA IF EXISTS public;
@@ -339,6 +349,76 @@ BEGIN
 EXCEPTION
   WHEN OTHERS THEN
     RETURN json_build_object('error', 'Failed to add feedback: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: approve_manager_review(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.approve_manager_review(p_assessment_id bigint, p_admin_notes text DEFAULT NULL::text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_user_role text;
+    v_assessment_record assessments%ROWTYPE;
+    v_admin_employee_id uuid;
+BEGIN
+    -- Get current user's role
+    SELECT role INTO v_user_role FROM auth.users WHERE id = auth.uid();
+    
+    -- Only admins can approve manager reviews
+    IF v_user_role != 'admin' THEN
+        RETURN jsonb_build_object('error', 'Access denied: Admin role required');
+    END IF;
+
+    -- Get the assessment record
+    SELECT * INTO v_assessment_record
+    FROM assessments 
+    WHERE id = p_assessment_id AND self_assessment_status = 'pending_admin_approval';
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('error', 'Assessment not found or not pending admin approval');
+    END IF;
+
+    -- Get admin's employee ID for logging
+    SELECT e.id INTO v_admin_employee_id
+    FROM employees e
+    WHERE e.user_id = auth.uid();
+
+    -- Approve the review - change status to manager_complete
+    UPDATE assessments 
+    SET 
+        self_assessment_status = 'manager_complete',
+        manager_review_status = 'completed',
+        admin_approval_notes = p_admin_notes,
+        admin_approved_at = NOW(),
+        admin_approved_by = v_admin_employee_id,
+        updated_at = NOW()
+    WHERE id = p_assessment_id;
+
+    -- Log the approval
+    INSERT INTO activity_log (
+        employee_id,
+        action_type,
+        description,
+        created_at
+    ) VALUES (
+        v_admin_employee_id,
+        'admin_approval_granted',
+        'Admin approved manager review for assessment ' || p_assessment_id::text ||
+        CASE WHEN p_admin_notes IS NOT NULL THEN ' with notes: ' || p_admin_notes ELSE '' END,
+        NOW()
+    );
+
+    RETURN jsonb_build_object(
+        'success', true, 
+        'message', 'Manager review approved successfully'
+    );
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object('error', SQLERRM);
 END;
 $$;
 
@@ -1322,6 +1402,87 @@ $$;
 
 
 --
+-- Name: get_assessment_for_manager_review(bigint); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_assessment_for_manager_review(p_assessment_id bigint) RETURNS TABLE(id bigint, employee_id uuid, employee_name text, employee_email text, employee_job_title text, review_cycle_id bigint, cycle_name text, cycle_status text, due_date date, self_assessment_status text, manager_review_status text, self_assessment_data jsonb, manager_review_data jsonb, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_performance_rating text, manager_summary_comments text, employee_submitted_at timestamp with time zone, manager_reviewed_at timestamp with time zone, created_at timestamp with time zone, updated_at timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+DECLARE
+    v_current_user_id uuid;
+    v_manager_employee_id uuid;
+    v_assessment_employee_manager_id uuid;
+BEGIN
+    -- Get the current user's ID
+    v_current_user_id := auth.uid();
+    
+    -- Get the current user's employee record
+    SELECT e.id INTO v_manager_employee_id
+    FROM employees e 
+    WHERE e.user_id = v_current_user_id;
+    
+    IF v_manager_employee_id IS NULL THEN
+        RAISE EXCEPTION 'Manager employee record not found';
+    END IF;
+    
+    -- Get the manager_id of the employee whose assessment we're trying to access
+    SELECT emp.manager_id INTO v_assessment_employee_manager_id
+    FROM assessments a
+    JOIN employees emp ON a.employee_id = emp.id
+    WHERE a.id = p_assessment_id;
+    
+    -- Check if the current user is the manager of the employee being assessed
+    -- or if they are an admin
+    IF v_assessment_employee_manager_id != v_manager_employee_id THEN
+        -- Check if user is admin using secure function
+        IF get_user_role(v_current_user_id) != 'admin' THEN
+            RAISE EXCEPTION 'Access denied: You can only review assessments for your direct reports';
+        END IF;
+    END IF;
+    
+    -- Return the assessment data with employee and cycle information
+    -- Use explicit table aliases to avoid ambiguous column references
+    RETURN QUERY
+    SELECT 
+        a.id,
+        a.employee_id,
+        e.name as employee_name,
+        e.email as employee_email,
+        e.job_title as employee_job_title,
+        a.review_cycle_id,
+        rc.name as cycle_name,
+        rc.status as cycle_status,
+        a.due_date,
+        a.self_assessment_status,
+        a.manager_review_status,
+        a.self_assessment_data,
+        a.manager_review_data,
+        a.value_passionate_examples,
+        a.value_driven_examples,
+        a.value_resilient_examples,
+        a.value_responsive_examples,
+        a.gwc_gets_it,
+        a.gwc_gets_it_feedback,
+        a.gwc_wants_it,
+        a.gwc_wants_it_feedback,
+        a.gwc_capacity,
+        a.gwc_capacity_feedback,
+        a.manager_performance_rating,
+        a.manager_summary_comments,
+        a.employee_submitted_at,
+        a.manager_reviewed_at,
+        a.created_at,
+        a.updated_at
+    FROM assessments a
+    JOIN employees e ON a.employee_id = e.id
+    JOIN review_cycles rc ON a.review_cycle_id = rc.id
+    WHERE a.id = p_assessment_id;
+END;
+$$;
+
+
+--
 -- Name: get_current_employee_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2114,81 +2275,51 @@ $$;
 -- Name: get_my_assessments(); Type: FUNCTION; Schema: public; Owner: -
 --
 
-CREATE FUNCTION public.get_my_assessments() RETURNS jsonb
+CREATE FUNCTION public.get_my_assessments() RETURNS TABLE(id bigint, employee_id uuid, review_cycle_id bigint, due_date date, self_assessment_status text, manager_review_status text, self_assessment_data jsonb, manager_review_data jsonb, employee_acknowledged_at timestamp with time zone, created_at timestamp with time zone, updated_at timestamp with time zone, cycle_name text, cycle_status text, review_cycle_name text, employee_name text, manager_name text, value_passionate_examples text, value_driven_examples text, value_resilient_examples text, value_responsive_examples text, gwc_gets_it boolean, gwc_gets_it_feedback text, gwc_wants_it boolean, gwc_wants_it_feedback text, gwc_capacity boolean, gwc_capacity_feedback text, manager_performance_rating text, manager_summary_comments text, employee_submitted_at timestamp with time zone, manager_reviewed_at timestamp with time zone)
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
-DECLARE
-    v_current_employee_id UUID;
-    v_active_assessments JSONB;
-    v_recent_closed_assessments JSONB;
-    v_final_result JSONB;
-BEGIN
-    -- Get the employee_id for the currently authenticated user
-    SELECT id INTO v_current_employee_id FROM public.employees WHERE user_id = auth.uid() AND is_active = true;
-
-    IF v_current_employee_id IS NULL THEN
-        RETURN '{"error": "Employee not found for current user"}'::jsonb;
-    END IF;
-
-    -- First, get ACTIVE assessments (these should show first and be the main focus)
-    SELECT COALESCE(jsonb_agg(assessment_data ORDER BY created_at_sort DESC), '[]'::jsonb) INTO v_active_assessments
-    FROM (
-        SELECT jsonb_build_object(
-            'assessment_id', a.id,
-            'review_cycle_name', rc.name,
-            'review_cycle_status', rc.status,
-            'self_assessment_status', a.self_assessment_status,
-            'manager_review_status', a.manager_review_status,
-            'employee_acknowledgment', COALESCE(a.employee_acknowledgment, false),
-            'due_date', a.due_date,
-            'created_at', a.created_at,
-            'updated_at', a.updated_at,
-            'can_edit_self_assessment', (
-                rc.status = 'active' AND 
-                a.self_assessment_status IN ('not_started', 'in_progress')
-            ),
-            'is_manager_view', false
-        ) as assessment_data,
-        a.created_at as created_at_sort
-        FROM public.assessments a
-        JOIN public.review_cycles rc ON a.review_cycle_id = rc.id
-        WHERE a.employee_id = v_current_employee_id 
-        AND rc.status = 'active'  -- ONLY ACTIVE CYCLES
-    ) active_data;
-
-    -- If no active assessments, get the most recent closed ones (max 3) as fallback
-    IF jsonb_array_length(v_active_assessments) = 0 THEN
-        SELECT COALESCE(jsonb_agg(assessment_data ORDER BY created_at_sort DESC), '[]'::jsonb) INTO v_recent_closed_assessments
-        FROM (
-            SELECT jsonb_build_object(
-                'assessment_id', a.id,
-                'review_cycle_name', rc.name,
-                'review_cycle_status', rc.status,
-                'self_assessment_status', a.self_assessment_status,
-                'manager_review_status', a.manager_review_status,
-                'employee_acknowledgment', COALESCE(a.employee_acknowledgment, false),
-                'due_date', a.due_date,
-                'created_at', a.created_at,
-                'updated_at', a.updated_at,
-                'can_edit_self_assessment', false,  -- Never editable if cycle is closed
-                'is_manager_view', false
-            ) as assessment_data,
-            a.created_at as created_at_sort
-            FROM public.assessments a
-            JOIN public.review_cycles rc ON a.review_cycle_id = rc.id
-            WHERE a.employee_id = v_current_employee_id 
-            AND rc.status != 'active'  -- ONLY CLOSED CYCLES
-            ORDER BY a.created_at DESC
-            LIMIT 3  -- Maximum 3 recent closed assessments
-        ) closed_data;
-        
-        RETURN v_recent_closed_assessments;
-    END IF;
-
-    -- Return active assessments (this is the normal case)
-    RETURN v_active_assessments;
-END;
-$$;
+  BEGIN
+      RETURN QUERY
+      SELECT
+          a.id,
+          a.employee_id,
+          a.review_cycle_id,
+          a.due_date,
+          a.self_assessment_status,
+          a.manager_review_status,
+          a.self_assessment_data,
+          a.manager_review_data,
+          a.employee_acknowledged_at,  -- This field was missing from the original function
+          a.created_at,
+          a.updated_at,
+          rc.name as cycle_name,
+          rc.status as cycle_status,
+          rc.name as review_cycle_name,
+          e.name as employee_name,
+          m.name as manager_name,
+          a.value_passionate_examples,
+          a.value_driven_examples,
+          a.value_resilient_examples,
+          a.value_responsive_examples,
+          a.gwc_gets_it,
+          a.gwc_gets_it_feedback,
+          a.gwc_wants_it,
+          a.gwc_wants_it_feedback,
+          a.gwc_capacity,
+          a.gwc_capacity_feedback,
+          a.manager_performance_rating,
+          a.manager_summary_comments,
+          a.employee_submitted_at,
+          a.manager_reviewed_at
+      FROM assessments a
+      JOIN employees e ON a.employee_id = e.id
+      LEFT JOIN employees m ON e.manager_id = m.id
+      JOIN review_cycles rc ON a.review_cycle_id = rc.id
+      WHERE e.user_id = auth.uid()
+      ORDER BY a.created_at DESC;
+  END;
+  $$;
 
 
 --
@@ -2265,6 +2396,43 @@ BEGIN
     RETURN COALESCE(result, '[]'::json);
 END;
 $$;
+
+
+--
+-- Name: get_my_feedback_given(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_my_feedback_given(p_limit integer DEFAULT 20) RETURNS TABLE(feedback_id bigint, recipient_name text, feedback_type text, category text, message text, is_anonymous boolean, helpful_count integer, created_at timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+  DECLARE
+      current_emp_id UUID;
+  BEGIN
+      SELECT id INTO current_emp_id
+      FROM employees
+      WHERE user_id = auth.uid() AND is_active = true;
+
+      IF current_emp_id IS NULL THEN
+          SELECT id INTO current_emp_id FROM employees WHERE is_active = true LIMIT 1;        
+      END IF;
+
+      RETURN QUERY
+      SELECT
+          pf.feedback_id,
+          recipient.name,
+          pf.feedback_type,
+          pf.category,
+          pf.message,
+          pf.is_anonymous,
+          pf.helpful_count,
+          pf.created_at
+      FROM peer_feedback pf
+      JOIN employees recipient ON pf.recipient_id = recipient.id
+      WHERE pf.giver_id = current_emp_id
+      ORDER BY pf.created_at DESC
+      LIMIT p_limit;
+  END;
+  $$;
 
 
 --
@@ -2415,6 +2583,48 @@ CREATE FUNCTION public.get_my_training_requests() RETURNS TABLE(request_id uuid,
     FROM training_requests tr
     WHERE tr.employee_id = (SELECT id FROM employees WHERE user_id = auth.uid())
     ORDER BY tr.created_at DESC;
+$$;
+
+
+--
+-- Name: get_pending_admin_approvals(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_pending_admin_approvals() RETURNS TABLE(assessment_id bigint, employee_name text, employee_email text, manager_name text, manager_email text, review_cycle_name text, submitted_date timestamp with time zone, due_date date, manager_performance_rating text, manager_summary_comments text)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_user_role text;
+    v_current_employee_id uuid;
+BEGIN
+    -- Get current user's role and employee ID
+    SELECT role INTO v_user_role FROM auth.users WHERE id = auth.uid();
+    
+    -- Only admins can access this function
+    IF v_user_role != 'admin' THEN
+        RAISE EXCEPTION 'Access denied: Admin role required';
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        a.id as assessment_id,
+        e.name as employee_name,
+        e.email as employee_email,
+        m.name as manager_name,
+        m.email as manager_email,
+        rc.name as review_cycle_name,
+        a.manager_reviewed_at as submitted_date,
+        a.due_date,
+        a.manager_performance_rating,
+        a.manager_summary_comments
+    FROM assessments a
+    JOIN employees e ON a.employee_id = e.id
+    JOIN employees m ON e.manager_id = m.id  -- Get the manager who submitted the review
+    JOIN review_cycles rc ON a.review_cycle_id = rc.id
+    WHERE a.self_assessment_status = 'pending_admin_approval'
+    AND rc.status = 'active'
+    ORDER BY a.manager_reviewed_at DESC;
+END;
 $$;
 
 
@@ -2670,6 +2880,24 @@ $$;
 
 
 --
+-- Name: get_user_role(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_user_role(p_user_id uuid) RETURNS text
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  RETURN (
+    SELECT raw_app_meta_data->>'role'
+    FROM auth.users
+    WHERE id = p_user_id
+  );
+END;
+$$;
+
+
+--
 -- Name: give_kudo(uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2742,6 +2970,27 @@ BEGIN
     ) RETURNING feedback_id INTO v_feedback_id;
     
     RETURN v_feedback_id;
+END;
+$$;
+
+
+--
+-- Name: is_manager_of(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.is_manager_of(manager_user_id uuid, target_employee_id uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
+    AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM employees e1  -- manager's employee record
+    JOIN employees e2  -- target employee record
+    ON e1.id = e2.manager_id
+    WHERE e1.user_id = manager_user_id 
+    AND e2.id = target_employee_id
+  );
 END;
 $$;
 
@@ -3015,6 +3264,95 @@ BEGIN
     END IF;
     
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: request_manager_review_revision(bigint, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.request_manager_review_revision(p_assessment_id bigint, p_revision_notes text) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_user_role text;
+    v_assessment_record assessments%ROWTYPE; 
+    v_admin_employee_id uuid;
+    v_manager_employee_id uuid;
+BEGIN
+    -- Get current user's role
+    SELECT role INTO v_user_role FROM auth.users WHERE id = auth.uid();
+    
+    -- Only admins can request revisions
+    IF v_user_role != 'admin' THEN
+        RETURN jsonb_build_object('error', 'Access denied: Admin role required');
+    END IF;
+
+    -- Get the assessment record
+    SELECT * INTO v_assessment_record
+    FROM assessments a
+    WHERE a.id = p_assessment_id AND a.self_assessment_status = 'pending_admin_approval';
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('error', 'Assessment not found or not pending admin approval');
+    END IF;
+
+    -- Get the manager employee ID
+    SELECT e.manager_id INTO v_manager_employee_id
+    FROM employees e
+    WHERE e.id = v_assessment_record.employee_id;
+
+    -- Get admin's employee ID for logging
+    SELECT e.id INTO v_admin_employee_id
+    FROM employees e
+    WHERE e.user_id = auth.uid();
+
+    -- Send back to manager for revision
+    UPDATE assessments 
+    SET 
+        self_assessment_status = 'employee_complete',  -- Back to manager review state
+        manager_review_status = 'pending',             -- Manager needs to revise
+        admin_revision_notes = p_revision_notes,
+        admin_revision_requested_at = NOW(),
+        admin_revision_requested_by = v_admin_employee_id,
+        updated_at = NOW()
+    WHERE id = p_assessment_id;
+
+    -- Log the revision request
+    INSERT INTO activity_log (
+        employee_id,
+        action_type,
+        description,
+        created_at
+    ) VALUES (
+        v_admin_employee_id,
+        'admin_revision_requested',
+        'Admin requested revision of manager review for assessment ' || p_assessment_id::text || 
+        ' - Notes: ' || p_revision_notes,
+        NOW()
+    );
+
+    -- Also log for the manager
+    INSERT INTO activity_log (
+        employee_id,
+        action_type,
+        description,
+        created_at
+    ) VALUES (
+        v_manager_employee_id,
+        'manager_revision_requested',
+        'Admin requested revision of your review for assessment ' || p_assessment_id::text,
+        NOW()
+    );
+
+    RETURN jsonb_build_object(
+        'success', true, 
+        'message', 'Revision requested successfully - manager will be notified'
+    );
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object('error', SQLERRM);
 END;
 $$;
 
@@ -3384,104 +3722,64 @@ $$;
 
 
 --
--- Name: submit_development_plan(text, text, jsonb, jsonb, text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.submit_development_plan(p_title text, p_description text, p_goals jsonb, p_skills_to_develop jsonb, p_timeline text) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    v_current_employee_id UUID;
-    v_manager_id UUID;
-    v_plan_id UUID;
-    v_employee_name TEXT;
-BEGIN
-    -- Get current user's employee ID
-    SELECT id, manager_id, name INTO v_current_employee_id, v_manager_id, v_employee_name
-    FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN json_build_object('error', 'Employee record not found');
-    END IF;
-    
-    -- Insert development plan
-    INSERT INTO development_plans (
-        employee_id,
-        title,
-        description,
-        goals,
-        skills_to_develop,
-        timeline,
-        status,
-        created_at,
-        updated_at
-    ) VALUES (
-        v_current_employee_id,
-        p_title,
-        p_description,
-        p_goals,
-        p_skills_to_develop,
-        p_timeline,
-        'submitted',
-        NOW(),
-        NOW()
-    ) RETURNING id INTO v_plan_id;
-    
-    -- Notify manager if exists
-    IF v_manager_id IS NOT NULL THEN
-        PERFORM create_notification(
-            v_manager_id,
-            v_current_employee_id,
-            'development_plan_submitted',
-            'Development Plan Submitted for Review',
-            v_employee_name || ' has submitted a new development plan titled "' || p_title || '" for your review.',
-            json_build_object(
-                'plan_id', v_plan_id,
-                'employee_id', v_current_employee_id,
-                'employee_name', v_employee_name,
-                'plan_title', p_title
-            )
-        );
-    END IF;
-    
-    RETURN json_build_object(
-        'success', true,
-        'message', 'Development plan submitted successfully',
-        'plan_id', v_plan_id
-    );
-END;
-$$;
-
-
---
 -- Name: submit_development_plan(text, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.submit_development_plan(p_title text, p_description text DEFAULT ''::text, p_goals text DEFAULT '[]'::text, p_skills_to_develop text DEFAULT '[]'::text, p_timeline text DEFAULT ''::text) RETURNS json
     LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO 'public'
     AS $$
 DECLARE
-    v_current_employee_id UUID;
-    v_plan_id UUID;
-    v_manager_id UUID;
+    v_user_id uuid;
+    v_employee_id uuid;
+    v_parsed_goals jsonb;
+    v_parsed_skills jsonb;
+    v_plan_id uuid;
 BEGIN
-    -- Get current user's employee ID
-    SELECT id, manager_id INTO v_current_employee_id, v_manager_id
+    -- Get authenticated user
+    v_user_id := auth.uid();
+    IF v_user_id IS NULL THEN
+        RETURN json_build_object('error', 'User not authenticated');
+    END IF;
+
+    -- Get employee record
+    SELECT id INTO v_employee_id 
     FROM employees 
-    WHERE user_id = auth.uid() AND is_active = true;
+    WHERE user_id = v_user_id;
     
-    IF v_current_employee_id IS NULL THEN
+    IF v_employee_id IS NULL THEN
         RETURN json_build_object('error', 'Employee record not found');
     END IF;
-    
+
     -- Validate required fields
-    IF TRIM(p_title) = '' THEN
-        RETURN json_build_object('error', 'Plan title is required');
+    IF p_title IS NULL OR trim(p_title) = '' THEN
+        RETURN json_build_object('error', 'Title is required');
     END IF;
-    
+
+    -- Parse JSON strings safely
+    BEGIN
+        v_parsed_goals := p_goals::jsonb;
+    EXCEPTION WHEN OTHERS THEN
+        v_parsed_goals := '[]'::jsonb;
+    END;
+
+    BEGIN
+        v_parsed_skills := p_skills_to_develop::jsonb;
+    EXCEPTION WHEN OTHERS THEN
+        v_parsed_skills := '[]'::jsonb;
+    END;
+
+    -- Validate goals array
+    IF jsonb_array_length(v_parsed_goals) = 0 THEN
+        RETURN json_build_object('error', 'At least one goal is required');
+    END IF;
+
+    -- Generate new plan ID
+    v_plan_id := gen_random_uuid();
+
     -- Insert development plan
     INSERT INTO development_plans (
+        id,
         employee_id,
         title,
         description,
@@ -3492,126 +3790,30 @@ BEGIN
         created_at,
         updated_at
     ) VALUES (
-        v_current_employee_id,
-        TRIM(p_title),
-        TRIM(p_description),
-        p_goals::TEXT,
-        p_skills_to_develop::TEXT,
-        TRIM(p_timeline),
+        v_plan_id,
+        v_employee_id,
+        trim(p_title),
+        COALESCE(trim(p_description), ''),
+        v_parsed_goals,
+        v_parsed_skills,
+        COALESCE(trim(p_timeline), ''),
         'submitted',
-        NOW(),
-        NOW()
-    ) RETURNING id INTO v_plan_id;
-    
-    -- Create notification for manager (if create_notification function exists and manager exists)
-    IF v_manager_id IS NOT NULL THEN
-        BEGIN
-            PERFORM create_notification(
-                v_manager_id,
-                v_current_employee_id,
-                'development_plan_submitted',
-                'New Development Plan Submitted',
-                'A team member has submitted a development plan for your review: ' || TRIM(p_title),
-                json_build_object(
-                    'plan_id', v_plan_id,
-                    'plan_title', TRIM(p_title)
-                )
-            );
-        EXCEPTION
-            WHEN undefined_function THEN
-                -- Ignore if notification function doesn't exist
-                NULL;
-        END;
-    END IF;
-    
+        now(),
+        now()
+    );
+
+    -- Return success
     RETURN json_build_object(
         'success', true,
-        'message', 'Development plan submitted successfully',
-        'plan_id', v_plan_id
+        'plan_id', v_plan_id,
+        'message', 'Development plan submitted successfully'
     );
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to submit development plan: ' || SQLERRM);
-END;
-$$;
 
-
---
--- Name: submit_development_plan(text, text, text, text, text, date, text, text, text); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.submit_development_plan(p_goals text, p_objectives text DEFAULT NULL::text, p_skills_to_develop text DEFAULT NULL::text, p_resources_needed text DEFAULT NULL::text, p_success_metrics text DEFAULT NULL::text, p_target_completion_date date DEFAULT NULL::date, _csrf_token text DEFAULT NULL::text, _nonce text DEFAULT NULL::text, _timestamp text DEFAULT NULL::text) RETURNS json
-    LANGUAGE plpgsql SECURITY DEFINER
-    AS $$
-DECLARE
-    v_current_employee_id UUID;
-    v_manager_id UUID;
-    v_plan_id UUID;
-BEGIN
-    -- Get current user's employee ID and manager
-    SELECT e.id, e.manager_id INTO v_current_employee_id, v_manager_id
-    FROM employees e 
-    WHERE e.user_id = auth.uid() AND e.is_active = true;
-    
-    IF v_current_employee_id IS NULL THEN
-        RETURN json_build_object('error', 'Employee record not found');
-    END IF;
-    
-    -- Insert development plan
-    INSERT INTO development_plans (
-        employee_id,
-        manager_id,
-        goals,
-        objectives,
-        skills_to_develop,
-        resources_needed,
-        success_metrics,
-        target_completion_date,
-        status,
-        submission_date,
-        created_at,
-        updated_at
-    ) VALUES (
-        v_current_employee_id,
-        v_manager_id,
-        p_goals,
-        p_objectives,
-        p_skills_to_develop,
-        p_resources_needed,
-        p_success_metrics,
-        p_target_completion_date,
-        'submitted',
-        NOW(),
-        NOW(),
-        NOW()
-    ) RETURNING id INTO v_plan_id;
-    
-    -- Create notification for manager if exists
-    IF v_manager_id IS NOT NULL THEN
-        BEGIN
-            PERFORM create_notification(
-                v_manager_id,
-                v_current_employee_id,
-                'development_plan_submitted',
-                'New Development Plan Submitted',
-                'A team member has submitted a development plan for your review.'
-            );
-        EXCEPTION
-            WHEN undefined_function THEN
-                NULL; -- Ignore if notification function doesn't exist
-        END;
-    END IF;
-    
+EXCEPTION WHEN OTHERS THEN
+    -- Simple error return without logging
     RETURN json_build_object(
-        'success', true,
-        'message', 'Development plan submitted successfully',
-        'plan_id', v_plan_id
+        'error', 'Failed to submit development plan: ' || SQLERRM
     );
-    
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN json_build_object('error', 'Failed to submit development plan: ' || SQLERRM);
 END;
 $$;
 
@@ -3692,6 +3894,100 @@ BEGIN
     END IF;
 
     RETURN '{"success": true, "message": "Manager review submitted successfully"}'::jsonb;
+END;
+$$;
+
+
+--
+-- Name: submit_manager_review(uuid, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_manager_review(p_assessment_id uuid, p_feedback jsonb) RETURNS jsonb
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    v_assessment assessments%ROWTYPE;
+    v_manager_employee_id uuid;
+    v_manager_has_manager boolean := false;
+    v_next_status text := 'manager_complete';
+BEGIN
+    -- Get the current assessment
+    SELECT * INTO v_assessment
+    FROM assessments 
+    WHERE id = p_assessment_id;
+    
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('error', 'Assessment not found');
+    END IF;
+
+    -- Get the manager's employee record to check if they have a manager
+    SELECT e.id, (e.manager_id IS NOT NULL) 
+    INTO v_manager_employee_id, v_manager_has_manager
+    FROM employees e
+    WHERE e.user_id = auth.uid();
+
+    -- If manager has a manager (like Manager1 reporting to Admin), 
+    -- set status to pending_admin_approval instead of manager_complete
+    IF v_manager_has_manager THEN
+        v_next_status := 'pending_admin_approval';
+    END IF;
+
+    -- Update the assessment with manager feedback and new status
+    UPDATE assessments 
+    SET 
+        -- Core manager feedback fields
+        manager_performance_rating = COALESCE((p_feedback->>'manager_performance_rating')::text, manager_performance_rating),
+        manager_summary_comments = COALESCE(p_feedback->>'manager_summary_comments', manager_summary_comments),
+        manager_development_plan = COALESCE(p_feedback->>'manager_development_plan', manager_development_plan),
+        manager_action_items = COALESCE(p_feedback->>'manager_action_items', manager_action_items),
+        
+        -- Core values feedback
+        manager_passionate_feedback = COALESCE(p_feedback->>'manager_passionate_feedback', manager_passionate_feedback),
+        manager_driven_feedback = COALESCE(p_feedback->>'manager_driven_feedback', manager_driven_feedback),
+        manager_resilient_feedback = COALESCE(p_feedback->>'manager_resilient_feedback', manager_resilient_feedback),
+        manager_responsive_feedback = COALESCE(p_feedback->>'manager_responsive_feedback', manager_responsive_feedback),
+        
+        -- GWC manager assessments
+        manager_gwc_gets_it = COALESCE((p_feedback->>'manager_gwc_gets_it')::boolean, manager_gwc_gets_it),
+        manager_gwc_gets_it_feedback = COALESCE(p_feedback->>'manager_gwc_gets_it_feedback', manager_gwc_gets_it_feedback),
+        manager_gwc_wants_it = COALESCE((p_feedback->>'manager_gwc_wants_it')::boolean, manager_gwc_wants_it),
+        manager_gwc_wants_it_feedback = COALESCE(p_feedback->>'manager_gwc_wants_it_feedback', manager_gwc_wants_it_feedback),
+        manager_gwc_capacity = COALESCE((p_feedback->>'manager_gwc_capacity')::boolean, manager_gwc_capacity),
+        manager_gwc_capacity_feedback = COALESCE(p_feedback->>'manager_gwc_capacity_feedback', manager_gwc_capacity_feedback),
+        
+        -- Strengths and improvements feedback
+        manager_strengths_feedback = COALESCE(p_feedback->>'manager_strengths_feedback', manager_strengths_feedback),
+        manager_improvements_feedback = COALESCE(p_feedback->>'manager_improvements_feedback', manager_improvements_feedback),
+        
+        -- Status and timestamps
+        manager_review_status = v_next_status,
+        self_assessment_status = v_next_status,
+        manager_reviewed_at = NOW(),
+        updated_at = NOW()
+    WHERE id = p_assessment_id;
+
+    -- Log the action
+    INSERT INTO activity_log (
+        employee_id,
+        action_type,
+        description,
+        created_at
+    ) VALUES (
+        v_manager_employee_id,
+        'manager_review_submitted',
+        'Manager completed review for assessment ' || p_assessment_id::text || 
+        CASE WHEN v_manager_has_manager THEN ' - sent to admin for approval' ELSE ' - completed' END,
+        NOW()
+    );
+
+    RETURN jsonb_build_object(
+        'success', true, 
+        'status', v_next_status,
+        'requires_admin_approval', v_manager_has_manager
+    );
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN jsonb_build_object('error', SQLERRM);
 END;
 $$;
 
@@ -4479,6 +4775,16 @@ CREATE TABLE public.assessments (
     manager_performance_rating text,
     manager_core_values_feedback text,
     manager_action_items text,
+    manager_gwc_gets_it boolean,
+    manager_gwc_wants_it boolean,
+    manager_gwc_capacity boolean,
+    admin_approval_notes text,
+    admin_approved_at timestamp with time zone,
+    admin_approved_by uuid,
+    admin_revision_notes text,
+    admin_revision_requested_at timestamp with time zone,
+    admin_revision_requested_by uuid,
+    employee_acknowledged_at timestamp with time zone,
     CONSTRAINT assessments_overall_rating_check CHECK (((overall_rating >= 1) AND (overall_rating <= 5))),
     CONSTRAINT valid_manager_review_status CHECK ((manager_review_status = ANY (ARRAY['pending'::text, 'in_progress'::text, 'completed'::text])))
 );
@@ -4932,27 +5238,45 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 -- Data for Name: assessments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified, due_date, self_assessment_data, manager_review_data, manager_notes, overall_rating, employee_acknowledgment, manager_passionate_feedback, manager_driven_feedback, manager_resilient_feedback, manager_responsive_feedback, manager_gwc_gets_it_feedback, manager_gwc_wants_it_feedback, manager_gwc_capacity_feedback, manager_strengths_feedback, manager_improvements_feedback, manager_performance_rating, manager_core_values_feedback, manager_action_items) FROM stdin;
-1	f07fc797-2849-4b8c-befe-c633732f18e9	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-2	0595b6e2-aae7-41be-90d8-4a2051cd32da	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-4	3f2c6e27-8191-4bf1-9687-ba314598f39d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	employee_complete	\N	\N	2025-07-28 13:20:46.9021+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-5	f07fc797-2849-4b8c-befe-c633732f18e9	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-6	0595b6e2-aae7-41be-90d8-4a2051cd32da	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-7	d8dfa847-2caa-4408-9434-8e25fcfadcd0	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-8	3f2c6e27-8191-4bf1-9687-ba314598f39d	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	employee_complete	\N	\N	2025-07-28 14:32:31.189269+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-9	f07fc797-2849-4b8c-befe-c633732f18e9	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	not_started	\N	\N	2025-07-28 16:36:10.77234+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-10	0595b6e2-aae7-41be-90d8-4a2051cd32da	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	not_started	\N	\N	2025-07-28 16:36:10.77234+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-11	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	employee_complete	\N	\N	2025-07-28 17:05:39.223529+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-14	f07fc797-2849-4b8c-befe-c633732f18e9	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-15	0595b6e2-aae7-41be-90d8-4a2051cd32da	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-16	d8dfa847-2caa-4408-9434-8e25fcfadcd0	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-17	3f2c6e27-8191-4bf1-9687-ba314598f39d	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-18	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-19	9d7ec341-5c0c-4e73-a223-56a2950055b6	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-13	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	3	not_started	\N	Test: I stayed late to help resolve a critical client issue.	\N	Test: I consistently exceed my quarterly targets.	\N	Test: I adapted quickly when our system changed.	\N	Test: I always respond to emails within 2 hours.	t	Test: I understand my role responsibilities clearly.	t	Test: I am passionate about this position.	t	Test: I have the time and skills needed.	Test: My key strengths include problem-solving and teamwork.	Test: I would like to improve my presentation skills.	asdf	asdf	\N	\N	2025-07-28 19:10:26.896763+00	employee_complete	\N	\N	2025-07-28 20:13:56.075289+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	dfsgh	sdfgh	sdfh	sdfh	sdfh	sdfh	sdfh	sdfh	sdfh	exceeds		asdf
-12	3f2c6e27-8191-4bf1-9687-ba314598f39d	3	not_started	\N		\N		\N		\N		f		f		f				fg	sgf	\N	\N	2025-07-28 16:36:10.77234+00	employee_complete	\N	\N	2025-07-28 20:19:30.47094+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	sfg	sg	sg	\N	sfg	sg	sfg	sg	sg	exceeds		sfg
-20	caad3baa-7ae8-4241-9654-80ca6ffd578d	5	not_started	\N	sfg	\N	sg	\N	sg	\N	sg	t	sg	f	sg	f	sg	sg	sg	asddfgh	asddfgh	\N	\N	2025-07-28 19:35:38.151631+00	employee_complete	\N	\N	2025-07-28 20:29:22.589426+00	completed	{}	f	f	\N	\N	\N	\N	\N	f	czfgb	zdf	adfg	asdg	asdg	asdg	asdg	asdg	dfgh	exceeds		asddfgh
+COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified, due_date, self_assessment_data, manager_review_data, manager_notes, overall_rating, employee_acknowledgment, manager_passionate_feedback, manager_driven_feedback, manager_resilient_feedback, manager_responsive_feedback, manager_gwc_gets_it_feedback, manager_gwc_wants_it_feedback, manager_gwc_capacity_feedback, manager_strengths_feedback, manager_improvements_feedback, manager_performance_rating, manager_core_values_feedback, manager_action_items, manager_gwc_gets_it, manager_gwc_wants_it, manager_gwc_capacity, admin_approval_notes, admin_approved_at, admin_approved_by, admin_revision_notes, admin_revision_requested_at, admin_revision_requested_by, employee_acknowledged_at) FROM stdin;
+1	f07fc797-2849-4b8c-befe-c633732f18e9	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+2	0595b6e2-aae7-41be-90d8-4a2051cd32da	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+4	3f2c6e27-8191-4bf1-9687-ba314598f39d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	employee_complete	\N	\N	2025-07-28 13:20:46.9021+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+5	f07fc797-2849-4b8c-befe-c633732f18e9	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+6	0595b6e2-aae7-41be-90d8-4a2051cd32da	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+7	d8dfa847-2caa-4408-9434-8e25fcfadcd0	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+8	3f2c6e27-8191-4bf1-9687-ba314598f39d	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	employee_complete	\N	\N	2025-07-28 14:32:31.189269+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+9	f07fc797-2849-4b8c-befe-c633732f18e9	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	not_started	\N	\N	2025-07-28 16:36:10.77234+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+10	0595b6e2-aae7-41be-90d8-4a2051cd32da	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	not_started	\N	\N	2025-07-28 16:36:10.77234+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+11	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	employee_complete	\N	\N	2025-07-28 17:05:39.223529+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+14	f07fc797-2849-4b8c-befe-c633732f18e9	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+15	0595b6e2-aae7-41be-90d8-4a2051cd32da	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+16	d8dfa847-2caa-4408-9434-8e25fcfadcd0	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+17	3f2c6e27-8191-4bf1-9687-ba314598f39d	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+18	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+19	9d7ec341-5c0c-4e73-a223-56a2950055b6	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+13	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	3	not_started	\N	Test: I stayed late to help resolve a critical client issue.	\N	Test: I consistently exceed my quarterly targets.	\N	Test: I adapted quickly when our system changed.	\N	Test: I always respond to emails within 2 hours.	t	Test: I understand my role responsibilities clearly.	t	Test: I am passionate about this position.	t	Test: I have the time and skills needed.	Test: My key strengths include problem-solving and teamwork.	Test: I would like to improve my presentation skills.	asdf	asdf	\N	\N	2025-07-28 19:10:26.896763+00	employee_complete	\N	\N	2025-07-28 20:13:56.075289+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	dfsgh	sdfgh	sdfh	sdfh	sdfh	sdfh	sdfh	sdfh	sdfh	exceeds		asdf	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+12	3f2c6e27-8191-4bf1-9687-ba314598f39d	3	not_started	\N		\N		\N		\N		f		f		f				fg	sgf	\N	\N	2025-07-28 16:36:10.77234+00	employee_complete	\N	\N	2025-07-28 20:19:30.47094+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	sfg	sg	sg	\N	sfg	sg	sfg	sg	sg	exceeds		sfg	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+20	caad3baa-7ae8-4241-9654-80ca6ffd578d	5	not_started	\N	sfg	\N	sg	\N	sg	\N	sg	t	sg	f	sg	f	sg	sg	sg	asddfgh	asddfgh	\N	\N	2025-07-28 19:35:38.151631+00	employee_complete	\N	\N	2025-07-28 20:29:22.589426+00	completed	{}	f	f	\N	\N	\N	\N	\N	f	czfgb	zdf	adfg	asdg	asdg	asdg	asdg	asdg	dfgh	exceeds		asddfgh	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+21	f07fc797-2849-4b8c-befe-c633732f18e9	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+22	0595b6e2-aae7-41be-90d8-4a2051cd32da	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+23	d8dfa847-2caa-4408-9434-8e25fcfadcd0	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+25	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+26	9d7ec341-5c0c-4e73-a223-56a2950055b6	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+27	caad3baa-7ae8-4241-9654-80ca6ffd578d	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+28	71dc105f-4f64-4ab5-b308-54d02ad9f4d1	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+29	00677ce5-8446-4982-96c3-502df79ad744	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+24	3f2c6e27-8191-4bf1-9687-ba314598f39d	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	submitted	\N	\N	2025-07-29 17:23:30.799802+00	pending	{}	f	f	\N	{"support_needed": "sdfgsdfg", "challenges_faced": "adfga", "skills_developed": "adrgag'", "goals_next_period": "adfg", "additional_comments": "sdfgsdfg", "key_accomplishments": "sarga", "overall_satisfaction": "satisfied"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+31	0595b6e2-aae7-41be-90d8-4a2051cd32da	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+35	9d7ec341-5c0c-4e73-a223-56a2950055b6	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+36	caad3baa-7ae8-4241-9654-80ca6ffd578d	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+37	71dc105f-4f64-4ab5-b308-54d02ad9f4d1	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+38	00677ce5-8446-4982-96c3-502df79ad744	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+30	f07fc797-2849-4b8c-befe-c633732f18e9	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	submitted	\N	\N	2025-07-29 19:57:12.49777+00	pending	{}	f	f	\N	{"gwc_get_it": "ye", "gwc_want_it": "ye", "gwc_capacity": "ye", "support_needed": "Fuck off", "challenges_faced": "spending too much time", "skills_developed": "Vibe coding", "goals_next_period": "Look for yourself", "additional_comments": "Fuck off", "key_accomplishments": "Building this app", "overall_satisfaction": "neutral", "core_values_driven_best": "Yup", "core_values_respond_swiftly": "Nope", "core_values_passionate_purpose": "Build app", "core_values_resilient_together": "Keepign with this"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+32	d8dfa847-2caa-4408-9434-8e25fcfadcd0	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	submitted	\N	\N	2025-07-29 19:59:30.092367+00	pending	{}	f	f	\N	{"gwc_get_it": "sdfhg", "gwc_want_it": "sdfh", "gwc_capacity": "sdfh", "support_needed": "sfgj", "challenges_faced": "sdfh", "skills_developed": "sdfgh", "goals_next_period": "sfgdj", "additional_comments": "sdfh", "key_accomplishments": "dfg", "overall_satisfaction": "neutral", "core_values_driven_best": "dfgj", "core_values_respond_swiftly": "dfgj", "core_values_passionate_purpose": "dfgj", "core_values_resilient_together": "dfgj"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+33	3f2c6e27-8191-4bf1-9687-ba314598f39d	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	submitted	\N	\N	2025-07-29 20:28:08.221749+00	pending	{}	f	f	\N	{"gwc_get_it": "sdfhsdfhsdfh", "gwc_want_it": "sdfhshfdhfdsh", "gwc_capacity": "sdfhsdfhsfd", "support_needed": "sdfh", "challenges_faced": "sdfg", "skills_developed": "sdh", "goals_next_period": "sdfh", "additional_comments": "sdfhsdfhsdfh", "key_accomplishments": "dfag", "overall_satisfaction": "neutral", "core_values_driven_best": "sdfhsfdhsfd", "core_values_respond_swiftly": "sdfhsdfhsdfhs", "core_values_passionate_purpose": "sdfhsdf", "core_values_resilient_together": "sdfhsfdsdfh"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+34	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	7	not_started	\N	dsfg	\N	sdfg	\N	sdfg	\N	sdfg	t		f	sdfg	f	sdfg	\N	\N	ZXV	\N	\N	\N	2025-07-29 19:55:08.765877+00	acknowledged	2025-07-29 20:35:45.396+00	2025-07-30 01:38:30.193+00	2025-07-30 01:58:54.49363+00	completed	{}	f	f	\N	{"gwc_gets_it": true, "gwc_capacity": false, "gwc_wants_it": false, "support_needed": "sdfg", "challenges_faced": "sdfg", "skills_developed": "sdfg", "goals_next_period": "sdfg", "additional_comments": "", "key_accomplishments": "sdfhg", "gwc_gets_it_feedback": "", "overall_satisfaction": "satisfied", "gwc_capacity_feedback": "sdfg", "gwc_wants_it_feedback": "sdfg", "core_values_driven_best": "sdfg", "core_values_respond_swiftly": "sdfg", "core_values_passionate_purpose": "dsfg", "core_values_resilient_together": "sdfg"}	{"strengths": "ZXV", "goals_feedback": "zxcb", "overall_rating": "partially_meets", "skills_feedback": "zxcn", "manager_comments": "ZXV", "passion_feedback": "XC", "support_response": "ZXV", "challenges_feedback": "zxcb", "excellence_feedback": "ZXC", "manager_gwc_gets_it": true, "resilience_feedback": "ZXDVB", "areas_of_improvement": "ZXV", "manager_gwc_capacity": false, "manager_gwc_wants_it": true, "goals_for_next_period": "ZVX", "satisfaction_feedback": "XCB", "development_priorities": "zxcvn", "responsiveness_feedback": "ZXCV", "additional_manager_comments": "ZXV", "key_accomplishments_feedback": "zxcbv", "manager_gwc_gets_it_feedback": "ZX", "manager_gwc_capacity_feedback": "ZXV", "manager_gwc_wants_it_feedback": "ZXVC"}	\N	\N	f	\N	\N	\N	\N	ZX	ZXVC	ZXV	\N	\N	partially_meets	\N	\N	t	t	f	\N	\N	\N	\N	\N	\N	2025-07-30 01:58:51.95+00
 \.
 
 
@@ -4977,6 +5301,7 @@ COPY public.departments (id, name, description, created_at, updated_at) FROM std
 --
 
 COPY public.development_plans (id, employee_id, title, description, goals, skills_to_develop, timeline, status, manager_feedback, manager_reviewed_at, manager_reviewed_by, created_at, updated_at, manager_id, objectives, resources_needed, success_metrics, target_completion_date, manager_rating, submission_date, review_date) FROM stdin;
+39a0ab67-7089-40f1-9c35-9f5f279f097c	3f2c6e27-8191-4bf1-9687-ba314598f39d	xcgnb	xcvnb	[{"goal": "xcvnb", "priority": "medium", "timeline": ""}]	[{"skill": "", "method": "", "reason": ""}]	3-6 months	submitted	\N	\N	\N	2025-07-29 02:30:51.775864+00	2025-07-29 02:30:51.775864+00	\N	\N	\N	\N	\N	\N	\N	\N
 \.
 
 
@@ -5007,7 +5332,9 @@ d8dfa847-2caa-4408-9434-8e25fcfadcd0	9a6b509f-9e0a-4b2d-b17e-af32abfc91f8	Manage
 3f2c6e27-8191-4bf1-9687-ba314598f39d	a01ffcdb-c09d-4e61-b5c0-a0c5a076cd96	Employee1	employee1@lucerne.com	Employee1	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 12:45:18.769366+00	employee	2025-07-28 12:45:18.769366+00	Employee1	t
 26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	9f4ad8f1-50c8-4250-a0e9-11dc6ab5517c	Employee2	employee2@lucerne.com	Employee2	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 16:44:38.768388+00	employee	2025-07-28 16:44:38.768388+00	Employee2	t
 9d7ec341-5c0c-4e73-a223-56a2950055b6	2a565fe5-7b9a-45e5-912a-84a9f97aaabd	Manager2	manager2@lucerne.com	Manager2	f07fc797-2849-4b8c-befe-c633732f18e9	t	2025-07-28 19:34:31.402883+00	manager	2025-07-28 19:34:31.402883+00	Manager2	t
-caad3baa-7ae8-4241-9654-80ca6ffd578d	4c5e75d7-feb2-45fa-b6a9-5c8b5ecbc942	Employee3	employee3@lucerne.com	Employee3	9d7ec341-5c0c-4e73-a223-56a2950055b6	t	2025-07-28 17:37:04.432691+00	employee	2025-07-28 19:34:58.104608+00	Employee3	t
+00677ce5-8446-4982-96c3-502df79ad744	7ec2416b-02d6-4aea-9b63-07286eee6817	Employee5	employee5@lucerne.com	Employee5	9d7ec341-5c0c-4e73-a223-56a2950055b6	t	2025-07-29 17:15:38.893787+00	employee	2025-07-29 17:15:38.893787+00	\N	f
+caad3baa-7ae8-4241-9654-80ca6ffd578d	4c5e75d7-feb2-45fa-b6a9-5c8b5ecbc942	Employee3	employee3@lucerne.com	Employee3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 17:37:04.432691+00	employee	2025-07-29 20:34:31.854952+00	Employee3	t
+71dc105f-4f64-4ab5-b308-54d02ad9f4d1	0160e30d-2013-4d3b-8b84-60d1816bb9c7	Employee4	employee4@lucerne.com	Employee4	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 21:42:20.685433+00	employee	2025-07-29 20:34:45.996953+00	\N	f
 \.
 
 
@@ -5059,6 +5386,10 @@ adf2bd23-4428-4850-960d-eeb6f42910df	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc7
 ec81cceb-d7af-4828-bd2c-4f222532b160	3f2c6e27-8191-4bf1-9687-ba314598f39d	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q12026Test" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
 992d3ec9-759f-44c3-a8ef-d627932f67e1	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q12026Test" activated. Your team member Employee1 will need manager review.	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
 ecabed87-70ce-4d9b-8399-10c9fc388f24	caad3baa-7ae8-4241-9654-80ca6ffd578d	9d7ec341-5c0c-4e73-a223-56a2950055b6	manager_review_completed	Your Manager Review is Complete	Manager2 has completed your performance review for Q1 2020 Test. You can now view their feedback.	{"cycle_id": 5, "cycle_name": "Q1 2020 Test", "employee_id": "caad3baa-7ae8-4241-9654-80ca6ffd578d", "manager_name": "Manager2", "assessment_id": 20}	\N	2025-07-28 20:29:22.589426+00	2025-07-28 20:29:22.589426+00
+a7486c45-0285-43d0-ad61-1bca91f0a3a3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	assessment_submitted	Employee Assessment Ready for Review	Employee1 has completed their self-assessment for Q11999Test and is ready for your review.	{"cycle_id": 6, "cycle_name": "Q11999Test", "employee_id": "3f2c6e27-8191-4bf1-9687-ba314598f39d", "assessment_id": 24, "employee_name": "Employee1"}	\N	2025-07-29 17:23:30.799802+00	2025-07-29 17:23:30.799802+00
+c0e86944-1c04-4a2f-b858-4ee92185c4e8	f07fc797-2849-4b8c-befe-c633732f18e9	d8dfa847-2caa-4408-9434-8e25fcfadcd0	assessment_submitted	Employee Assessment Ready for Review	Manager1 has completed their self-assessment for 1974Q4Dec and is ready for your review.	{"cycle_id": 7, "cycle_name": "1974Q4Dec", "employee_id": "d8dfa847-2caa-4408-9434-8e25fcfadcd0", "assessment_id": 32, "employee_name": "Manager1"}	\N	2025-07-29 19:59:30.092367+00	2025-07-29 19:59:30.092367+00
+71711d35-7730-4d3e-aafd-855facf3e2d8	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	assessment_submitted	Employee Assessment Ready for Review	Employee1 has completed their self-assessment for 1974Q4Dec and is ready for your review.	{"cycle_id": 7, "cycle_name": "1974Q4Dec", "employee_id": "3f2c6e27-8191-4bf1-9687-ba314598f39d", "assessment_id": 33, "employee_name": "Employee1"}	\N	2025-07-29 20:28:08.221749+00	2025-07-29 20:28:08.221749+00
+521ccc2b-ed2a-46f5-9dfb-8309736bacf4	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	d8dfa847-2caa-4408-9434-8e25fcfadcd0	manager_review_completed	Your Manager Review is Complete	Manager1 has completed your performance review for 1974Q4Dec. You can now view their feedback.	{"cycle_id": 7, "cycle_name": "1974Q4Dec", "employee_id": "26e3ed38-ad4d-4f1b-9229-4d992bdb1e32", "manager_name": "Manager1", "assessment_id": 34}	\N	2025-07-30 01:38:33.144326+00	2025-07-30 01:38:33.144326+00
 \.
 
 
@@ -5067,6 +5398,12 @@ ecabed87-70ce-4d9b-8399-10c9fc388f24	caad3baa-7ae8-4241-9654-80ca6ffd578d	9d7ec3
 --
 
 COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, feedback_timestamp, category, message, is_anonymous, helpful_count, created_at, updated_at) FROM stdin;
+1	f07fc797-2849-4b8c-befe-c633732f18e9	3f2c6e27-8191-4bf1-9687-ba314598f39d	constructive	2025-07-29 01:54:13.913212+00	teamwork	Test test test test	f	0	2025-07-29 01:54:13.913212+00	2025-07-29 01:54:13.913212+00
+2	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	constructive	2025-07-29 19:31:18.951718+00	teamwork	You Test Test	f	0	2025-07-29 19:31:18.951718+00	2025-07-29 19:31:18.951718+00
+3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	positive	2025-07-29 19:37:41.041314+00	teamwork	Nice Test Teamwork	f	0	2025-07-29 19:37:41.041314+00	2025-07-29 19:37:41.041314+00
+4	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	constructive	2025-07-29 19:37:58.976109+00	teamwork	Bad Test Constructive	f	0	2025-07-29 19:37:58.976109+00	2025-07-29 19:37:58.976109+00
+5	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	appreciation	2025-07-29 19:38:16.98598+00	communication	Tank Yiou etst	f	0	2025-07-29 19:38:16.98598+00	2025-07-29 19:38:16.98598+00
+6	3f2c6e27-8191-4bf1-9687-ba314598f39d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	positive	2025-07-29 19:42:04.583655+00	teamwork	Test you Fucking Suck	f	0	2025-07-29 19:42:04.583655+00	2025-07-29 19:42:04.583655+00
 \.
 
 
@@ -5077,9 +5414,11 @@ COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, f
 COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description, updated_at) FROM stdin;
 1	TestRevCycle1	2025-07-01	2025-09-30	closed	2025-07-28 12:46:30.126696+00	quarterly	\N	2025-07-28 13:44:52.538884+00
 2	Q3TestReview	2025-07-01	2025-09-30	closed	2025-07-28 13:45:19.51082+00	quarterly	\N	2025-07-28 15:24:18.394628+00
-3	Q12026Test	2025-07-01	2025-09-30	active	2025-07-28 15:24:37.000472+00	quarterly	\N	2025-07-28 16:36:10.77234+00
 4	Q22026Test	2025-07-01	2025-09-30	closed	2025-07-28 16:35:49.500278+00	quarterly	\N	2025-07-28 16:36:16.071196+00
-5	Q1 2020 Test	2025-07-01	2025-09-30	active	2025-07-28 19:35:37.780369+00	quarterly	\N	2025-07-28 19:35:38.151631+00
+5	Q1 2020 Test	2025-07-01	2025-09-30	closed	2025-07-28 19:35:37.780369+00	quarterly	\N	2025-07-29 17:16:17.880932+00
+3	Q12026Test	2025-07-01	2025-09-30	closed	2025-07-28 15:24:37.000472+00	quarterly	\N	2025-07-29 17:16:25.100863+00
+6	Q11999Test	2025-07-01	2025-09-30	closed	2025-07-29 17:16:08.39421+00	quarterly	\N	2025-07-29 19:54:44.812451+00
+7	1974Q4Dec	2025-07-01	2025-09-30	active	2025-07-29 19:55:08.472357+00	quarterly	\N	2025-07-29 19:55:08.765877+00
 \.
 
 
@@ -5096,6 +5435,11 @@ COPY public.security_audit (id, user_id, employee_id, action, resource, success,
 6	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:2,name:Q3TestReview	t	\N	\N	2025-07-28 15:24:18.394628+00
 7	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:4,name:Q22026Test	t	\N	\N	2025-07-28 16:36:16.071196+00
 8	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:caad3baa-7ae8-4241-9654-80ca6ffd578d,changes:role,manager_id,	t	\N	\N	2025-07-28 19:34:58.104608+00
+9	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:5,name:Q1 2020 Test	t	\N	\N	2025-07-29 17:16:17.880932+00
+10	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:3,name:Q12026Test	t	\N	\N	2025-07-29 17:16:25.100863+00
+11	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:6,name:Q11999Test	t	\N	\N	2025-07-29 19:54:44.812451+00
+12	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:caad3baa-7ae8-4241-9654-80ca6ffd578d,changes:manager_id,	t	\N	\N	2025-07-29 20:34:31.854952+00
+13	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:71dc105f-4f64-4ab5-b308-54d02ad9f4d1,changes:manager_id,	t	\N	\N	2025-07-29 20:34:45.996953+00
 \.
 
 
@@ -5132,7 +5476,7 @@ SELECT pg_catalog.setval('public.assessment_scorecard_metrics_id_seq', 1, false)
 -- Name: assessments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.assessments_id_seq', 20, true);
+SELECT pg_catalog.setval('public.assessments_id_seq', 38, true);
 
 
 --
@@ -5167,21 +5511,21 @@ SELECT pg_catalog.setval('public.kudos_id_seq', 1, false);
 -- Name: peer_feedback_feedback_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.peer_feedback_feedback_id_seq', 1, false);
+SELECT pg_catalog.setval('public.peer_feedback_feedback_id_seq', 6, true);
 
 
 --
 -- Name: review_cycles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.review_cycles_id_seq', 5, true);
+SELECT pg_catalog.setval('public.review_cycles_id_seq', 7, true);
 
 
 --
 -- Name: security_audit_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.security_audit_id_seq', 8, true);
+SELECT pg_catalog.setval('public.security_audit_id_seq', 13, true);
 
 
 --
@@ -5690,6 +6034,22 @@ ALTER TABLE ONLY public.employees
 
 
 --
+-- Name: assessments fk_admin_approved_by; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT fk_admin_approved_by FOREIGN KEY (admin_approved_by) REFERENCES public.employees(id);
+
+
+--
+-- Name: assessments fk_admin_revision_requested_by; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.assessments
+    ADD CONSTRAINT fk_admin_revision_requested_by FOREIGN KEY (admin_revision_requested_by) REFERENCES public.employees(id);
+
+
+--
 -- Name: kudos kudos_giver_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5791,6 +6151,24 @@ ALTER TABLE ONLY public.security_audit
 
 ALTER TABLE ONLY public.training_requests
     ADD CONSTRAINT training_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: assessments Enable read access for own and team assessments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Enable read access for own and team assessments" ON public.assessments FOR SELECT USING (((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.id = assessments.employee_id)))) OR public.is_manager_of(auth.uid(), employee_id) OR (public.get_user_role(auth.uid()) = 'admin'::text)));
+
+
+--
+-- Name: assessments Enable update for own and team assessments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Enable update for own and team assessments" ON public.assessments FOR UPDATE USING (((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.id = assessments.employee_id)))) OR public.is_manager_of(auth.uid(), employee_id) OR (public.get_user_role(auth.uid()) = 'admin'::text)));
 
 
 --

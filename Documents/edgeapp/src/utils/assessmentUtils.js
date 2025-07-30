@@ -3,10 +3,10 @@ import { Calendar, Clock, CheckCircle, Award, User } from 'lucide-react';
 
 export const getStatusDisplay = (assessment) => {
   // Use self_assessment_status if available, otherwise fall back to status
-  const currentStatus = assessment.self_assessment_status || assessment.status;
+  const selfAssessmentStatus = assessment.self_assessment_status || assessment.status;
   const cycleStatus = assessment.review_cycle_status;
   const managerReviewStatus = assessment.manager_review_status;
-  const employeeAcknowledgment = assessment.employee_acknowledgment;
+  const employeeAcknowledgedAt = assessment.employee_acknowledged_at;
   
   // If the review cycle is closed, none of the assessments should be considered "active"
   const isCycleClosed = cycleStatus === 'closed';
@@ -25,7 +25,7 @@ export const getStatusDisplay = (assessment) => {
   }
   
   // Handle manager review completion and employee acknowledgment workflow
-  if (managerReviewStatus === 'completed' && !employeeAcknowledgment) {
+  if (managerReviewStatus === 'completed' && !employeeAcknowledgedAt) {
     return {
       label: 'Manager Review Complete - Acknowledge Required', 
       color: 'text-blue-400',
@@ -36,14 +36,15 @@ export const getStatusDisplay = (assessment) => {
       isActive: cycleStatus === 'active'
     };
   }
-  
-  if (managerReviewStatus === 'completed' && employeeAcknowledgment) {
+
+  // Handle acknowledged reviews
+  if (employeeAcknowledgedAt) {
     return {
       label: 'Review Process Complete', 
       color: 'text-green-400',
       bgColor: 'bg-green-600',
-      actionLabel: 'View Results',
-      description: 'Your performance review is fully complete',
+      actionLabel: 'View Review',
+      description: 'You have acknowledged your manager\'s review. The review process is complete.',
       icon: CheckCircle,
       isActive: false
     };
@@ -86,6 +87,15 @@ export const getStatusDisplay = (assessment) => {
       icon: Award,
       isActive: cycleStatus === 'active'  // Only active if cycle is active
     },
+    'pending_admin_approval': { 
+      label: 'Pending Admin Approval', 
+      color: 'text-orange-400',
+      bgColor: 'bg-orange-600',
+      actionLabel: 'View',
+      description: 'Awaiting final approval from administrator',
+      icon: User,
+      isActive: cycleStatus === 'active'  // Only active if cycle is active
+    },
     'finalized': { 
       label: 'Finalized', 
       color: 'text-green-400',
@@ -97,7 +107,7 @@ export const getStatusDisplay = (assessment) => {
     }
   };
   
-  return statusMap[currentStatus] || { 
+  return statusMap[selfAssessmentStatus] || { 
     label: 'Unknown Status', 
     color: 'text-gray-400',
     bgColor: 'bg-gray-600',
@@ -133,6 +143,8 @@ export const getAssessmentProgress = (assessment) => {
       return { percentage: 50, step: 'Submitted' };
     case 'manager_complete':
       return { percentage: 75, step: 'Manager Review Complete' };
+    case 'pending_admin_approval':
+      return { percentage: 85, step: 'Pending Admin Approval' };
     case 'finalized':
       return { percentage: 100, step: 'Finalized' };
     default:

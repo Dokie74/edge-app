@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AssessmentService } from '../../services';
 import { useApp } from '../../contexts';
 import { Save, Send, Edit3, CheckCircle, Clock, ArrowLeft, User, Target, BookOpen } from 'lucide-react';
 import { Button, LoadingSpinner, ErrorMessage } from '../ui';
 
 export default function Assessment({ pageProps }) {
-  const { setActivePage, userRole } = useApp();
+  const navigate = useNavigate();
+  const { userRole } = useApp();
   const { assessmentId } = pageProps;
   const [assessment, setAssessment] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,6 +20,9 @@ export default function Assessment({ pageProps }) {
   useEffect(() => {
     const fetchDetails = async () => {
       try {
+        if (!assessmentId) {
+          throw new Error('No assessment ID provided');
+        }
         const data = await AssessmentService.getAssessmentById(assessmentId);
         const assessmentData = data?.[0];
         setAssessment(assessmentData);
@@ -37,6 +42,13 @@ export default function Assessment({ pageProps }) {
             gwc_wants_it_feedback: assessmentData.gwc_wants_it_feedback || '',
             gwc_capacity: assessmentData.gwc_capacity || false,
             gwc_capacity_feedback: assessmentData.gwc_capacity_feedback || '',
+            // Manager GWC fields
+            manager_gwc_gets_it: assessmentData.manager_gwc_gets_it || false,
+            manager_gwc_gets_it_feedback: assessmentData.manager_gwc_gets_it_feedback || '',
+            manager_gwc_wants_it: assessmentData.manager_gwc_wants_it || false,
+            manager_gwc_wants_it_feedback: assessmentData.manager_gwc_wants_it_feedback || '',
+            manager_gwc_capacity: assessmentData.manager_gwc_capacity || false,
+            manager_gwc_capacity_feedback: assessmentData.manager_gwc_capacity_feedback || '',
             // Manager fields
             manager_performance_rating: assessmentData.manager_performance_rating || '',
             manager_summary_comments: assessmentData.manager_summary_comments || '',
@@ -75,7 +87,6 @@ export default function Assessment({ pageProps }) {
   const handleSave = async () => {
     try {
       setSaving(true);
-      console.log('Saving assessment with form data:', formData);
       
       await AssessmentService.updateAssessment(assessmentId, formData);
       
@@ -83,7 +94,6 @@ export default function Assessment({ pageProps }) {
       const updatedData = await AssessmentService.getAssessmentById(assessmentId);
       setAssessment(updatedData?.[0]);
       
-      console.log('Assessment saved successfully, updated data:', updatedData?.[0]);
       alert('Assessment saved successfully!');
     } catch (err) {
       console.error('Error saving assessment:', err);
@@ -114,24 +124,19 @@ export default function Assessment({ pageProps }) {
   const handleManagerSubmit = async () => {
     try {
       setSubmitting(true);
-      console.log('handleManagerSubmit started for assessment:', assessmentId);
-      console.log('Manager form data being submitted:', formData);
       
       // FIXED: Single atomic call to submit all manager feedback and update status
       await AssessmentService.submitManagerReview(assessmentId, formData);
-      console.log('Manager review submitted successfully via atomic operation');
       
       // Refresh the assessment data to reflect the changes
-      console.log('Refreshing assessment data...');
       const updatedData = await AssessmentService.getAssessmentById(assessmentId);
-      console.log('Refreshed assessment data:', updatedData?.[0]);
       
       setAssessment(updatedData?.[0]);
       setIsEditing(false);
       
       alert('Manager review submitted successfully! The employee will be notified.');
     } catch (err) {
-      console.error('handleManagerSubmit error:', err);
+      console.error('Error submitting manager review:', err);
       alert('Error submitting manager review: ' + err.message);
     } finally {
       setSubmitting(false);
@@ -197,7 +202,7 @@ export default function Assessment({ pageProps }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <button 
-            onClick={() => setActivePage({ name: userRole === 'manager' ? 'My Team' : 'My Reviews', props: {} })} 
+            onClick={() => navigate(userRole === 'manager' ? '/team' : '/reviews')} 
             className="text-cyan-400 hover:underline flex items-center"
           >
             <ArrowLeft size={16} className="mr-1" />
@@ -613,28 +618,63 @@ const GWCSection = ({ assessment, formData, isEditing, onChange, isManagerReview
                   Employee Assessment
                 </label>
                 <div className="p-3 bg-gray-700 rounded-md text-gray-300 min-h-[60px] border-l-4 border-blue-500">
-                  {assessment[`gwc_${item.key}_feedback`] || 'No explanation provided by employee.'}
+                  {/* Show employee feedback only if they answered No or provided explanation */}
+                  {!assessment[`gwc_${item.key}`] || assessment[`gwc_${item.key}_feedback`] ? (
+                    assessment[`gwc_${item.key}_feedback`] || 'No explanation provided by employee.'
+                  ) : (
+                    'Employee answered Yes - no explanation needed.'
+                  )}
                 </div>
               </div>
               
               {/* Manager Column */}
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-green-300">
-                  Manager Feedback
-                </label>
-                {isEditing && canEditManagerReview ? (
-                  <textarea
-                    value={formData[`manager_gwc_${item.key}_feedback`] || ''}
-                    onChange={(e) => onChange(`manager_gwc_${item.key}_feedback`, e.target.value)}
-                    className="w-full p-3 bg-gray-700 border border-green-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    rows={2}
-                    placeholder={`Provide feedback on employee's ${item.label.toLowerCase()} assessment...`}
-                  />
-                ) : (
-                  <div className="p-3 bg-gray-700 rounded-md text-gray-300 min-h-[60px] border-l-4 border-green-500">
-                    {assessment[`manager_gwc_${item.key}_feedback`] || 'Manager feedback pending.'}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-green-300 mb-2">
+                    Manager Assessment
+                  </label>
+                  {isEditing && canEditManagerReview ? (
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={formData[`manager_gwc_${item.key}`] || false}
+                        onChange={(e) => onChange(`manager_gwc_${item.key}`, e.target.checked)}
+                        className="w-5 h-5 text-green-600 bg-gray-700 border-gray-600 rounded focus:ring-green-500"
+                      />
+                      <span className="text-white">Manager agrees: {item.label}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-3">
+                      <span className="text-2xl">
+                        {assessment[`manager_gwc_${item.key}`] ? '✅' : '❌'}
+                      </span>
+                      <span className="text-white">Manager agrees: {item.label}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Manager Feedback - only show if No or existing feedback */}
+                {(isEditing && canEditManagerReview && !(formData[`manager_gwc_${item.key}`] || false)) || 
+                 (!isEditing && (assessment[`manager_gwc_${item.key}_feedback`] || !assessment[`manager_gwc_${item.key}`])) ? (
+                  <div>
+                    <label className="block text-sm font-medium text-green-300 mb-2">
+                      {!(formData[`manager_gwc_${item.key}`] || assessment[`manager_gwc_${item.key}`]) ? 'Manager explanation why not:' : 'Manager feedback:'}
+                    </label>
+                    {isEditing && canEditManagerReview ? (
+                      <textarea
+                        value={formData[`manager_gwc_${item.key}_feedback`] || ''}
+                        onChange={(e) => onChange(`manager_gwc_${item.key}_feedback`, e.target.value)}
+                        className="w-full p-3 bg-gray-700 border border-green-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        rows={2}
+                        placeholder={`Explain why you don't agree the employee ${item.label.toLowerCase()}...`}
+                      />
+                    ) : (
+                      <div className="p-3 bg-gray-700 rounded-md text-gray-300 min-h-[60px] border-l-4 border-green-500">
+                        {assessment[`manager_gwc_${item.key}_feedback`] || 'Manager feedback pending.'}
+                      </div>
+                    )}
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -667,24 +707,28 @@ const GWCSection = ({ assessment, formData, isEditing, onChange, isManagerReview
             </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Explain your assessment:
-            </label>
-            {isEditing ? (
-              <textarea
-                value={formData[`gwc_${item.key}_feedback`] || ''}
-                onChange={(e) => onChange(`gwc_${item.key}_feedback`, e.target.value)}
-                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
-                rows={2}
-                placeholder={`Explain why you ${formData[`gwc_${item.key}`] ? 'do' : 'don\'t'} ${item.label.toLowerCase()}...`}
-              />
-            ) : (
-              <div className="p-3 bg-gray-700 rounded-md text-gray-300 min-h-[60px]">
-                {assessment[`gwc_${item.key}_feedback`] || 'No explanation provided yet.'}
-              </div>
-            )}
-          </div>
+          {/* Only show comment box if answer is No (unchecked) or if there's existing feedback */}
+          {(isEditing && !(formData[`gwc_${item.key}`] || false)) || 
+           (!isEditing && (assessment[`gwc_${item.key}_feedback`] || !assessment[`gwc_${item.key}`])) ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {!(formData[`gwc_${item.key}`] || assessment[`gwc_${item.key}`]) ? 'Please explain why not:' : 'Explanation:'}
+              </label>
+              {isEditing ? (
+                <textarea
+                  value={formData[`gwc_${item.key}_feedback`] || ''}
+                  onChange={(e) => onChange(`gwc_${item.key}_feedback`, e.target.value)}
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                  rows={2}
+                  placeholder={`Explain why you don't ${item.label.toLowerCase()}...`}
+                />
+              ) : (
+                <div className="p-3 bg-gray-700 rounded-md text-gray-300 min-h-[60px]">
+                  {assessment[`gwc_${item.key}_feedback`] || 'No explanation provided yet.'}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       ))}
     </div>

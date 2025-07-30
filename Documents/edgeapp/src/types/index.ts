@@ -159,14 +159,23 @@ export interface EmployeeFormData {
   jobTitle: string;
   role: 'employee' | 'manager' | 'admin';
   managerId?: string;
-  isActive: boolean;
+  department?: string;
+  isActive?: boolean;
   tempPassword?: string;
+  password?: string;
+}
+
+export interface ReviewCycleFormData {
+  name: string;
+  startDate: string;
+  endDate: string;
+  description?: string;
 }
 
 export interface ValidationResult {
   isValid: boolean;
   errors: Record<string, string>;
-  data: any;
+  data: Record<string, any>;
 }
 
 // API Response Types

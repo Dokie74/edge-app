@@ -1,0 +1,14 @@
+{
+  "employee": {
+    "email": "employee1@lucerne.com",
+    "password": "Employee1"
+  },
+  "manager": {
+    "email": "manager1@lucerne.com",
+    "password": "Manager1"  
+  },
+  "admin": {
+    "email": "admin@lucerne.com",
+    "password": "Admin"
+  }
+}

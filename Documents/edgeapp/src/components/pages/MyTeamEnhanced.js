@@ -1,5 +1,6 @@
 // src/components/pages/MyTeamEnhanced.js - Enhanced with pending reviews workflow
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Calendar, 
@@ -21,7 +22,8 @@ import { formatDate } from '../../utils';
 import NotificationService from '../../services/NotificationService';
 
 export default function MyTeamEnhanced() {
-  const { openModal, setActivePage } = useApp();
+  const navigate = useNavigate();
+  const { openModal } = useApp();
   const { 
     team, 
     teamAssessments, 
@@ -73,13 +75,8 @@ export default function MyTeamEnhanced() {
   };
 
   const handleReviewAssessment = (assessment) => {
-    // Navigate to assessment page for manager review
-    setActivePage({ 
-      name: 'Assessment', 
-      props: { 
-        assessmentId: assessment.assessment_id
-      } 
-    });
+    // Navigate to manager review page with assessment details as search params
+    navigate(`/review/${assessment.employee_id}?assessmentId=${assessment.assessment_id}&employeeName=${encodeURIComponent(assessment.employee_name)}&cycleId=${assessment.cycle_id}&cycleName=${encodeURIComponent(assessment.cycle_name)}`);
   };
 
   const handleReviewDevelopmentPlan = async (planId, status, feedback) => {
@@ -267,7 +264,7 @@ export default function MyTeamEnhanced() {
                       size="sm"
                       onClick={() => {
                         // Navigate to manager playbook for this employee
-                        setActivePage({ name: 'Manager Playbook', props: { selectedEmployeeId: member.id } });
+                        navigate(`/playbook?employeeId=${member.id}`);
                       }}
                     >
                       <MessageSquare size={14} className="mr-1" />

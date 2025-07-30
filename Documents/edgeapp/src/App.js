@@ -18,6 +18,9 @@ import Assessment from './components/pages/Assessment';
 import Admin from './components/pages/Admin';
 import FeedbackWall from './components/pages/FeedbackWall';
 import ManagerPlaybook from './components/pages/ManagerPlaybook';
+import EmployeeHelpPage from './components/pages/EmployeeHelpPage';
+import ManagerHelpPage from './components/pages/ManagerHelpPage';
+import AdminHelpPage from './components/pages/AdminHelpPage';
 
 // Import modals
 import StartReviewCycleModal from './components/modals/StartReviewCycleModal';
@@ -58,9 +61,6 @@ const MainApp = () => {
 
   // Show login screen if not authenticated
   if (!user) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🚪 Showing login screen');
-    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
         <div className="w-full max-w-sm">
@@ -130,11 +130,20 @@ const MainApp = () => {
         return <FeedbackWall />;
       case 'Manager Playbook':
         return <ManagerPlaybook />;
+      case 'Help':
+        // Return role-specific help page
+        if (userRole === 'admin') {
+          return <AdminHelpPage />;
+        } else if (userRole === 'manager') {
+          return <ManagerHelpPage />;
+        } else {
+          return <EmployeeHelpPage />;
+        }
       default:
-        return <Dashboard />;
+        return <EnhancedDashboard />;
     }
   } catch (error) {
-    console.error('💥 Error rendering page:', error);
+    console.error('Error rendering page:', error);
     return (
       <div className="p-8">
         <div className="bg-red-900 border border-red-700 rounded-lg p-4">
@@ -152,10 +161,6 @@ const MainApp = () => {
   }
 };
 
-  // Secure logging - no sensitive data exposed
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🏠 Main app loaded - Page:', activePage.name, 'User authenticated:', !!user);
-  }
 
   // MAIN APP STRUCTURE
   return (
@@ -176,7 +181,6 @@ const MainApp = () => {
           modalProps={{
             ...modal.props,
             onComplete: () => {
-              console.log('✅ Review cycle modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
@@ -193,7 +197,6 @@ const MainApp = () => {
           modalProps={{
             ...modal.props,
             onComplete: () => {
-              console.log('✅ Create review cycle modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
@@ -210,7 +213,6 @@ const MainApp = () => {
           modalProps={{
             ...modal.props,
             onComplete: () => {
-              console.log('✅ Create employee modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
@@ -227,7 +229,6 @@ const MainApp = () => {
           modalProps={{
             ...modal.props,
             onComplete: () => {
-              console.log('✅ Edit employee modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
@@ -244,7 +245,6 @@ const MainApp = () => {
           modalProps={{
             ...modal.props,
             onComplete: () => {
-              console.log('✅ Give kudo modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
@@ -261,7 +261,6 @@ const MainApp = () => {
           modalProps={{
             ...modal.props,
             onComplete: () => {
-              console.log('✅ Give feedback modal completed');
               if (modal.props?.onComplete) {
                 modal.props.onComplete();
               }
