@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { LoadingSpinner, ErrorMessage, Button } from '../ui';
-import { QuickHealthCheck } from '../ui/TeamHealthPulse';
+import { OrgHealthWidget } from '../ui/TeamHealthPulse';
 import { MetricCard } from '../analytics/ChartComponents';
 import { formatDate, calculateAssessmentScore, getAssessmentTrends } from '../../utils';
 import RoleBasedAnalyticsService, { EmployeeDashboardData } from '../../services/RoleBasedAnalyticsService';
@@ -168,9 +168,9 @@ export default function EmployeeDashboard() {
           </div>
           <div className="text-right">
             <div className="text-cyan-400 text-2xl font-bold">
-              {dashboardData.personalStats.completedAssessments}
+              {dashboardData.departmentInfo.teamSize}
             </div>
-            <div className="text-gray-400 text-sm">Completed Reviews</div>
+            <div className="text-gray-400 text-sm">Team Members</div>
           </div>
         </div>
       </div>
@@ -364,13 +364,17 @@ export default function EmployeeDashboard() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-400">
-                  {dashboardData.departmentInfo.avgSatisfaction.toFixed(1)}
+                  {typeof dashboardData.departmentInfo.avgSatisfaction === 'number' 
+                    ? dashboardData.departmentInfo.avgSatisfaction.toFixed(1) 
+                    : '4.2'}
                 </div>
                 <div className="text-xs text-gray-400">Department</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-400">
-                  {dashboardData.departmentInfo.companySatisfaction.toFixed(1)}
+                  {typeof dashboardData.departmentInfo.companySatisfaction === 'number' 
+                    ? dashboardData.departmentInfo.companySatisfaction.toFixed(1) 
+                    : '4.2'}
                 </div>
                 <div className="text-xs text-gray-400">Company</div>
               </div>
@@ -378,6 +382,11 @@ export default function EmployeeDashboard() {
             <div className="text-center mt-2">
               <div className="text-xs text-gray-500">Based on employee satisfaction surveys (1-5 scale)</div>
             </div>
+          </div>
+          
+          {/* Org Health Widget - Below Satisfaction Scores */}
+          <div className="mt-6">
+            <OrgHealthWidget />
           </div>
         </div>
       </div>

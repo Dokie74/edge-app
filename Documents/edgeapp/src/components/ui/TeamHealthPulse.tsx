@@ -2,65 +2,18 @@
 import React, { useState, useEffect } from 'react';
 import { Heart, ThumbsUp, AlertTriangle, TrendingUp, X, CheckCircle } from 'lucide-react';
 import { useApp } from '../../contexts';
+import { supabase } from '../../services/supabaseClient';
 
 interface PulseQuestion {
   id: string;
-  question: string;
+  question_id: string;
+  question_text: string;
   type: 'scale' | 'boolean' | 'choice';
   options?: string[];
   category: 'satisfaction' | 'workload' | 'support' | 'engagement';
+  is_active: boolean;
+  sort_order: number;
 }
-
-const PULSE_QUESTIONS: PulseQuestion[] = [
-  {
-    id: 'provide_value',
-    question: 'Do you feel you provide value to the company?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'happy_to_start_work',
-    question: 'Were you happy to start work today?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'feel_contribute',
-    question: 'Do you feel you contribute meaningfully to your team?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'workplace_satisfaction',
-    question: 'How satisfied are you with your workplace today?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'team_collaboration',
-    question: 'How would you rate your team collaboration today?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'workload_balance',
-    question: 'How manageable is your workload today?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'work_environment',
-    question: 'How comfortable is your work environment?',
-    type: 'scale',
-    category: 'satisfaction'
-  },
-  {
-    id: 'job_fulfillment',
-    question: 'How fulfilling is your work today?',
-    type: 'scale',
-    category: 'satisfaction'
-  }
-];
 
 interface TeamHealthPulseProps {
   onComplete?: (response: any) => void;
@@ -72,32 +25,81 @@ export default function TeamHealthPulse({ onComplete, showRandomQuestion = false
   const [currentQuestion, setCurrentQuestion] = useState<PulseQuestion | null>(null);
   const [showPulse, setShowPulse] = useState(false);
   const [hasAnsweredToday, setHasAnsweredToday] = useState(false);
+  const [questions, setQuestions] = useState<PulseQuestion[]>([]);
+
+  // Load questions from database
+  const loadQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pulse_questions')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (error) throw error;
+      
+      console.log('Loaded pulse questions:', data);
+      setQuestions(data || []);
+    } catch (error) {
+      console.error('Error loading pulse questions:', error);
+      // Fallback to hardcoded questions if database fails
+      const fallbackQuestions = [
+        {
+          id: '1',
+          question_id: 'provide_value',
+          question_text: 'Do you feel you provide value to the company?',
+          category: 'satisfaction' as const,
+          type: 'scale' as const,
+          is_active: true,
+          sort_order: 1
+        },
+        {
+          id: '2', 
+          question_id: 'happy_to_start_work',
+          question_text: 'Were you happy to start work today?',
+          category: 'satisfaction' as const,
+          type: 'scale' as const,
+          is_active: true,
+          sort_order: 2
+        }
+      ];
+      setQuestions(fallbackQuestions);
+    }
+  };
 
   useEffect(() => {
-    // Check if user has answered recently (within 50 minutes)
+    if (user?.id) {
+      loadQuestions();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || questions.length === 0) return;
+
+    // Check if user has answered recently (within 52 minutes)
     const lastAnsweredTime = localStorage.getItem(`pulse_last_answered_time_${user?.id}`);
     const now = new Date().getTime();
-    const fiftyMinutesInMs = 50 * 60 * 1000; // 50 minutes in milliseconds
+    const fiftyTwoMinutesInMs = 52 * 60 * 1000; // 52 minutes in milliseconds
     
-    if (lastAnsweredTime && (now - parseInt(lastAnsweredTime)) < fiftyMinutesInMs) {
+    if (lastAnsweredTime && (now - parseInt(lastAnsweredTime)) < fiftyTwoMinutesInMs) {
       setHasAnsweredToday(true);
       return;
     }
 
-    // Show random question if enabled and user hasn't answered recently
-    if (showRandomQuestion && !hasAnsweredToday) {
-      const randomQuestion = PULSE_QUESTIONS[Math.floor(Math.random() * PULSE_QUESTIONS.length)];
+    // ALWAYS show question automatically every 52 minutes (no manual trigger needed)
+    if (!hasAnsweredToday && questions.length > 0) {
+      const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
       setCurrentQuestion(randomQuestion);
       setShowPulse(true);
     }
-  }, [user?.id, showRandomQuestion, hasAnsweredToday]);
+  }, [user?.id, hasAnsweredToday, questions]);
 
   const handleResponse = async (response: any) => {
     if (!currentQuestion || !user) return;
 
     const pulseResponse = {
-      questionId: currentQuestion.id,
-      question: currentQuestion.question,
+      questionId: currentQuestion.question_id,
+      question: currentQuestion.question_text,
       response,
       timestamp: new Date().toISOString(),
       userId: user.id,
@@ -201,7 +203,7 @@ export default function TeamHealthPulse({ onComplete, showRandomQuestion = false
         </div>
 
         <div className="mb-6">
-          <p className="text-white text-lg mb-4">{currentQuestion.question}</p>
+          <p className="text-white text-lg mb-4">{currentQuestion.question_text}</p>
           {renderQuestionInput()}
         </div>
 
@@ -213,41 +215,154 @@ export default function TeamHealthPulse({ onComplete, showRandomQuestion = false
   );
 }
 
-// Quick pulse component for dashboard integration
-export function QuickHealthCheck() {
-  const [showModal, setShowModal] = useState(false);
+// Persistent dashboard org health widget
+export function OrgHealthWidget() {
   const { user } = useApp();
+  const [currentQuestion, setCurrentQuestion] = useState<PulseQuestion | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [isNewQuestion, setIsNewQuestion] = useState(false);
+  const [questions, setQuestions] = useState<PulseQuestion[]>([]);
 
-  const hasAnsweredRecently = () => {
-    const lastAnsweredTime = localStorage.getItem(`pulse_last_answered_time_${user?.id}`);
-    if (!lastAnsweredTime) return false;
-    
-    const now = new Date().getTime();
-    const fiftyMinutesInMs = 50 * 60 * 1000; // 50 minutes in milliseconds
-    
-    return (now - parseInt(lastAnsweredTime)) < fiftyMinutesInMs;
+  // Load questions from database
+  const loadQuestions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('pulse_questions')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+
+      if (error) throw error;
+      setQuestions(data || []);
+    } catch (error) {
+      console.error('Error loading pulse questions for OrgHealthWidget:', error);
+      // Fallback to hardcoded questions if database fails
+      const fallbackQuestions = [
+        {
+          id: '1',
+          question_id: 'provide_value',
+          question_text: 'Do you feel you provide value to the company?',
+          category: 'satisfaction' as const,
+          type: 'scale' as const,
+          is_active: true,
+          sort_order: 1
+        },
+        {
+          id: '2', 
+          question_id: 'workplace_satisfaction',
+          question_text: 'How satisfied are you with your workplace today?',
+          category: 'satisfaction' as const,
+          type: 'scale' as const,
+          is_active: true,
+          sort_order: 2
+        }
+      ];
+      setQuestions(fallbackQuestions);
+    }
   };
 
-  const getTimeUntilNext = () => {
-    const lastAnsweredTime = localStorage.getItem(`pulse_last_answered_time_${user?.id}`);
-    if (!lastAnsweredTime) return 0;
+  useEffect(() => {
+    if (user?.id) {
+      loadQuestions();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || questions.length === 0) return;
+
+    const checkForNewQuestion = () => {
+      const lastAnsweredTime = localStorage.getItem(`pulse_last_answered_time_${user.id}`);
+      const lastQuestionId = localStorage.getItem(`pulse_last_question_id_${user.id}`);
+      const now = new Date().getTime();
+      
+      // Random interval between 10 minutes and 52 minutes (gamified randomness)
+      const minInterval = 10 * 60 * 1000; // 10 minutes
+      const maxInterval = 52 * 60 * 1000; // 52 minutes
+      const randomInterval = Math.random() * (maxInterval - minInterval) + minInterval;
+      
+      if (!lastAnsweredTime || (now - parseInt(lastAnsweredTime)) > randomInterval) {
+        // Time for a new question
+        const availableQuestions = questions.filter(q => q.question_id !== lastQuestionId);
+        const randomQuestion = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
+        
+        setCurrentQuestion(randomQuestion);
+        setHasAnswered(false);
+        setIsNewQuestion(true);
+        localStorage.setItem(`pulse_current_question_${user.id}`, JSON.stringify(randomQuestion));
+      } else {
+        // Check if there's a current unanswered question
+        const storedQuestion = localStorage.getItem(`pulse_current_question_${user.id}`);
+        const storedAnswered = localStorage.getItem(`pulse_question_answered_${user.id}`);
+        
+        if (storedQuestion) {
+          setCurrentQuestion(JSON.parse(storedQuestion));
+          setHasAnswered(storedAnswered === 'true');
+          setIsNewQuestion(false);
+        }
+      }
+    };
+
+    checkForNewQuestion();
     
-    const nextQuestionTime = parseInt(lastAnsweredTime) + (50 * 60 * 1000);
-    const timeUntilNext = Math.max(0, nextQuestionTime - new Date().getTime());
-    return Math.ceil(timeUntilNext / (60 * 1000));
+    // Check for new questions every minute
+    const interval = setInterval(checkForNewQuestion, 60000);
+    return () => clearInterval(interval);
+  }, [user?.id, questions]);
+
+  const handleResponse = async (response: any) => {
+    if (!currentQuestion || !user) return;
+
+    const pulseResponse = {
+      questionId: currentQuestion.question_id,
+      question: currentQuestion.question_text,
+      response,
+      timestamp: new Date().toISOString(),
+      userId: user.id,
+      category: currentQuestion.category
+    };
+
+    try {
+      // Import TeamHealthService dynamically
+      const { TeamHealthService } = await import('../../services/TeamHealthService');
+      
+      // Get user info for alert creation
+      const { supabase } = await import('../../services/supabaseClient');
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('name, manager_id, department')
+        .eq('user_id', user.id)
+        .single();
+      
+      // Save response with user context
+      await TeamHealthService.savePulseResponse(
+        pulseResponse, 
+        employee?.name || user.email?.split('@')[0] || 'Unknown',
+        employee?.manager_id,
+        employee?.department
+      );
+      
+      // Mark as answered
+      localStorage.setItem(`pulse_last_answered_time_${user.id}`, new Date().getTime().toString());
+      localStorage.setItem(`pulse_last_question_id_${user.id}`, currentQuestion.question_id);
+      localStorage.setItem(`pulse_question_answered_${user.id}`, 'true');
+      
+      setHasAnswered(true);
+      setIsNewQuestion(false);
+      
+    } catch (error) {
+      console.error('Error saving pulse response:', error);
+    }
   };
 
-  if (hasAnsweredRecently()) {
-    const minutesLeft = getTimeUntilNext();
-    
+  if (!currentQuestion) {
     return (
-      <div className="bg-green-900/20 border border-green-500/30 rounded-lg p-4">
+      <div className="bg-gray-800/50 border border-gray-600/50 rounded-lg p-4">
         <div className="flex items-center space-x-3">
-          <CheckCircle className="text-green-400" size={20} />
+          <Heart className="text-gray-500" size={20} />
           <div>
-            <h4 className="text-green-200 font-medium">Thanks for your feedback!</h4>
-            <p className="text-green-300 text-sm">
-              Next pulse check available in {minutesLeft} minutes
+            <h4 className="text-gray-400 font-medium">Org Health Pulse</h4>
+            <p className="text-gray-500 text-sm">
+              {questions.length === 0 ? 'Setting up questions...' : 'Loading next question...'}
             </p>
           </div>
         </div>
@@ -256,25 +371,65 @@ export function QuickHealthCheck() {
   }
 
   return (
-    <>
-      <div className="bg-cyan-900/20 border border-cyan-500/30 rounded-lg p-4 cursor-pointer hover:bg-cyan-900/30 transition-colors"
-           onClick={() => setShowModal(true)}>
-        <div className="flex items-center space-x-3">
-          <Heart className="text-cyan-400" size={20} />
-          <div>
-            <h4 className="text-cyan-200 font-medium">How are you today?</h4>
-            <p className="text-cyan-300 text-sm">Quick health check • 30 seconds</p>
+    <div className={`rounded-lg p-4 transition-all duration-500 ${
+      hasAnswered 
+        ? 'bg-green-900/30 border border-green-500/40' 
+        : isNewQuestion 
+          ? 'bg-gradient-to-r from-cyan-900/40 to-blue-900/40 border border-cyan-400/50 shadow-lg shadow-cyan-500/20' 
+          : 'bg-cyan-900/20 border border-cyan-500/30'
+    }`}>
+      <div className="flex items-start space-x-3">
+        {hasAnswered ? (
+          <CheckCircle className="text-green-400 animate-pulse" size={20} />
+        ) : (
+          <Heart className={`${isNewQuestion ? 'text-cyan-300 animate-bounce' : 'text-cyan-400'}`} size={20} />
+        )}
+        <div className="flex-1">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className={`font-medium ${
+              hasAnswered ? 'text-green-200' : 'text-cyan-200'
+            }`}>
+              Org Health Pulse {isNewQuestion && !hasAnswered && '✨ NEW!'}
+            </h4>
+            {isNewQuestion && !hasAnswered && (
+              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
+            )}
           </div>
-          <TrendingUp className="text-cyan-400" size={16} />
+          
+          <p className={`text-sm mb-4 ${
+            hasAnswered ? 'text-green-300' : 'text-white'
+          }`}>
+            {currentQuestion.question_text}
+          </p>
+          
+          {hasAnswered ? (
+            <div className="flex items-center space-x-2">
+              <CheckCircle className="text-green-400" size={16} />
+              <span className="text-green-300 text-sm font-medium">
+                Thanks for your feedback! 🎉
+              </span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-xs text-gray-400">
+                <span>Strongly Disagree</span>
+                <span>Strongly Agree</span>
+              </div>
+              <div className="flex space-x-2">
+                {[1, 2, 3, 4, 5].map(value => (
+                  <button
+                    key={value}
+                    onClick={() => handleResponse(value)}
+                    className="w-10 h-10 rounded-full border-2 border-cyan-500 hover:bg-cyan-500 hover:text-white transition-all duration-200 flex items-center justify-center font-semibold text-sm hover:scale-110"
+                  >
+                    {value}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {showModal && (
-        <TeamHealthPulse 
-          showRandomQuestion={true}
-          onComplete={() => setShowModal(false)}
-        />
-      )}
-    </>
+    </div>
   );
 }

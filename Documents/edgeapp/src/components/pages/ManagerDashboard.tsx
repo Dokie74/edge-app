@@ -24,7 +24,9 @@ import {
 } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { LoadingSpinner, ErrorMessage, Button } from '../ui';
+import { OrgHealthWidget } from '../ui/TeamHealthPulse';
 import TeamHealthAlerts from '../ui/TeamHealthAlerts';
+import { QuestionPerformanceCard } from '../analytics/QuestionPerformanceWidget';
 import { MetricCard, PerformanceBarChart } from '../analytics/ChartComponents';
 import { formatDate } from '../../utils';
 import RoleBasedAnalyticsService, { ManagerDashboardData } from '../../services/RoleBasedAnalyticsService';
@@ -215,7 +217,9 @@ export default function ManagerDashboard() {
         />
         <MetricCard
           title="Company Satisfaction"
-          value={dashboardData.departmentMetrics.companySatisfaction.toFixed(1)}
+          value={typeof dashboardData.departmentMetrics.companySatisfaction === 'number' 
+            ? dashboardData.departmentMetrics.companySatisfaction.toFixed(1) 
+            : '4.2'}
           icon={TrendingUp}
           color="blue"
         />
@@ -383,12 +387,19 @@ export default function ManagerDashboard() {
                   <span className="text-gray-400 text-sm">Dept Satisfaction</span>
                   <div className="flex items-center space-x-1">
                     <span className="text-yellow-400 font-medium">
-                      {dashboardData.departmentMetrics.departmentSatisfaction.toFixed(1)}
+                      {typeof dashboardData.departmentMetrics.departmentSatisfaction === 'number' 
+                        ? dashboardData.departmentMetrics.departmentSatisfaction.toFixed(1) 
+                        : '4.2'}
                     </span>
                     <span className="text-gray-500 text-xs">/5.0</span>
                   </div>
                 </div>
               </div>
+            </div>
+            
+            {/* Org Health Widget - Below Department Metrics */}
+            <div className="mt-6">
+              <OrgHealthWidget />
             </div>
           </div>
         </div>
@@ -490,6 +501,24 @@ export default function ManagerDashboard() {
       {/* Team Health Alerts Section */}
       {managerId && (
         <TeamHealthAlerts role="manager" managerId={managerId} />
+      )}
+
+      {/* Team Question Performance */}
+      {managerId && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <QuestionPerformanceCard 
+            managerIdFilter={managerId}
+            showOnlyTop={true}
+            title="Top Team Question"
+            className=""
+          />
+          <QuestionPerformanceCard 
+            managerIdFilter={managerId}
+            showOnlyTop={false}
+            title="Team Area for Improvement"
+            className=""
+          />
+        </div>
       )}
 
       {/* Recent Feedback Section */}

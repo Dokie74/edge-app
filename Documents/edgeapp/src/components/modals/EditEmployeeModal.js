@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Briefcase, Shield, Users, Save, Trash2 } from 'lucide-react';
 import { Button, LoadingSpinner } from '../ui';
-import { AdminService } from '../../services';
+import { AdminService, DepartmentService } from '../../services';
 import { validateEmployeeForm } from '../../utils/validation';
 
 const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
@@ -14,7 +14,8 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     role: employee?.role || 'employee',
     managerId: employee?.manager_id || '',
     isActive: employee?.is_active !== false,
-    departmentIds: []
+    primaryDepartmentId: '',
+    secondaryDepartmentId: ''
   });
   
   const [managers, setManagers] = useState([]);
@@ -38,10 +39,17 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       role: employee?.role || 'employee',
       managerId: employee?.manager_id || '',
       isActive: employee?.is_active !== false,
-      departmentIds: []
+      primaryDepartmentId: '', // Will be set by fetchEmployeeDetails
+      secondaryDepartmentId: '' // Will be set by fetchEmployeeDetails
     };
     
-    const changed = Object.keys(formData).some(key => formData[key] !== original[key]);
+    const changed = Object.keys(formData).some(key => {
+      if (key === 'primaryDepartmentId' || key === 'secondaryDepartmentId') {
+        // For department fields, any change from initial loading counts
+        return true; // We'll let the save logic handle department changes
+      }
+      return formData[key] !== original[key];
+    });
     setHasChanges(changed);
   }, [formData, employee]);
 
@@ -56,29 +64,70 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
 
   const fetchDepartments = async () => {
     try {
-      const response = await supabase.rpc('get_all_departments');
-      if (response.data) {
-        setDepartments(response.data);
-      }
+      const departmentsData = await DepartmentService.getAllDepartments();
+      console.log('📋 EditEmployeeModal: Departments loaded:', departmentsData);
+      setDepartments(departmentsData || []);
     } catch (err) {
-      console.error('Error fetching departments:', err);
+      console.error('❌ Error fetching departments:', err);
+      // Fallback to direct Supabase query if service fails
+      try {
+        const { data, error } = await supabase
+          .from('departments')
+          .select('*')
+          .order('name');
+        
+        if (error) throw error;
+        console.log('📋 EditEmployeeModal: Fallback departments loaded:', data);
+        setDepartments(data || []);
+      } catch (fallbackErr) {
+        console.error('❌ Fallback department fetch failed:', fallbackErr);
+        setDepartments([]);
+      }
     }
   };
 
   const fetchEmployeeDetails = async () => {
     try {
-      const response = await supabase.rpc('get_employee_with_departments', {
-        p_employee_id: employee.id
-      });
-      if (response.data && !response.data.error) {
-        const departments = response.data.departments || [];
+      const employeeDepartments = await DepartmentService.getEmployeeDepartments(employee.id);
+      console.log('👤 EditEmployeeModal: Employee departments loaded:', employeeDepartments);
+      
+      const primaryDept = employeeDepartments.find(ed => ed.is_primary);
+      const secondaryDept = employeeDepartments.find(ed => !ed.is_primary);
+      
+      console.log('🎯 Primary dept:', primaryDept);
+      console.log('📌 Secondary dept:', secondaryDept);
+      
+      setFormData(prev => ({
+        ...prev,
+        primaryDepartmentId: primaryDept ? primaryDept.department_id.toString() : '',
+        secondaryDepartmentId: secondaryDept ? secondaryDept.department_id.toString() : ''
+      }));
+    } catch (err) {
+      console.error('❌ Error fetching employee details:', err);
+      // Try fallback approach
+      try {
+        const { data, error } = await supabase
+          .from('employee_departments')
+          .select(`
+            *,
+            department:departments(*)
+          `)
+          .eq('employee_id', employee.id);
+        
+        if (error) throw error;
+        console.log('👤 Fallback employee departments:', data);
+        
+        const primaryDept = data.find(ed => ed.is_primary);
+        const secondaryDept = data.find(ed => !ed.is_primary);
+        
         setFormData(prev => ({
           ...prev,
-          departmentIds: departments
+          primaryDepartmentId: primaryDept ? primaryDept.department_id.toString() : '',
+          secondaryDepartmentId: secondaryDept ? secondaryDept.department_id.toString() : ''
         }));
+      } catch (fallbackErr) {
+        console.error('❌ Fallback employee details fetch failed:', fallbackErr);
       }
-    } catch (err) {
-      console.error('Error fetching employee details:', err);
     }
   };
 
@@ -87,13 +136,18 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     if (error) setError('');
   };
 
-  const handleDepartmentToggle = (departmentId) => {
-    setFormData(prev => ({
-      ...prev,
-      departmentIds: prev.departmentIds.includes(departmentId)
-        ? prev.departmentIds.filter(id => id !== departmentId)
-        : [...prev.departmentIds, departmentId]
+  const handlePrimaryDepartmentChange = (departmentId) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      primaryDepartmentId: departmentId,
+      // Clear secondary if it's the same as primary
+      secondaryDepartmentId: prev.secondaryDepartmentId === departmentId ? '' : prev.secondaryDepartmentId
     }));
+    if (error) setError('');
+  };
+
+  const handleSecondaryDepartmentChange = (departmentId) => {
+    setFormData(prev => ({ ...prev, secondaryDepartmentId: departmentId }));
     if (error) setError('');
   };
 
@@ -104,6 +158,13 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       setError(Object.values(validation.errors).join(', '));
       return false;
     }
+    
+    // Additional validation for primary department
+    if (!formData.primaryDepartmentId) {
+      setError('Primary department is required');
+      return false;
+    }
+    
     return true;
   };
 
@@ -138,12 +199,33 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       const result = await AdminService.updateEmployee(employee.id, updateData);
 
       if (result.success) {
-        // Update departments if they changed
+        // Update departments using the new service
         try {
-          await supabase.rpc('set_employee_departments', {
-            p_employee_id: employee.id,
-            p_department_ids: formData.departmentIds
-          });
+          // Assign primary department (required)
+          if (formData.primaryDepartmentId) {
+            await DepartmentService.assignPrimaryDepartment(
+              employee.id, 
+              formData.primaryDepartmentId
+            );
+          }
+          
+          // Handle secondary department
+          const currentDepts = await DepartmentService.getEmployeeDepartments(employee.id);
+          const currentSecondary = currentDepts.find(ed => !ed.is_primary);
+          
+          // Remove old secondary if exists and different from new
+          if (currentSecondary && currentSecondary.department_id.toString() !== formData.secondaryDepartmentId) {
+            await DepartmentService.removeDepartmentAssignment(employee.id, currentSecondary.department_id);
+          }
+          
+          // Add new secondary if selected
+          if (formData.secondaryDepartmentId && 
+              (!currentSecondary || currentSecondary.department_id.toString() !== formData.secondaryDepartmentId)) {
+            await DepartmentService.addSecondaryDepartment(
+              employee.id,
+              formData.secondaryDepartmentId
+            );
+          }
         } catch (deptErr) {
           console.error('Error updating employee departments:', deptErr);
           // Still proceed with success, but note the department update may have failed
@@ -325,31 +407,59 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
             </select>
           </div>
 
-          {/* Departments */}
+          {/* Primary Department */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-300">
-              Departments (Optional)
+              Primary Department *
             </label>
-            <div className="grid grid-cols-2 gap-2 p-3 bg-gray-700 border border-gray-600 rounded-md">
+            <select
+              value={formData.primaryDepartmentId}
+              onChange={(e) => handlePrimaryDepartmentChange(e.target.value)}
+              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              disabled={loading}
+            >
+              <option value="">Select Primary Department</option>
               {departments.map((department) => (
-                <label
-                  key={department.id}
-                  className="flex items-center space-x-2 cursor-pointer hover:bg-gray-600 p-2 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    checked={formData.departmentIds.includes(department.id)}
-                    onChange={() => handleDepartmentToggle(department.id)}
-                    className="w-4 h-4 text-cyan-600 bg-gray-800 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
-                    disabled={loading}
-                  />
-                  <span className="text-white text-sm">{department.name}</span>
-                </label>
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
               ))}
-            </div>
-            {formData.departmentIds.length > 0 && (
-              <p className="text-xs text-gray-400">
-                Selected: {departments.filter(d => formData.departmentIds.includes(d.id)).map(d => d.name).join(', ')}
+            </select>
+            {formData.primaryDepartmentId && (
+              <p className="text-xs text-green-400">
+                Primary: {departments.find(d => d.id.toString() === formData.primaryDepartmentId)?.name}
+              </p>
+            )}
+            {departments.length === 0 && (
+              <p className="text-xs text-red-400">
+                ⚠️ No departments available. Check console for errors.
+              </p>
+            )}
+          </div>
+
+          {/* Secondary Department */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Secondary Department (Optional)
+            </label>
+            <select
+              value={formData.secondaryDepartmentId}
+              onChange={(e) => handleSecondaryDepartmentChange(e.target.value)}
+              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              disabled={loading}
+            >
+              <option value="">No Secondary Department</option>
+              {departments
+                .filter(dept => dept.id.toString() !== formData.primaryDepartmentId)
+                .map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+            {formData.secondaryDepartmentId && (
+              <p className="text-xs text-blue-400">
+                Secondary: {departments.find(d => d.id.toString() === formData.secondaryDepartmentId)?.name}
               </p>
             )}
           </div>

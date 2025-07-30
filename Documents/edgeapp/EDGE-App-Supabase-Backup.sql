@@ -57,11 +57,32 @@ DROP POLICY IF EXISTS assessment_scorecard_metrics_all_policy ON public.assessme
 DROP POLICY IF EXISTS assessment_scorecard_metrics_access ON public.assessment_scorecard_metrics;
 DROP POLICY IF EXISTS assessment_rocks_all_policy ON public.assessment_rocks;
 DROP POLICY IF EXISTS assessment_rocks_access ON public.assessment_rocks;
+DROP POLICY IF EXISTS "Users can view own pulse responses" ON public.team_health_pulse_responses;
+DROP POLICY IF EXISTS "Users can view own alerts" ON public.team_health_alerts;
+DROP POLICY IF EXISTS "Users can view department assignments" ON public.employee_departments;
+DROP POLICY IF EXISTS "Users can insert own pulse responses" ON public.team_health_pulse_responses;
+DROP POLICY IF EXISTS "Only admins can modify departments" ON public.departments;
+DROP POLICY IF EXISTS "Only admins can modify department assignments" ON public.employee_departments;
+DROP POLICY IF EXISTS "Managers can view team pulse responses" ON public.team_health_pulse_responses;
+DROP POLICY IF EXISTS "Managers can manage team alerts" ON public.team_health_alerts;
+DROP POLICY IF EXISTS "Everyone can view departments" ON public.departments;
+DROP POLICY IF EXISTS "Everyone can view active pulse questions" ON public.pulse_questions;
 DROP POLICY IF EXISTS "Enable update for own and team assessments" ON public.assessments;
 DROP POLICY IF EXISTS "Enable read access for own and team assessments" ON public.assessments;
+DROP POLICY IF EXISTS "Admins can view all pulse responses" ON public.team_health_pulse_responses;
+DROP POLICY IF EXISTS "Admins can manage pulse questions" ON public.pulse_questions;
+DROP POLICY IF EXISTS "Admins can manage all alerts" ON public.team_health_alerts;
 ALTER TABLE IF EXISTS ONLY public.training_requests DROP CONSTRAINT IF EXISTS training_requests_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_pulse_responses DROP CONSTRAINT IF EXISTS team_health_pulse_responses_user_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_pulse_responses DROP CONSTRAINT IF EXISTS team_health_pulse_responses_manager_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_pulse_responses DROP CONSTRAINT IF EXISTS team_health_pulse_responses_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_alerts DROP CONSTRAINT IF EXISTS team_health_alerts_user_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_alerts DROP CONSTRAINT IF EXISTS team_health_alerts_manager_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_alerts DROP CONSTRAINT IF EXISTS team_health_alerts_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_alerts DROP CONSTRAINT IF EXISTS team_health_alerts_acknowledged_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_user_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_employee_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.pulse_questions DROP CONSTRAINT IF EXISTS pulse_questions_created_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.peer_feedback DROP CONSTRAINT IF EXISTS peer_feedback_recipient_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.peer_feedback DROP CONSTRAINT IF EXISTS peer_feedback_giver_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.notifications DROP CONSTRAINT IF EXISTS notifications_sender_id_fkey;
@@ -78,6 +99,7 @@ ALTER TABLE IF EXISTS ONLY public.employees DROP CONSTRAINT IF EXISTS employees_
 ALTER TABLE IF EXISTS ONLY public.employee_development_goals DROP CONSTRAINT IF EXISTS employee_development_goals_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_employee_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_department_id_fkey;
+ALTER TABLE IF EXISTS ONLY public.employee_departments DROP CONSTRAINT IF EXISTS employee_departments_assigned_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_reviewed_by_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_manager_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.development_plans DROP CONSTRAINT IF EXISTS development_plans_employee_id_fkey;
@@ -89,7 +111,9 @@ ALTER TABLE IF EXISTS ONLY public.assessment_rocks DROP CONSTRAINT IF EXISTS ass
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_given_by_id_fkey;
 ALTER TABLE IF EXISTS ONLY public.assessment_feedback DROP CONSTRAINT IF EXISTS assessment_feedback_assessment_id_fkey;
 DROP TRIGGER IF EXISTS update_review_cycles_updated_at ON public.review_cycles;
+DROP TRIGGER IF EXISTS update_departments_updated_at ON public.departments;
 DROP TRIGGER IF EXISTS update_assessments_updated_at ON public.assessments;
+DROP TRIGGER IF EXISTS trigger_create_pulse_alert ON public.team_health_pulse_responses;
 DROP TRIGGER IF EXISTS trg_manager_review_completed ON public.assessments;
 DROP TRIGGER IF EXISTS trg_assessment_submitted ON public.assessments;
 DROP INDEX IF EXISTS public.idx_training_requests_status;
@@ -97,6 +121,15 @@ DROP INDEX IF EXISTS public.idx_training_requests_employee;
 DROP INDEX IF EXISTS public.idx_review_cycles_status;
 DROP INDEX IF EXISTS public.idx_review_cycles_dates;
 DROP INDEX IF EXISTS public.idx_review_cycles_created_at;
+DROP INDEX IF EXISTS public.idx_pulse_responses_user_id;
+DROP INDEX IF EXISTS public.idx_pulse_responses_timestamp;
+DROP INDEX IF EXISTS public.idx_pulse_responses_manager_dept;
+DROP INDEX IF EXISTS public.idx_pulse_responses_employee_id;
+DROP INDEX IF EXISTS public.idx_pulse_responses_department;
+DROP INDEX IF EXISTS public.idx_pulse_responses_category;
+DROP INDEX IF EXISTS public.idx_pulse_questions_sort_order;
+DROP INDEX IF EXISTS public.idx_pulse_questions_category;
+DROP INDEX IF EXISTS public.idx_pulse_questions_active;
 DROP INDEX IF EXISTS public.idx_notifications_unread;
 DROP INDEX IF EXISTS public.idx_notifications_type;
 DROP INDEX IF EXISTS public.idx_notifications_recipient_id;
@@ -107,6 +140,9 @@ DROP INDEX IF EXISTS public.idx_messages_from_employee;
 DROP INDEX IF EXISTS public.idx_manager_notes_manager_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_employee_id;
 DROP INDEX IF EXISTS public.idx_manager_notes_created_at;
+DROP INDEX IF EXISTS public.idx_employees_department;
+DROP INDEX IF EXISTS public.idx_employee_primary_department;
+DROP INDEX IF EXISTS public.idx_employee_departments_primary;
 DROP INDEX IF EXISTS public.idx_employee_departments_employee_id;
 DROP INDEX IF EXISTS public.idx_employee_departments_department_id;
 DROP INDEX IF EXISTS public.idx_development_plans_status;
@@ -119,9 +155,18 @@ DROP INDEX IF EXISTS public.idx_assessments_updated_at;
 DROP INDEX IF EXISTS public.idx_assessments_status;
 DROP INDEX IF EXISTS public.idx_assessments_employee_id;
 DROP INDEX IF EXISTS public.idx_assessments_created_at;
+DROP INDEX IF EXISTS public.idx_alerts_severity;
+DROP INDEX IF EXISTS public.idx_alerts_manager_id;
+DROP INDEX IF EXISTS public.idx_alerts_department;
+DROP INDEX IF EXISTS public.idx_alerts_created_at;
+DROP INDEX IF EXISTS public.idx_alerts_acknowledged;
 ALTER TABLE IF EXISTS ONLY public.training_requests DROP CONSTRAINT IF EXISTS training_requests_pkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_pulse_responses DROP CONSTRAINT IF EXISTS team_health_pulse_responses_pkey;
+ALTER TABLE IF EXISTS ONLY public.team_health_alerts DROP CONSTRAINT IF EXISTS team_health_alerts_pkey;
 ALTER TABLE IF EXISTS ONLY public.security_audit DROP CONSTRAINT IF EXISTS security_audit_pkey;
 ALTER TABLE IF EXISTS ONLY public.review_cycles DROP CONSTRAINT IF EXISTS review_cycles_pkey;
+ALTER TABLE IF EXISTS ONLY public.pulse_questions DROP CONSTRAINT IF EXISTS pulse_questions_question_id_key;
+ALTER TABLE IF EXISTS ONLY public.pulse_questions DROP CONSTRAINT IF EXISTS pulse_questions_pkey;
 ALTER TABLE IF EXISTS ONLY public.peer_feedback DROP CONSTRAINT IF EXISTS peer_feedback_pkey;
 ALTER TABLE IF EXISTS ONLY public.notifications DROP CONSTRAINT IF EXISTS notifications_pkey;
 ALTER TABLE IF EXISTS ONLY public.manager_notes DROP CONSTRAINT IF EXISTS manager_notes_pkey;
@@ -146,9 +191,12 @@ ALTER TABLE IF EXISTS public.peer_feedback ALTER COLUMN feedback_id DROP DEFAULT
 ALTER TABLE IF EXISTS public.employee_departments ALTER COLUMN id DROP DEFAULT;
 ALTER TABLE IF EXISTS public.departments ALTER COLUMN id DROP DEFAULT;
 DROP TABLE IF EXISTS public.training_requests;
+DROP TABLE IF EXISTS public.team_health_pulse_responses;
+DROP TABLE IF EXISTS public.team_health_alerts;
 DROP SEQUENCE IF EXISTS public.security_audit_id_seq;
 DROP TABLE IF EXISTS public.security_audit;
 DROP TABLE IF EXISTS public.review_cycles;
+DROP TABLE IF EXISTS public.pulse_questions;
 DROP SEQUENCE IF EXISTS public.peer_feedback_feedback_id_seq;
 DROP TABLE IF EXISTS public.peer_feedback;
 DROP TABLE IF EXISTS public.notifications;
@@ -170,6 +218,7 @@ DROP TABLE IF EXISTS public.assessment_feedback;
 DROP FUNCTION IF EXISTS public.upsert_development_goal(p_goal_id uuid, p_goal_type text, p_title text, p_description text, p_target_date date, p_priority text, p_status text);
 DROP FUNCTION IF EXISTS public.update_updated_at_column();
 DROP FUNCTION IF EXISTS public.update_manager_note(p_note_id uuid, p_title text, p_content text, p_category text, p_priority text);
+DROP FUNCTION IF EXISTS public.update_employee_departments(p_employee_id uuid, p_department_ids integer[], p_primary_department_id integer, p_assigned_by uuid);
 DROP FUNCTION IF EXISTS public.update_employee(p_employee_id uuid, p_name text, p_email text, p_job_title text, p_role text, p_manager_id uuid, p_is_active boolean);
 DROP FUNCTION IF EXISTS public.update_assessment_field(p_assessment_id bigint, p_field_name text, p_field_value text);
 DROP FUNCTION IF EXISTS public.update_assessment(p_assessment_id bigint, p_updates jsonb);
@@ -202,6 +251,8 @@ DROP FUNCTION IF EXISTS public.get_unread_notification_count();
 DROP FUNCTION IF EXISTS public.get_team_status();
 DROP FUNCTION IF EXISTS public.get_team_assessments();
 DROP FUNCTION IF EXISTS public.get_review_cycle_details(p_cycle_id bigint);
+DROP FUNCTION IF EXISTS public.get_question_statistics(question_id_param text, department_filter text, days_back integer);
+DROP FUNCTION IF EXISTS public.get_question_performance_ranking(department_filter text, manager_id_filter uuid, days_back integer);
 DROP FUNCTION IF EXISTS public.get_potential_managers();
 DROP FUNCTION IF EXISTS public.get_pending_admin_approvals();
 DROP FUNCTION IF EXISTS public.get_my_training_requests();
@@ -220,14 +271,17 @@ DROP FUNCTION IF EXISTS public.get_employees_simple();
 DROP FUNCTION IF EXISTS public.get_employees_for_feedback();
 DROP FUNCTION IF EXISTS public.get_employee_with_departments(p_employee_id uuid);
 DROP FUNCTION IF EXISTS public.get_employee_profile();
+DROP FUNCTION IF EXISTS public.get_employee_primary_department(emp_id uuid);
 DROP FUNCTION IF EXISTS public.get_employee_notes(p_employee_id uuid);
 DROP FUNCTION IF EXISTS public.get_employee_departments(p_employee_id uuid);
 DROP FUNCTION IF EXISTS public.get_development_plans_for_review();
 DROP FUNCTION IF EXISTS public.get_development_plans();
+DROP FUNCTION IF EXISTS public.get_department_satisfaction(dept_name text, days_back integer);
 DROP FUNCTION IF EXISTS public.get_dashboard_stats(p_role text);
 DROP FUNCTION IF EXISTS public.get_current_user_session();
 DROP FUNCTION IF EXISTS public.get_current_user_role();
 DROP FUNCTION IF EXISTS public.get_current_employee_id();
+DROP FUNCTION IF EXISTS public.get_company_satisfaction(days_back integer);
 DROP FUNCTION IF EXISTS public.get_assessment_for_manager_review(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.get_assessment_feedback(p_assessment_id bigint);
 DROP FUNCTION IF EXISTS public.get_assessment_details(p_assessment_id bigint);
@@ -239,7 +293,9 @@ DROP FUNCTION IF EXISTS public.get_all_departments();
 DROP FUNCTION IF EXISTS public.get_active_review_cycles_with_status();
 DROP FUNCTION IF EXISTS public.delete_manager_note(p_note_id uuid);
 DROP FUNCTION IF EXISTS public.debug_auth_uid();
+DROP FUNCTION IF EXISTS public.deactivate_pulse_question(question_id_param text);
 DROP FUNCTION IF EXISTS public.create_simple_review_cycle(p_name text, p_start_date date, p_end_date date);
+DROP FUNCTION IF EXISTS public.create_pulse_alert();
 DROP FUNCTION IF EXISTS public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data jsonb);
 DROP FUNCTION IF EXISTS public.create_notification(p_recipient_id uuid, p_sender_id uuid, p_type text, p_title text, p_message text, p_data json);
 DROP FUNCTION IF EXISTS public.create_employee_with_temp_password(p_name text, p_email text, p_job_title text, p_role text, p_manager_id uuid, p_temp_password text);
@@ -248,7 +304,9 @@ DROP FUNCTION IF EXISTS public.close_review_cycle(_csrf_token text, _nonce text,
 DROP FUNCTION IF EXISTS public.close_review_cycle(p_cycle_id bigint);
 DROP FUNCTION IF EXISTS public.check_user_permission(required_permission text);
 DROP FUNCTION IF EXISTS public.auto_link_new_employees();
+DROP FUNCTION IF EXISTS public.assign_primary_department(emp_id uuid, dept_id integer, assigned_by_id uuid);
 DROP FUNCTION IF EXISTS public.approve_manager_review(p_assessment_id bigint, p_admin_notes text);
+DROP FUNCTION IF EXISTS public.add_pulse_question(question_id_param text, question_text_param text, category_param text, type_param text, options_param jsonb);
 DROP FUNCTION IF EXISTS public.add_assessment_feedback(p_assessment_id bigint, p_feedback text);
 DROP FUNCTION IF EXISTS public.activate_review_cycle(p_cycle_id bigint);
 DROP SCHEMA IF EXISTS public;
@@ -354,6 +412,58 @@ $$;
 
 
 --
+-- Name: add_pulse_question(text, text, text, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.add_pulse_question(question_id_param text, question_text_param text, category_param text, type_param text DEFAULT 'scale'::text, options_param jsonb DEFAULT NULL::jsonb) RETURNS uuid
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    admin_check BOOLEAN;
+    new_id UUID;
+    next_sort_order INTEGER;
+BEGIN
+    -- Check if user is admin
+    SELECT EXISTS (
+        SELECT 1 FROM public.employees 
+        WHERE user_id = auth.uid() AND role = 'admin'
+    ) INTO admin_check;
+    
+    IF NOT admin_check THEN
+        RAISE EXCEPTION 'Only administrators can add questions';
+    END IF;
+    
+    -- Get next sort order
+    SELECT COALESCE(MAX(sort_order), 0) + 1 
+    FROM public.pulse_questions 
+    INTO next_sort_order;
+    
+    -- Insert new question
+    INSERT INTO public.pulse_questions (
+        question_id, question_text, category, type, options, sort_order, created_by
+    ) VALUES (
+        question_id_param, 
+        question_text_param, 
+        category_param, 
+        type_param, 
+        options_param,
+        next_sort_order,
+        (SELECT id FROM public.employees WHERE user_id = auth.uid())
+    ) RETURNING id INTO new_id;
+    
+    RETURN new_id;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION add_pulse_question(question_id_param text, question_text_param text, category_param text, type_param text, options_param jsonb); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.add_pulse_question(question_id_param text, question_text_param text, category_param text, type_param text, options_param jsonb) IS 'Add a new pulse question (admin only)';
+
+
+--
 -- Name: approve_manager_review(bigint, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -421,6 +531,42 @@ EXCEPTION
         RETURN jsonb_build_object('error', SQLERRM);
 END;
 $$;
+
+
+--
+-- Name: assign_primary_department(uuid, integer, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.assign_primary_department(emp_id uuid, dept_id integer, assigned_by_id uuid DEFAULT NULL::uuid) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    -- Remove existing primary department
+    UPDATE public.employee_departments 
+    SET is_primary = false 
+    WHERE employee_id = emp_id AND is_primary = true;
+    
+    -- Insert or update the new primary department
+    INSERT INTO public.employee_departments (employee_id, department_id, is_primary, assigned_by)
+    VALUES (emp_id, dept_id, true, assigned_by_id)
+    ON CONFLICT (employee_id, department_id) 
+    DO UPDATE SET is_primary = true, assigned_by = assigned_by_id;
+    
+    -- Update the backward compatibility column
+    UPDATE public.employees 
+    SET department = (SELECT name FROM public.departments WHERE id = dept_id)
+    WHERE id = emp_id;
+    
+    RETURN true;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION assign_primary_department(emp_id uuid, dept_id integer, assigned_by_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.assign_primary_department(emp_id uuid, dept_id integer, assigned_by_id uuid) IS 'Assigns a primary department to an employee';
 
 
 --
@@ -1023,6 +1169,47 @@ $$;
 
 
 --
+-- Name: create_pulse_alert(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.create_pulse_alert() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    -- Create alert for responses of 1 or 2 (concerning satisfaction levels)
+    IF NEW.category = 'satisfaction' AND NEW.response <= 2 THEN
+        INSERT INTO public.team_health_alerts (
+            user_id,
+            employee_id,
+            employee_name,
+            manager_id,
+            department,
+            question_id,
+            question,
+            response,
+            severity
+        )
+        SELECT 
+            NEW.user_id,
+            NEW.employee_id,
+            COALESCE(e.name, u.email),
+            NEW.manager_id,
+            NEW.department,
+            NEW.question_id,
+            NEW.question,
+            NEW.response,
+            CASE WHEN NEW.response = 1 THEN 'high' ELSE 'medium' END
+        FROM auth.users u
+        LEFT JOIN public.employees e ON e.user_id = u.id
+        WHERE u.id = NEW.user_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: create_simple_review_cycle(text, date, date); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1067,6 +1254,43 @@ EXCEPTION
         RETURN json_build_object('error', 'Database error occurred');
 END;
 $$;
+
+
+--
+-- Name: deactivate_pulse_question(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.deactivate_pulse_question(question_id_param text) RETURNS boolean
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+DECLARE
+    admin_check BOOLEAN;
+BEGIN
+    -- Check if user is admin
+    SELECT EXISTS (
+        SELECT 1 FROM public.employees 
+        WHERE user_id = auth.uid() AND role = 'admin'
+    ) INTO admin_check;
+    
+    IF NOT admin_check THEN
+        RAISE EXCEPTION 'Only administrators can deactivate questions';
+    END IF;
+    
+    -- Deactivate the question
+    UPDATE public.pulse_questions 
+    SET is_active = false, updated_at = NOW()
+    WHERE question_id = question_id_param;
+    
+    RETURN FOUND;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION deactivate_pulse_question(question_id_param text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.deactivate_pulse_question(question_id_param text) IS 'Soft delete a pulse question (admin only)';
 
 
 --
@@ -1483,6 +1707,34 @@ $$;
 
 
 --
+-- Name: get_company_satisfaction(integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_company_satisfaction(days_back integer DEFAULT 30) RETURNS TABLE(avg_satisfaction numeric, response_count bigint, departments_count bigint)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        ROUND(AVG(r.response), 2) as avg_satisfaction,
+        COUNT(*) as response_count,
+        COUNT(DISTINCT r.department) as departments_count
+    FROM public.team_health_pulse_responses r
+    WHERE 
+        r.category = 'satisfaction' 
+        AND r.timestamp >= NOW() - INTERVAL '1 day' * days_back;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_company_satisfaction(days_back integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_company_satisfaction(days_back integer) IS 'Calculates company-wide satisfaction metrics';
+
+
+--
 -- Name: get_current_employee_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1773,6 +2025,38 @@ $$;
 
 
 --
+-- Name: get_department_satisfaction(text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_department_satisfaction(dept_name text DEFAULT NULL::text, days_back integer DEFAULT 30) RETURNS TABLE(department text, avg_satisfaction numeric, response_count bigint, last_response timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        COALESCE(r.department, 'Unknown') as department,
+        ROUND(AVG(r.response), 2) as avg_satisfaction,
+        COUNT(*) as response_count,
+        MAX(r.timestamp) as last_response
+    FROM public.team_health_pulse_responses r
+    WHERE 
+        r.category = 'satisfaction' 
+        AND r.timestamp >= NOW() - INTERVAL '1 day' * days_back
+        AND (dept_name IS NULL OR r.department = dept_name)
+    GROUP BY r.department
+    ORDER BY avg_satisfaction DESC;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_department_satisfaction(dept_name text, days_back integer); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_department_satisfaction(dept_name text, days_back integer) IS 'Calculates average satisfaction score by department';
+
+
+--
 -- Name: get_development_plans(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1992,6 +2276,31 @@ EXCEPTION
         RAISE EXCEPTION 'Failed to get employee notes: %', SQLERRM;
 END;
 $$;
+
+
+--
+-- Name: get_employee_primary_department(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_employee_primary_department(emp_id uuid) RETURNS TABLE(dept_name text, dept_id integer)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT d.name, d.id
+    FROM public.departments d
+    JOIN public.employee_departments ed ON d.id = ed.department_id
+    WHERE ed.employee_id = emp_id AND ed.is_primary = true
+    LIMIT 1;
+END;
+$$;
+
+
+--
+-- Name: FUNCTION get_employee_primary_department(emp_id uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.get_employee_primary_department(emp_id uuid) IS 'Returns the primary department name and ID for an employee';
 
 
 --
@@ -2676,6 +2985,113 @@ BEGIN
 EXCEPTION
     WHEN OTHERS THEN
         RAISE EXCEPTION 'Failed to fetch potential managers: %', SQLERRM;
+END;
+$$;
+
+
+--
+-- Name: get_question_performance_ranking(text, uuid, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_question_performance_ranking(department_filter text DEFAULT NULL::text, manager_id_filter uuid DEFAULT NULL::uuid, days_back integer DEFAULT 30) RETURNS TABLE(question_id text, question_text text, avg_response numeric, total_responses bigint, satisfaction_percentage numeric, performance_rank text)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    WITH question_stats AS (
+        SELECT 
+            pq.question_id as q_id,
+            pq.question_text as q_text,
+            ROUND(AVG(r.response), 2) as q_avg_response,
+            COUNT(r.id) as q_total_responses,
+            ROUND(
+                (COUNT(CASE WHEN r.response >= 4 THEN 1 END)::NUMERIC / 
+                 NULLIF(COUNT(r.id), 0)) * 100, 1
+            ) as q_satisfaction_percentage
+        FROM public.pulse_questions pq
+        LEFT JOIN public.team_health_pulse_responses r ON r.question_id = pq.question_id
+            AND r.timestamp >= NOW() - INTERVAL '1 day' * days_back
+            AND (department_filter IS NULL OR r.department = department_filter)
+            AND (manager_id_filter IS NULL OR r.manager_id = manager_id_filter)
+        WHERE pq.is_active = true
+        GROUP BY pq.question_id, pq.question_text
+        HAVING COUNT(r.id) >= 3 -- Only include questions with at least 3 responses
+    ),
+    ranked_questions AS (
+        SELECT 
+            q_id,
+            q_text,
+            q_avg_response,
+            q_total_responses,
+            q_satisfaction_percentage,
+            ROW_NUMBER() OVER (ORDER BY q_avg_response DESC, q_satisfaction_percentage DESC) as rank_desc,
+            ROW_NUMBER() OVER (ORDER BY q_avg_response ASC, q_satisfaction_percentage ASC) as rank_asc,
+            COUNT(*) OVER () as total_count
+        FROM question_stats
+    )
+    -- Get top 2 questions
+    SELECT 
+        q_id as question_id,
+        q_text as question_text,
+        q_avg_response as avg_response,
+        q_total_responses as total_responses,
+        q_satisfaction_percentage as satisfaction_percentage,
+        'top'::TEXT as performance_rank
+    FROM ranked_questions 
+    WHERE rank_desc <= 2
+    
+    UNION ALL
+    
+    -- Get bottom 2 questions
+    SELECT 
+        q_id as question_id,
+        q_text as question_text,
+        q_avg_response as avg_response,
+        q_total_responses as total_responses,
+        q_satisfaction_percentage as satisfaction_percentage,
+        'bottom'::TEXT as performance_rank
+    FROM ranked_questions 
+    WHERE rank_asc <= 2
+    
+    ORDER BY performance_rank DESC, avg_response DESC;
+END;
+$$;
+
+
+--
+-- Name: get_question_statistics(text, text, integer); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.get_question_statistics(question_id_param text DEFAULT NULL::text, department_filter text DEFAULT NULL::text, days_back integer DEFAULT 30) RETURNS TABLE(question_id text, question_text text, category text, total_responses bigint, avg_response numeric, response_1_count bigint, response_2_count bigint, response_3_count bigint, response_4_count bigint, response_5_count bigint, satisfaction_percentage numeric, last_response timestamp with time zone)
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        pq.question_id as q_id,
+        pq.question_text as q_text,
+        pq.category as q_category,
+        COUNT(r.id) as q_total_responses,
+        ROUND(AVG(r.response), 2) as q_avg_response,
+        COUNT(CASE WHEN r.response = 1 THEN 1 END) as q_response_1_count,
+        COUNT(CASE WHEN r.response = 2 THEN 1 END) as q_response_2_count,
+        COUNT(CASE WHEN r.response = 3 THEN 1 END) as q_response_3_count,
+        COUNT(CASE WHEN r.response = 4 THEN 1 END) as q_response_4_count,
+        COUNT(CASE WHEN r.response = 5 THEN 1 END) as q_response_5_count,
+        ROUND(
+            (COUNT(CASE WHEN r.response >= 4 THEN 1 END)::NUMERIC / 
+             NULLIF(COUNT(r.id), 0)) * 100, 1
+        ) as q_satisfaction_percentage,
+        MAX(r.timestamp) as q_last_response
+    FROM public.pulse_questions pq
+    LEFT JOIN public.team_health_pulse_responses r ON r.question_id = pq.question_id
+        AND r.timestamp >= NOW() - INTERVAL '1 day' * days_back
+        AND (department_filter IS NULL OR r.department = department_filter)
+    WHERE 
+        pq.is_active = true
+        AND (question_id_param IS NULL OR pq.question_id = question_id_param)
+    GROUP BY pq.question_id, pq.question_text, pq.category, pq.sort_order
+    ORDER BY pq.sort_order;
 END;
 $$;
 
@@ -4494,6 +4910,54 @@ $$;
 
 
 --
+-- Name: update_employee_departments(uuid, integer[], integer, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_employee_departments(p_employee_id uuid, p_department_ids integer[], p_primary_department_id integer, p_assigned_by uuid DEFAULT NULL::uuid) RETURNS json
+    LANGUAGE plpgsql SECURITY DEFINER
+    AS $$
+BEGIN
+    -- Remove all existing department assignments for this employee
+    DELETE FROM public.employee_departments WHERE employee_id = p_employee_id;
+    
+    -- Add new department assignments
+    IF p_department_ids IS NOT NULL AND array_length(p_department_ids, 1) > 0 THEN
+        FOR i IN 1..array_length(p_department_ids, 1) LOOP
+            INSERT INTO public.employee_departments (employee_id, department_id, is_primary, assigned_by)
+            VALUES (
+                p_employee_id, 
+                p_department_ids[i], 
+                p_department_ids[i] = p_primary_department_id,
+                p_assigned_by
+            );
+        END LOOP;
+    END IF;
+    
+    -- Update the backward compatibility column
+    UPDATE public.employees 
+    SET department = (SELECT name FROM public.departments WHERE id = p_primary_department_id)
+    WHERE id = p_employee_id;
+    
+    RETURN json_build_object(
+        'success', true,
+        'message', 'Employee departments updated successfully'
+    );
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN json_build_object('error', 'Failed to update employee departments: ' || SQLERRM);
+END;
+$$;
+
+
+--
+-- Name: FUNCTION update_employee_departments(p_employee_id uuid, p_department_ids integer[], p_primary_department_id integer, p_assigned_by uuid); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.update_employee_departments(p_employee_id uuid, p_department_ids integer[], p_primary_department_id integer, p_assigned_by uuid) IS 'Updates all department assignments for an employee';
+
+
+--
 -- Name: update_manager_note(uuid, text, text, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4558,7 +5022,7 @@ CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.updated_at = NOW();
+    NEW.updated_at = timezone('utc'::text, now());
     RETURN NEW;
 END;
 $$;
@@ -4847,6 +5311,13 @@ CREATE TABLE public.departments (
 
 
 --
+-- Name: TABLE departments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.departments IS 'Department definitions';
+
+
+--
 -- Name: departments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
@@ -4905,8 +5376,17 @@ CREATE TABLE public.employee_departments (
     id integer NOT NULL,
     employee_id uuid,
     department_id integer,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    is_primary boolean DEFAULT false,
+    assigned_by uuid
 );
+
+
+--
+-- Name: TABLE employee_departments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.employee_departments IS 'Many-to-many relationship between employees and departments with primary designation';
 
 
 --
@@ -4967,6 +5447,7 @@ CREATE TABLE public.employees (
     updated_at timestamp with time zone DEFAULT now(),
     temp_password text,
     must_change_password boolean DEFAULT false,
+    department text DEFAULT 'General'::text,
     CONSTRAINT employees_role_check CHECK ((role = ANY (ARRAY['employee'::text, 'manager'::text, 'admin'::text])))
 );
 
@@ -5093,6 +5574,34 @@ ALTER SEQUENCE public.peer_feedback_feedback_id_seq OWNED BY public.peer_feedbac
 
 
 --
+-- Name: pulse_questions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pulse_questions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    question_id text NOT NULL,
+    question_text text NOT NULL,
+    category text NOT NULL,
+    type text DEFAULT 'scale'::text NOT NULL,
+    options jsonb,
+    is_active boolean DEFAULT true NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT pulse_questions_category_check CHECK ((category = ANY (ARRAY['satisfaction'::text, 'workload'::text, 'support'::text, 'engagement'::text]))),
+    CONSTRAINT pulse_questions_type_check CHECK ((type = ANY (ARRAY['scale'::text, 'boolean'::text, 'choice'::text])))
+);
+
+
+--
+-- Name: TABLE pulse_questions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.pulse_questions IS 'Configurable health pulse questions for employee dashboards';
+
+
+--
 -- Name: review_cycles; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5157,6 +5666,66 @@ CREATE SEQUENCE public.security_audit_id_seq
 --
 
 ALTER SEQUENCE public.security_audit_id_seq OWNED BY public.security_audit.id;
+
+
+--
+-- Name: team_health_alerts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.team_health_alerts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    employee_id uuid,
+    employee_name text NOT NULL,
+    manager_id uuid,
+    department text,
+    question_id text NOT NULL,
+    question text NOT NULL,
+    response integer NOT NULL,
+    severity text NOT NULL,
+    acknowledged boolean DEFAULT false NOT NULL,
+    acknowledged_by uuid,
+    acknowledged_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT team_health_alerts_severity_check CHECK ((severity = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text])))
+);
+
+
+--
+-- Name: TABLE team_health_alerts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.team_health_alerts IS 'Stores alerts generated from concerning pulse responses for manager attention';
+
+
+--
+-- Name: team_health_pulse_responses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.team_health_pulse_responses (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    employee_id uuid,
+    question_id text NOT NULL,
+    question text NOT NULL,
+    response integer NOT NULL,
+    category text NOT NULL,
+    department text,
+    manager_id uuid,
+    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT team_health_pulse_responses_category_check CHECK ((category = ANY (ARRAY['satisfaction'::text, 'workload'::text, 'support'::text, 'engagement'::text]))),
+    CONSTRAINT team_health_pulse_responses_response_check CHECK (((response >= 1) AND (response <= 5)))
+);
+
+
+--
+-- Name: TABLE team_health_pulse_responses; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.team_health_pulse_responses IS 'Stores employee satisfaction and health pulse survey responses';
 
 
 --
@@ -5239,44 +5808,10 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 --
 
 COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified, due_date, self_assessment_data, manager_review_data, manager_notes, overall_rating, employee_acknowledgment, manager_passionate_feedback, manager_driven_feedback, manager_resilient_feedback, manager_responsive_feedback, manager_gwc_gets_it_feedback, manager_gwc_wants_it_feedback, manager_gwc_capacity_feedback, manager_strengths_feedback, manager_improvements_feedback, manager_performance_rating, manager_core_values_feedback, manager_action_items, manager_gwc_gets_it, manager_gwc_wants_it, manager_gwc_capacity, admin_approval_notes, admin_approved_at, admin_approved_by, admin_revision_notes, admin_revision_requested_at, admin_revision_requested_by, employee_acknowledged_at) FROM stdin;
-1	f07fc797-2849-4b8c-befe-c633732f18e9	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-2	0595b6e2-aae7-41be-90d8-4a2051cd32da	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	not_started	\N	\N	2025-07-28 12:47:33.829379+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-4	3f2c6e27-8191-4bf1-9687-ba314598f39d	1	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 12:47:33.829379+00	employee_complete	\N	\N	2025-07-28 13:20:46.9021+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-5	f07fc797-2849-4b8c-befe-c633732f18e9	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-6	0595b6e2-aae7-41be-90d8-4a2051cd32da	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-7	d8dfa847-2caa-4408-9434-8e25fcfadcd0	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	not_started	\N	\N	2025-07-28 14:31:45.44387+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-8	3f2c6e27-8191-4bf1-9687-ba314598f39d	2	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 14:31:45.44387+00	employee_complete	\N	\N	2025-07-28 14:32:31.189269+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-9	f07fc797-2849-4b8c-befe-c633732f18e9	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	not_started	\N	\N	2025-07-28 16:36:10.77234+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-10	0595b6e2-aae7-41be-90d8-4a2051cd32da	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	not_started	\N	\N	2025-07-28 16:36:10.77234+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-11	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 16:36:10.77234+00	employee_complete	\N	\N	2025-07-28 17:05:39.223529+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-14	f07fc797-2849-4b8c-befe-c633732f18e9	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-15	0595b6e2-aae7-41be-90d8-4a2051cd32da	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-16	d8dfa847-2caa-4408-9434-8e25fcfadcd0	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-17	3f2c6e27-8191-4bf1-9687-ba314598f39d	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-18	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-19	9d7ec341-5c0c-4e73-a223-56a2950055b6	5	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-28 19:35:38.151631+00	not_started	\N	\N	2025-07-28 19:35:38.151631+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-13	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	3	not_started	\N	Test: I stayed late to help resolve a critical client issue.	\N	Test: I consistently exceed my quarterly targets.	\N	Test: I adapted quickly when our system changed.	\N	Test: I always respond to emails within 2 hours.	t	Test: I understand my role responsibilities clearly.	t	Test: I am passionate about this position.	t	Test: I have the time and skills needed.	Test: My key strengths include problem-solving and teamwork.	Test: I would like to improve my presentation skills.	asdf	asdf	\N	\N	2025-07-28 19:10:26.896763+00	employee_complete	\N	\N	2025-07-28 20:13:56.075289+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	dfsgh	sdfgh	sdfh	sdfh	sdfh	sdfh	sdfh	sdfh	sdfh	exceeds		asdf	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-12	3f2c6e27-8191-4bf1-9687-ba314598f39d	3	not_started	\N		\N		\N		\N		f		f		f				fg	sgf	\N	\N	2025-07-28 16:36:10.77234+00	employee_complete	\N	\N	2025-07-28 20:19:30.47094+00	pending	{}	f	f	2025-09-30	\N	\N	\N	\N	f	sfg	sg	sg	\N	sfg	sg	sfg	sg	sg	exceeds		sfg	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-20	caad3baa-7ae8-4241-9654-80ca6ffd578d	5	not_started	\N	sfg	\N	sg	\N	sg	\N	sg	t	sg	f	sg	f	sg	sg	sg	asddfgh	asddfgh	\N	\N	2025-07-28 19:35:38.151631+00	employee_complete	\N	\N	2025-07-28 20:29:22.589426+00	completed	{}	f	f	\N	\N	\N	\N	\N	f	czfgb	zdf	adfg	asdg	asdg	asdg	asdg	asdg	dfgh	exceeds		asddfgh	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-21	f07fc797-2849-4b8c-befe-c633732f18e9	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-22	0595b6e2-aae7-41be-90d8-4a2051cd32da	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-23	d8dfa847-2caa-4408-9434-8e25fcfadcd0	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-25	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-26	9d7ec341-5c0c-4e73-a223-56a2950055b6	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-27	caad3baa-7ae8-4241-9654-80ca6ffd578d	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-28	71dc105f-4f64-4ab5-b308-54d02ad9f4d1	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-29	00677ce5-8446-4982-96c3-502df79ad744	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	not_started	\N	\N	2025-07-29 17:16:08.646007+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-24	3f2c6e27-8191-4bf1-9687-ba314598f39d	6	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 17:16:08.646007+00	submitted	\N	\N	2025-07-29 17:23:30.799802+00	pending	{}	f	f	\N	{"support_needed": "sdfgsdfg", "challenges_faced": "adfga", "skills_developed": "adrgag'", "goals_next_period": "adfg", "additional_comments": "sdfgsdfg", "key_accomplishments": "sarga", "overall_satisfaction": "satisfied"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-31	0595b6e2-aae7-41be-90d8-4a2051cd32da	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-35	9d7ec341-5c0c-4e73-a223-56a2950055b6	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-36	caad3baa-7ae8-4241-9654-80ca6ffd578d	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-37	71dc105f-4f64-4ab5-b308-54d02ad9f4d1	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-38	00677ce5-8446-4982-96c3-502df79ad744	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	not_started	\N	\N	2025-07-29 19:55:08.765877+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-30	f07fc797-2849-4b8c-befe-c633732f18e9	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	submitted	\N	\N	2025-07-29 19:57:12.49777+00	pending	{}	f	f	\N	{"gwc_get_it": "ye", "gwc_want_it": "ye", "gwc_capacity": "ye", "support_needed": "Fuck off", "challenges_faced": "spending too much time", "skills_developed": "Vibe coding", "goals_next_period": "Look for yourself", "additional_comments": "Fuck off", "key_accomplishments": "Building this app", "overall_satisfaction": "neutral", "core_values_driven_best": "Yup", "core_values_respond_swiftly": "Nope", "core_values_passionate_purpose": "Build app", "core_values_resilient_together": "Keepign with this"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-32	d8dfa847-2caa-4408-9434-8e25fcfadcd0	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	submitted	\N	\N	2025-07-29 19:59:30.092367+00	pending	{}	f	f	\N	{"gwc_get_it": "sdfhg", "gwc_want_it": "sdfh", "gwc_capacity": "sdfh", "support_needed": "sfgj", "challenges_faced": "sdfh", "skills_developed": "sdfgh", "goals_next_period": "sfgdj", "additional_comments": "sdfh", "key_accomplishments": "dfg", "overall_satisfaction": "neutral", "core_values_driven_best": "dfgj", "core_values_respond_swiftly": "dfgj", "core_values_passionate_purpose": "dfgj", "core_values_resilient_together": "dfgj"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-33	3f2c6e27-8191-4bf1-9687-ba314598f39d	7	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-29 19:55:08.765877+00	submitted	\N	\N	2025-07-29 20:28:08.221749+00	pending	{}	f	f	\N	{"gwc_get_it": "sdfhsdfhsdfh", "gwc_want_it": "sdfhshfdhfdsh", "gwc_capacity": "sdfhsdfhsfd", "support_needed": "sdfh", "challenges_faced": "sdfg", "skills_developed": "sdh", "goals_next_period": "sdfh", "additional_comments": "sdfhsdfhsdfh", "key_accomplishments": "dfag", "overall_satisfaction": "neutral", "core_values_driven_best": "sdfhsfdhsfd", "core_values_respond_swiftly": "sdfhsdfhsdfhs", "core_values_passionate_purpose": "sdfhsdf", "core_values_resilient_together": "sdfhsfdsdfh"}	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-34	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	7	not_started	\N	dsfg	\N	sdfg	\N	sdfg	\N	sdfg	t		f	sdfg	f	sdfg	\N	\N	ZXV	\N	\N	\N	2025-07-29 19:55:08.765877+00	acknowledged	2025-07-29 20:35:45.396+00	2025-07-30 01:38:30.193+00	2025-07-30 01:58:54.49363+00	completed	{}	f	f	\N	{"gwc_gets_it": true, "gwc_capacity": false, "gwc_wants_it": false, "support_needed": "sdfg", "challenges_faced": "sdfg", "skills_developed": "sdfg", "goals_next_period": "sdfg", "additional_comments": "", "key_accomplishments": "sdfhg", "gwc_gets_it_feedback": "", "overall_satisfaction": "satisfied", "gwc_capacity_feedback": "sdfg", "gwc_wants_it_feedback": "sdfg", "core_values_driven_best": "sdfg", "core_values_respond_swiftly": "sdfg", "core_values_passionate_purpose": "dsfg", "core_values_resilient_together": "sdfg"}	{"strengths": "ZXV", "goals_feedback": "zxcb", "overall_rating": "partially_meets", "skills_feedback": "zxcn", "manager_comments": "ZXV", "passion_feedback": "XC", "support_response": "ZXV", "challenges_feedback": "zxcb", "excellence_feedback": "ZXC", "manager_gwc_gets_it": true, "resilience_feedback": "ZXDVB", "areas_of_improvement": "ZXV", "manager_gwc_capacity": false, "manager_gwc_wants_it": true, "goals_for_next_period": "ZVX", "satisfaction_feedback": "XCB", "development_priorities": "zxcvn", "responsiveness_feedback": "ZXCV", "additional_manager_comments": "ZXV", "key_accomplishments_feedback": "zxcbv", "manager_gwc_gets_it_feedback": "ZX", "manager_gwc_capacity_feedback": "ZXV", "manager_gwc_wants_it_feedback": "ZXVC"}	\N	\N	f	\N	\N	\N	\N	ZX	ZXVC	ZXV	\N	\N	partially_meets	\N	\N	t	t	f	\N	\N	\N	\N	\N	\N	2025-07-30 01:58:51.95+00
+39	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	8	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-30 14:22:15.135218+00	not_started	\N	\N	2025-07-30 14:22:15.135218+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+40	f07fc797-2849-4b8c-befe-c633732f18e9	8	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-30 14:22:15.135218+00	not_started	\N	\N	2025-07-30 14:22:15.135218+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+42	d8dfa847-2caa-4408-9434-8e25fcfadcd0	8	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-30 14:22:15.135218+00	not_started	\N	\N	2025-07-30 14:22:15.135218+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
+41	3f2c6e27-8191-4bf1-9687-ba314598f39d	8	not_started	\N	aasdgasdg	\N	asga	\N	adsg	\N	asdga	t		t		f	asdgasdgasd	\N	\N	sdfhsdfhsdf	\N	\N	\N	2025-07-30 14:22:15.135218+00	acknowledged	2025-07-30 14:24:21.731+00	2025-07-30 14:25:39.775+00	2025-07-30 14:26:08.608654+00	completed	{}	f	f	\N	{"gwc_gets_it": true, "gwc_capacity": false, "gwc_wants_it": true, "support_needed": "asdgasdgasd", "challenges_faced": "asdgasdg", "skills_developed": "asdg'ag", "goals_next_period": "asdgag", "additional_comments": "asdgag", "key_accomplishments": "asdga", "gwc_gets_it_feedback": "", "overall_satisfaction": "neutral", "gwc_capacity_feedback": "asdgasdgasd", "gwc_wants_it_feedback": "", "core_values_driven_best": "asga", "core_values_respond_swiftly": "asdga", "core_values_passionate_purpose": "aasdgasdg", "core_values_resilient_together": "adsg"}	{"strengths": "sdfhsd", "goals_feedback": "sdh", "overall_rating": "exceeds_expectations", "skills_feedback": "sdfh", "manager_comments": "sdfhsdfhsdf", "passion_feedback": "sdh", "support_response": "sdfh", "challenges_feedback": "sdfghsdf", "excellence_feedback": "sdfh", "manager_gwc_gets_it": false, "resilience_feedback": "sdh", "areas_of_improvement": "sdfhsdf", "manager_gwc_capacity": true, "manager_gwc_wants_it": true, "goals_for_next_period": "sdh'", "satisfaction_feedback": "sdh", "development_priorities": "sdh", "responsiveness_feedback": "sdfh", "additional_manager_comments": "sdfhsdf", "key_accomplishments_feedback": "sry", "manager_gwc_gets_it_feedback": "sdh", "manager_gwc_capacity_feedback": "", "manager_gwc_wants_it_feedback": ""}	\N	\N	f	\N	\N	\N	\N	sdh			\N	\N	exceeds_expectations	\N	\N	f	t	t	\N	\N	\N	\N	\N	\N	2025-07-30 14:26:09.069+00
 \.
 
 
@@ -5293,6 +5828,16 @@ COPY public.company_rocks (id, review_cycle_id, description, owner_name, target_
 --
 
 COPY public.departments (id, name, description, created_at, updated_at) FROM stdin;
+11	Accounting	Financial operations and accounting	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+12	Purchasing	Procurement and vendor management	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+13	Engineering	Product development and engineering	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+14	Executive	Executive leadership and strategy	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+15	Quality	Quality assurance and control	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+16	Production	Manufacturing and production	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+17	Machining	Machining operations	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+18	Program Management	Program and project management	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+19	Sales	Sales and customer relations	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
+20	General	General/Unassigned employees	2025-07-30 13:03:31.66752+00	2025-07-30 13:03:31.66752+00
 \.
 
 
@@ -5301,7 +5846,6 @@ COPY public.departments (id, name, description, created_at, updated_at) FROM std
 --
 
 COPY public.development_plans (id, employee_id, title, description, goals, skills_to_develop, timeline, status, manager_feedback, manager_reviewed_at, manager_reviewed_by, created_at, updated_at, manager_id, objectives, resources_needed, success_metrics, target_completion_date, manager_rating, submission_date, review_date) FROM stdin;
-39a0ab67-7089-40f1-9c35-9f5f279f097c	3f2c6e27-8191-4bf1-9687-ba314598f39d	xcgnb	xcvnb	[{"goal": "xcvnb", "priority": "medium", "timeline": ""}]	[{"skill": "", "method": "", "reason": ""}]	3-6 months	submitted	\N	\N	\N	2025-07-29 02:30:51.775864+00	2025-07-29 02:30:51.775864+00	\N	\N	\N	\N	\N	\N	\N	\N
 \.
 
 
@@ -5309,7 +5853,14 @@ COPY public.development_plans (id, employee_id, title, description, goals, skill
 -- Data for Name: employee_departments; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.employee_departments (id, employee_id, department_id, created_at) FROM stdin;
+COPY public.employee_departments (id, employee_id, department_id, created_at, is_primary, assigned_by) FROM stdin;
+8	3f2c6e27-8191-4bf1-9687-ba314598f39d	13	2025-07-30 15:22:00.329404+00	t	\N
+9	3f2c6e27-8191-4bf1-9687-ba314598f39d	18	2025-07-30 15:22:01.194497+00	f	\N
+10	f07fc797-2849-4b8c-befe-c633732f18e9	14	2025-07-30 17:33:46.141124+00	t	\N
+11	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	13	2025-07-30 17:34:04.217224+00	t	\N
+13	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	12	2025-07-30 17:34:19.108541+00	f	\N
+14	d8dfa847-2caa-4408-9434-8e25fcfadcd0	13	2025-07-30 17:34:35.23078+00	t	\N
+15	d8dfa847-2caa-4408-9434-8e25fcfadcd0	14	2025-07-30 17:34:36.178579+00	f	\N
 \.
 
 
@@ -5325,16 +5876,11 @@ COPY public.employee_development_goals (goal_id, employee_id, goal_type, title, 
 -- Data for Name: employees; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.employees (id, user_id, name, email, job_title, manager_id, is_active, created_at, role, updated_at, temp_password, must_change_password) FROM stdin;
-f07fc797-2849-4b8c-befe-c633732f18e9	34e47cd9-1b10-4114-b5f3-708309644924	Administrator	admin@lucerne.com	System Administrator	\N	t	2025-07-28 02:33:17.191444+00	admin	2025-07-28 02:33:17.191444+00	\N	f
-0595b6e2-aae7-41be-90d8-4a2051cd32da	b9909671-586d-4b70-9486-0919e4645b12	Test Manager	testmanager@lucerne.com	Department Manager	\N	t	2025-07-28 12:11:18.210966+00	manager	2025-07-28 12:11:18.210966+00	TempPass123!	t
-d8dfa847-2caa-4408-9434-8e25fcfadcd0	9a6b509f-9e0a-4b2d-b17e-af32abfc91f8	Manager1	manager1@lucerne.com	Manager1	f07fc797-2849-4b8c-befe-c633732f18e9	t	2025-07-28 12:38:47.540613+00	manager	2025-07-28 12:38:47.540613+00	Manager1	t
-3f2c6e27-8191-4bf1-9687-ba314598f39d	a01ffcdb-c09d-4e61-b5c0-a0c5a076cd96	Employee1	employee1@lucerne.com	Employee1	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 12:45:18.769366+00	employee	2025-07-28 12:45:18.769366+00	Employee1	t
-26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	9f4ad8f1-50c8-4250-a0e9-11dc6ab5517c	Employee2	employee2@lucerne.com	Employee2	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 16:44:38.768388+00	employee	2025-07-28 16:44:38.768388+00	Employee2	t
-9d7ec341-5c0c-4e73-a223-56a2950055b6	2a565fe5-7b9a-45e5-912a-84a9f97aaabd	Manager2	manager2@lucerne.com	Manager2	f07fc797-2849-4b8c-befe-c633732f18e9	t	2025-07-28 19:34:31.402883+00	manager	2025-07-28 19:34:31.402883+00	Manager2	t
-00677ce5-8446-4982-96c3-502df79ad744	7ec2416b-02d6-4aea-9b63-07286eee6817	Employee5	employee5@lucerne.com	Employee5	9d7ec341-5c0c-4e73-a223-56a2950055b6	t	2025-07-29 17:15:38.893787+00	employee	2025-07-29 17:15:38.893787+00	\N	f
-caad3baa-7ae8-4241-9654-80ca6ffd578d	4c5e75d7-feb2-45fa-b6a9-5c8b5ecbc942	Employee3	employee3@lucerne.com	Employee3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 17:37:04.432691+00	employee	2025-07-29 20:34:31.854952+00	Employee3	t
-71dc105f-4f64-4ab5-b308-54d02ad9f4d1	0160e30d-2013-4d3b-8b84-60d1816bb9c7	Employee4	employee4@lucerne.com	Employee4	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 21:42:20.685433+00	employee	2025-07-29 20:34:45.996953+00	\N	f
+COPY public.employees (id, user_id, name, email, job_title, manager_id, is_active, created_at, role, updated_at, temp_password, must_change_password, department) FROM stdin;
+3f2c6e27-8191-4bf1-9687-ba314598f39d	a01ffcdb-c09d-4e61-b5c0-a0c5a076cd96	Employee1	employee1@lucerne.com	Employee1	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 12:45:18.769366+00	employee	2025-07-28 12:45:18.769366+00	Employee1	t	Engineering
+f07fc797-2849-4b8c-befe-c633732f18e9	34e47cd9-1b10-4114-b5f3-708309644924	Administrator	admin@lucerne.com	System Administrator	\N	t	2025-07-28 02:33:17.191444+00	admin	2025-07-28 02:33:17.191444+00	\N	f	Executive
+26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	9f4ad8f1-50c8-4250-a0e9-11dc6ab5517c	Employee2	employee2@lucerne.com	Employee2	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 16:44:38.768388+00	employee	2025-07-28 16:44:38.768388+00	Employee2	t	Engineering
+d8dfa847-2caa-4408-9434-8e25fcfadcd0	9a6b509f-9e0a-4b2d-b17e-af32abfc91f8	Manager1	manager1@lucerne.com	Manager1	f07fc797-2849-4b8c-befe-c633732f18e9	t	2025-07-28 12:38:47.540613+00	manager	2025-07-28 12:38:47.540613+00	Manager1	t	Engineering
 \.
 
 
@@ -5367,29 +5913,7 @@ COPY public.manager_notes (id, manager_id, employee_id, title, content, category
 --
 
 COPY public.notifications (id, recipient_id, sender_id, type, title, message, data, read_at, created_at, updated_at) FROM stdin;
-328f9632-3f71-41d1-8f3c-4ad2c589ac19	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "TestRevCycle1" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 12:47:33.829379+00	2025-07-28 12:47:33.829379+00
-85909be6-d990-4372-999d-5a364f685ac0	0595b6e2-aae7-41be-90d8-4a2051cd32da	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "TestRevCycle1" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 12:47:33.829379+00	2025-07-28 12:47:33.829379+00
-b01812b7-5eeb-47de-bda3-0d6a5afebc7d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "TestRevCycle1" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 12:47:33.829379+00	2025-07-28 12:47:33.829379+00
-5e9de031-85fa-41d7-8755-56ffc971b26c	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "TestRevCycle1" activated. Your team member Manager1 will need manager review.	{}	\N	2025-07-28 12:47:33.829379+00	2025-07-28 12:47:33.829379+00
-090283cd-09e3-401e-a587-b6d98700696e	3f2c6e27-8191-4bf1-9687-ba314598f39d	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "TestRevCycle1" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 12:47:33.829379+00	2025-07-28 12:47:33.829379+00
-a04ced07-c0c9-46b9-b267-e4cc868189be	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "TestRevCycle1" activated. Your team member Employee1 will need manager review.	{}	\N	2025-07-28 12:47:33.829379+00	2025-07-28 12:47:33.829379+00
-3f2737ab-35f3-4b3f-9e91-9f06e7cd51a5	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q3TestReview" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 14:31:45.44387+00	2025-07-28 14:31:45.44387+00
-1b042203-dd9a-46f9-b843-55fbeb62223c	0595b6e2-aae7-41be-90d8-4a2051cd32da	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q3TestReview" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 14:31:45.44387+00	2025-07-28 14:31:45.44387+00
-5367e270-8988-4094-89c4-0be63c643e3d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q3TestReview" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 14:31:45.44387+00	2025-07-28 14:31:45.44387+00
-7353e4ed-4f2f-4912-895a-ccb35806e98f	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q3TestReview" activated. Your team member Manager1 will need manager review.	{}	\N	2025-07-28 14:31:45.44387+00	2025-07-28 14:31:45.44387+00
-82af47af-7f73-4549-9279-8a991d91d1a1	3f2c6e27-8191-4bf1-9687-ba314598f39d	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q3TestReview" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 14:31:45.44387+00	2025-07-28 14:31:45.44387+00
-1f9c05b0-c9ff-4ba6-86f4-3cb88fb25534	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q3TestReview" activated. Your team member Employee1 will need manager review.	{}	\N	2025-07-28 14:31:45.44387+00	2025-07-28 14:31:45.44387+00
-a81af109-e496-4e9f-a43f-965c70f920f8	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q12026Test" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
-933a9777-7219-48ce-967c-5e8c3faec83a	0595b6e2-aae7-41be-90d8-4a2051cd32da	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q12026Test" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
-2bda5255-7dd5-4f2f-9d5d-ec2c1936d481	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q12026Test" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
-adf2bd23-4428-4850-960d-eeb6f42910df	f07fc797-2849-4b8c-befe-c633732f18e9	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q12026Test" activated. Your team member Manager1 will need manager review.	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
-ec81cceb-d7af-4828-bd2c-4f222532b160	3f2c6e27-8191-4bf1-9687-ba314598f39d	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle Started	A new review cycle "Q12026Test" has been activated. Please complete your self-assessment by 2025-09-30	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
-992d3ec9-759f-44c3-a8ef-d627932f67e1	d8dfa847-2caa-4408-9434-8e25fcfadcd0	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_opened	New Review Cycle - Team Member Assessment	Review cycle "Q12026Test" activated. Your team member Employee1 will need manager review.	{}	\N	2025-07-28 16:36:10.77234+00	2025-07-28 16:36:10.77234+00
-ecabed87-70ce-4d9b-8399-10c9fc388f24	caad3baa-7ae8-4241-9654-80ca6ffd578d	9d7ec341-5c0c-4e73-a223-56a2950055b6	manager_review_completed	Your Manager Review is Complete	Manager2 has completed your performance review for Q1 2020 Test. You can now view their feedback.	{"cycle_id": 5, "cycle_name": "Q1 2020 Test", "employee_id": "caad3baa-7ae8-4241-9654-80ca6ffd578d", "manager_name": "Manager2", "assessment_id": 20}	\N	2025-07-28 20:29:22.589426+00	2025-07-28 20:29:22.589426+00
-a7486c45-0285-43d0-ad61-1bca91f0a3a3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	assessment_submitted	Employee Assessment Ready for Review	Employee1 has completed their self-assessment for Q11999Test and is ready for your review.	{"cycle_id": 6, "cycle_name": "Q11999Test", "employee_id": "3f2c6e27-8191-4bf1-9687-ba314598f39d", "assessment_id": 24, "employee_name": "Employee1"}	\N	2025-07-29 17:23:30.799802+00	2025-07-29 17:23:30.799802+00
-c0e86944-1c04-4a2f-b858-4ee92185c4e8	f07fc797-2849-4b8c-befe-c633732f18e9	d8dfa847-2caa-4408-9434-8e25fcfadcd0	assessment_submitted	Employee Assessment Ready for Review	Manager1 has completed their self-assessment for 1974Q4Dec and is ready for your review.	{"cycle_id": 7, "cycle_name": "1974Q4Dec", "employee_id": "d8dfa847-2caa-4408-9434-8e25fcfadcd0", "assessment_id": 32, "employee_name": "Manager1"}	\N	2025-07-29 19:59:30.092367+00	2025-07-29 19:59:30.092367+00
-71711d35-7730-4d3e-aafd-855facf3e2d8	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	assessment_submitted	Employee Assessment Ready for Review	Employee1 has completed their self-assessment for 1974Q4Dec and is ready for your review.	{"cycle_id": 7, "cycle_name": "1974Q4Dec", "employee_id": "3f2c6e27-8191-4bf1-9687-ba314598f39d", "assessment_id": 33, "employee_name": "Employee1"}	\N	2025-07-29 20:28:08.221749+00	2025-07-29 20:28:08.221749+00
-521ccc2b-ed2a-46f5-9dfb-8309736bacf4	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	d8dfa847-2caa-4408-9434-8e25fcfadcd0	manager_review_completed	Your Manager Review is Complete	Manager1 has completed your performance review for 1974Q4Dec. You can now view their feedback.	{"cycle_id": 7, "cycle_name": "1974Q4Dec", "employee_id": "26e3ed38-ad4d-4f1b-9229-4d992bdb1e32", "manager_name": "Manager1", "assessment_id": 34}	\N	2025-07-30 01:38:33.144326+00	2025-07-30 01:38:33.144326+00
+72a4f10c-478e-4cca-9e0b-f9b54331ddbe	3f2c6e27-8191-4bf1-9687-ba314598f39d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	manager_review_completed	Your Manager Review is Complete	Manager1 has completed your performance review for Ed's Demo Cycle. You can now view their feedback.	{"cycle_id": 8, "cycle_name": "Ed's Demo Cycle", "employee_id": "3f2c6e27-8191-4bf1-9687-ba314598f39d", "manager_name": "Manager1", "assessment_id": 41}	\N	2025-07-30 14:25:39.325223+00	2025-07-30 14:25:39.325223+00
 \.
 
 
@@ -5398,12 +5922,23 @@ c0e86944-1c04-4a2f-b858-4ee92185c4e8	f07fc797-2849-4b8c-befe-c633732f18e9	d8dfa8
 --
 
 COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, feedback_timestamp, category, message, is_anonymous, helpful_count, created_at, updated_at) FROM stdin;
-1	f07fc797-2849-4b8c-befe-c633732f18e9	3f2c6e27-8191-4bf1-9687-ba314598f39d	constructive	2025-07-29 01:54:13.913212+00	teamwork	Test test test test	f	0	2025-07-29 01:54:13.913212+00	2025-07-29 01:54:13.913212+00
-2	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	constructive	2025-07-29 19:31:18.951718+00	teamwork	You Test Test	f	0	2025-07-29 19:31:18.951718+00	2025-07-29 19:31:18.951718+00
-3	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	positive	2025-07-29 19:37:41.041314+00	teamwork	Nice Test Teamwork	f	0	2025-07-29 19:37:41.041314+00	2025-07-29 19:37:41.041314+00
-4	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	constructive	2025-07-29 19:37:58.976109+00	teamwork	Bad Test Constructive	f	0	2025-07-29 19:37:58.976109+00	2025-07-29 19:37:58.976109+00
-5	d8dfa847-2caa-4408-9434-8e25fcfadcd0	3f2c6e27-8191-4bf1-9687-ba314598f39d	appreciation	2025-07-29 19:38:16.98598+00	communication	Tank Yiou etst	f	0	2025-07-29 19:38:16.98598+00	2025-07-29 19:38:16.98598+00
-6	3f2c6e27-8191-4bf1-9687-ba314598f39d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	positive	2025-07-29 19:42:04.583655+00	teamwork	Test you Fucking Suck	f	0	2025-07-29 19:42:04.583655+00	2025-07-29 19:42:04.583655+00
+7	3f2c6e27-8191-4bf1-9687-ba314598f39d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	appreciation	2025-07-30 14:26:34.195597+00	teamwork	Geta testcghsdffg	f	0	2025-07-30 14:26:34.195597+00	2025-07-30 14:26:34.195597+00
+\.
+
+
+--
+-- Data for Name: pulse_questions; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.pulse_questions (id, question_id, question_text, category, type, options, is_active, sort_order, created_by, created_at, updated_at) FROM stdin;
+d56dbd7e-5401-4af8-81c8-239e7f401926	provide_value	Do you feel you provide value to the company?	satisfaction	scale	\N	t	1	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+9dad5ae6-522f-4d7a-9599-efbf72fcb04c	happy_to_start_work	Were you happy to start work today?	satisfaction	scale	\N	t	2	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+00c77d01-eba0-46bd-b845-b497aa4528de	feel_contribute	Do you feel you contribute meaningfully to your team?	satisfaction	scale	\N	t	3	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+94b1a577-ee19-4b88-9eeb-aacd4a5480ab	workplace_satisfaction	How satisfied are you with your workplace today?	satisfaction	scale	\N	t	4	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+f36e88e3-1d5b-4f9a-8d51-22af6a1a818d	team_collaboration	How would you rate your team collaboration today?	satisfaction	scale	\N	t	5	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+5a703287-b53d-49c6-aab3-852e0feb50d5	workload_balance	How manageable is your workload today?	satisfaction	scale	\N	t	6	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+6444e723-c3a4-46bd-ab07-050bc3d90d3a	work_environment	How comfortable is your work environment?	satisfaction	scale	\N	t	7	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
+0afd4db1-d0a7-48d4-afcc-33a68c86ecbc	job_fulfillment	How fulfilling is your work today?	satisfaction	scale	\N	t	8	\N	2025-07-30 16:02:03.325647+00	2025-07-30 16:02:03.325647+00
 \.
 
 
@@ -5412,13 +5947,7 @@ COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, f
 --
 
 COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description, updated_at) FROM stdin;
-1	TestRevCycle1	2025-07-01	2025-09-30	closed	2025-07-28 12:46:30.126696+00	quarterly	\N	2025-07-28 13:44:52.538884+00
-2	Q3TestReview	2025-07-01	2025-09-30	closed	2025-07-28 13:45:19.51082+00	quarterly	\N	2025-07-28 15:24:18.394628+00
-4	Q22026Test	2025-07-01	2025-09-30	closed	2025-07-28 16:35:49.500278+00	quarterly	\N	2025-07-28 16:36:16.071196+00
-5	Q1 2020 Test	2025-07-01	2025-09-30	closed	2025-07-28 19:35:37.780369+00	quarterly	\N	2025-07-29 17:16:17.880932+00
-3	Q12026Test	2025-07-01	2025-09-30	closed	2025-07-28 15:24:37.000472+00	quarterly	\N	2025-07-29 17:16:25.100863+00
-6	Q11999Test	2025-07-01	2025-09-30	closed	2025-07-29 17:16:08.39421+00	quarterly	\N	2025-07-29 19:54:44.812451+00
-7	1974Q4Dec	2025-07-01	2025-09-30	active	2025-07-29 19:55:08.472357+00	quarterly	\N	2025-07-29 19:55:08.765877+00
+8	Ed's Demo Cycle	2025-07-01	2025-09-30	active	2025-07-30 14:22:14.854364+00	quarterly	\N	2025-07-30 14:22:15.135218+00
 \.
 
 
@@ -5440,6 +5969,26 @@ COPY public.security_audit (id, user_id, employee_id, action, resource, success,
 11	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:6,name:Q11999Test	t	\N	\N	2025-07-29 19:54:44.812451+00
 12	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:caad3baa-7ae8-4241-9654-80ca6ffd578d,changes:manager_id,	t	\N	\N	2025-07-29 20:34:31.854952+00
 13	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:71dc105f-4f64-4ab5-b308-54d02ad9f4d1,changes:manager_id,	t	\N	\N	2025-07-29 20:34:45.996953+00
+\.
+
+
+--
+-- Data for Name: team_health_alerts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.team_health_alerts (id, user_id, employee_id, employee_name, manager_id, department, question_id, question, response, severity, acknowledged, acknowledged_by, acknowledged_at, created_at, updated_at) FROM stdin;
+70030d0c-d708-467e-93b9-053f4d770df4	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	Administrator	\N	General	workplace_satisfaction	How satisfied are you with your workplace today?	2	medium	f	\N	\N	2025-07-30 17:33:02.748475+00	2025-07-30 17:33:02.748475+00
+\.
+
+
+--
+-- Data for Name: team_health_pulse_responses; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.team_health_pulse_responses (id, user_id, employee_id, question_id, question, response, category, department, manager_id, "timestamp", created_at, updated_at) FROM stdin;
+feaa143b-1671-4d1e-90ff-9b554ec3e0cb	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	workload_balance	How manageable is your workload today?	4	satisfaction	General	\N	2025-07-30 16:16:47.456+00	2025-07-30 16:16:47.249171+00	2025-07-30 16:16:47.249171+00
+4fc05e17-b04f-4018-a879-5a65bc5c27a8	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	workplace_satisfaction	How satisfied are you with your workplace today?	2	satisfaction	General	\N	2025-07-30 17:33:03.032+00	2025-07-30 17:33:02.748475+00	2025-07-30 17:33:02.748475+00
+99d31bea-6e6d-4440-a166-fe470eb20c1d	9a6b509f-9e0a-4b2d-b17e-af32abfc91f8	d8dfa847-2caa-4408-9434-8e25fcfadcd0	workload_balance	How manageable is your workload today?	5	satisfaction	Engineering	f07fc797-2849-4b8c-befe-c633732f18e9	2025-07-30 17:51:18.311+00	2025-07-30 17:51:18.017046+00	2025-07-30 17:51:18.017046+00
 \.
 
 
@@ -5476,7 +6025,7 @@ SELECT pg_catalog.setval('public.assessment_scorecard_metrics_id_seq', 1, false)
 -- Name: assessments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.assessments_id_seq', 38, true);
+SELECT pg_catalog.setval('public.assessments_id_seq', 42, true);
 
 
 --
@@ -5490,14 +6039,14 @@ SELECT pg_catalog.setval('public.company_rocks_id_seq', 1, false);
 -- Name: departments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.departments_id_seq', 1, false);
+SELECT pg_catalog.setval('public.departments_id_seq', 30, true);
 
 
 --
 -- Name: employee_departments_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.employee_departments_id_seq', 1, false);
+SELECT pg_catalog.setval('public.employee_departments_id_seq', 15, true);
 
 
 --
@@ -5511,14 +6060,14 @@ SELECT pg_catalog.setval('public.kudos_id_seq', 1, false);
 -- Name: peer_feedback_feedback_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.peer_feedback_feedback_id_seq', 6, true);
+SELECT pg_catalog.setval('public.peer_feedback_feedback_id_seq', 7, true);
 
 
 --
 -- Name: review_cycles_id_seq; Type: SEQUENCE SET; Schema: public; Owner: -
 --
 
-SELECT pg_catalog.setval('public.review_cycles_id_seq', 7, true);
+SELECT pg_catalog.setval('public.review_cycles_id_seq', 8, true);
 
 
 --
@@ -5681,6 +6230,22 @@ ALTER TABLE ONLY public.peer_feedback
 
 
 --
+-- Name: pulse_questions pulse_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pulse_questions
+    ADD CONSTRAINT pulse_questions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: pulse_questions pulse_questions_question_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pulse_questions
+    ADD CONSTRAINT pulse_questions_question_id_key UNIQUE (question_id);
+
+
+--
 -- Name: review_cycles review_cycles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5697,11 +6262,62 @@ ALTER TABLE ONLY public.security_audit
 
 
 --
+-- Name: team_health_alerts team_health_alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_alerts
+    ADD CONSTRAINT team_health_alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: team_health_pulse_responses team_health_pulse_responses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_pulse_responses
+    ADD CONSTRAINT team_health_pulse_responses_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: training_requests training_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.training_requests
     ADD CONSTRAINT training_requests_pkey PRIMARY KEY (request_id);
+
+
+--
+-- Name: idx_alerts_acknowledged; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_alerts_acknowledged ON public.team_health_alerts USING btree (acknowledged);
+
+
+--
+-- Name: idx_alerts_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_alerts_created_at ON public.team_health_alerts USING btree (created_at);
+
+
+--
+-- Name: idx_alerts_department; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_alerts_department ON public.team_health_alerts USING btree (department);
+
+
+--
+-- Name: idx_alerts_manager_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_alerts_manager_id ON public.team_health_alerts USING btree (manager_id);
+
+
+--
+-- Name: idx_alerts_severity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_alerts_severity ON public.team_health_alerts USING btree (severity);
 
 
 --
@@ -5789,6 +6405,27 @@ CREATE INDEX idx_employee_departments_employee_id ON public.employee_departments
 
 
 --
+-- Name: idx_employee_departments_primary; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_employee_departments_primary ON public.employee_departments USING btree (is_primary) WHERE (is_primary = true);
+
+
+--
+-- Name: idx_employee_primary_department; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_employee_primary_department ON public.employee_departments USING btree (employee_id) WHERE (is_primary = true);
+
+
+--
+-- Name: idx_employees_department; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_employees_department ON public.employees USING btree (department);
+
+
+--
 -- Name: idx_manager_notes_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5859,6 +6496,69 @@ CREATE INDEX idx_notifications_unread ON public.notifications USING btree (recip
 
 
 --
+-- Name: idx_pulse_questions_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_questions_active ON public.pulse_questions USING btree (is_active);
+
+
+--
+-- Name: idx_pulse_questions_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_questions_category ON public.pulse_questions USING btree (category);
+
+
+--
+-- Name: idx_pulse_questions_sort_order; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_questions_sort_order ON public.pulse_questions USING btree (sort_order);
+
+
+--
+-- Name: idx_pulse_responses_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_responses_category ON public.team_health_pulse_responses USING btree (category);
+
+
+--
+-- Name: idx_pulse_responses_department; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_responses_department ON public.team_health_pulse_responses USING btree (department);
+
+
+--
+-- Name: idx_pulse_responses_employee_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_responses_employee_id ON public.team_health_pulse_responses USING btree (employee_id);
+
+
+--
+-- Name: idx_pulse_responses_manager_dept; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_responses_manager_dept ON public.team_health_pulse_responses USING btree (manager_id, department);
+
+
+--
+-- Name: idx_pulse_responses_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_responses_timestamp ON public.team_health_pulse_responses USING btree ("timestamp");
+
+
+--
+-- Name: idx_pulse_responses_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_pulse_responses_user_id ON public.team_health_pulse_responses USING btree (user_id);
+
+
+--
 -- Name: idx_review_cycles_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5908,10 +6608,24 @@ CREATE TRIGGER trg_manager_review_completed AFTER UPDATE ON public.assessments F
 
 
 --
+-- Name: team_health_pulse_responses trigger_create_pulse_alert; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_create_pulse_alert AFTER INSERT ON public.team_health_pulse_responses FOR EACH ROW EXECUTE FUNCTION public.create_pulse_alert();
+
+
+--
 -- Name: assessments update_assessments_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER update_assessments_updated_at BEFORE UPDATE ON public.assessments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: departments update_departments_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_departments_updated_at BEFORE UPDATE ON public.departments FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -5999,6 +6713,14 @@ ALTER TABLE ONLY public.development_plans
 
 ALTER TABLE ONLY public.development_plans
     ADD CONSTRAINT development_plans_manager_reviewed_by_fkey FOREIGN KEY (manager_reviewed_by) REFERENCES public.employees(id) ON DELETE SET NULL;
+
+
+--
+-- Name: employee_departments employee_departments_assigned_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.employee_departments
+    ADD CONSTRAINT employee_departments_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES public.employees(id);
 
 
 --
@@ -6130,6 +6852,14 @@ ALTER TABLE ONLY public.peer_feedback
 
 
 --
+-- Name: pulse_questions pulse_questions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pulse_questions
+    ADD CONSTRAINT pulse_questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.employees(id) ON DELETE SET NULL;
+
+
+--
 -- Name: security_audit security_audit_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6146,11 +6876,96 @@ ALTER TABLE ONLY public.security_audit
 
 
 --
+-- Name: team_health_alerts team_health_alerts_acknowledged_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_alerts
+    ADD CONSTRAINT team_health_alerts_acknowledged_by_fkey FOREIGN KEY (acknowledged_by) REFERENCES public.employees(id) ON DELETE SET NULL;
+
+
+--
+-- Name: team_health_alerts team_health_alerts_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_alerts
+    ADD CONSTRAINT team_health_alerts_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: team_health_alerts team_health_alerts_manager_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_alerts
+    ADD CONSTRAINT team_health_alerts_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id) ON DELETE SET NULL;
+
+
+--
+-- Name: team_health_alerts team_health_alerts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_alerts
+    ADD CONSTRAINT team_health_alerts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: team_health_pulse_responses team_health_pulse_responses_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_pulse_responses
+    ADD CONSTRAINT team_health_pulse_responses_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: team_health_pulse_responses team_health_pulse_responses_manager_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_pulse_responses
+    ADD CONSTRAINT team_health_pulse_responses_manager_id_fkey FOREIGN KEY (manager_id) REFERENCES public.employees(id) ON DELETE SET NULL;
+
+
+--
+-- Name: team_health_pulse_responses team_health_pulse_responses_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.team_health_pulse_responses
+    ADD CONSTRAINT team_health_pulse_responses_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: training_requests training_requests_employee_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.training_requests
     ADD CONSTRAINT training_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.employees(id) ON DELETE CASCADE;
+
+
+--
+-- Name: team_health_alerts Admins can manage all alerts; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage all alerts" ON public.team_health_alerts TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text)))));
+
+
+--
+-- Name: pulse_questions Admins can manage pulse questions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can manage pulse questions" ON public.pulse_questions TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text))))) WITH CHECK ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text)))));
+
+
+--
+-- Name: team_health_pulse_responses Admins can view all pulse responses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Admins can view all pulse responses" ON public.team_health_pulse_responses TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text)))));
 
 
 --
@@ -6169,6 +6984,91 @@ CREATE POLICY "Enable read access for own and team assessments" ON public.assess
 CREATE POLICY "Enable update for own and team assessments" ON public.assessments FOR UPDATE USING (((EXISTS ( SELECT 1
    FROM public.employees
   WHERE ((employees.user_id = auth.uid()) AND (employees.id = assessments.employee_id)))) OR public.is_manager_of(auth.uid(), employee_id) OR (public.get_user_role(auth.uid()) = 'admin'::text)));
+
+
+--
+-- Name: pulse_questions Everyone can view active pulse questions; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Everyone can view active pulse questions" ON public.pulse_questions FOR SELECT TO authenticated USING ((is_active = true));
+
+
+--
+-- Name: departments Everyone can view departments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Everyone can view departments" ON public.departments FOR SELECT USING (true);
+
+
+--
+-- Name: team_health_alerts Managers can manage team alerts; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Managers can manage team alerts" ON public.team_health_alerts TO authenticated USING ((manager_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE (employees.user_id = auth.uid()))));
+
+
+--
+-- Name: team_health_pulse_responses Managers can view team pulse responses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Managers can view team pulse responses" ON public.team_health_pulse_responses FOR SELECT TO authenticated USING ((manager_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE (employees.user_id = auth.uid()))));
+
+
+--
+-- Name: employee_departments Only admins can modify department assignments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Only admins can modify department assignments" ON public.employee_departments USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text)))));
+
+
+--
+-- Name: departments Only admins can modify departments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Only admins can modify departments" ON public.departments USING ((EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text)))));
+
+
+--
+-- Name: team_health_pulse_responses Users can insert own pulse responses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can insert own pulse responses" ON public.team_health_pulse_responses FOR INSERT TO authenticated WITH CHECK ((auth.uid() = user_id));
+
+
+--
+-- Name: employee_departments Users can view department assignments; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view department assignments" ON public.employee_departments FOR SELECT USING (((employee_id IN ( SELECT employees.id
+   FROM public.employees
+  WHERE (employees.user_id = auth.uid()))) OR (EXISTS ( SELECT 1
+   FROM (public.employees e1
+     JOIN public.employees e2 ON ((e1.id = e2.manager_id)))
+  WHERE ((e1.user_id = auth.uid()) AND (e2.id = employee_departments.employee_id)))) OR (EXISTS ( SELECT 1
+   FROM public.employees
+  WHERE ((employees.user_id = auth.uid()) AND (employees.role = 'admin'::text))))));
+
+
+--
+-- Name: team_health_alerts Users can view own alerts; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view own alerts" ON public.team_health_alerts FOR SELECT TO authenticated USING ((auth.uid() = user_id));
+
+
+--
+-- Name: team_health_pulse_responses Users can view own pulse responses; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view own pulse responses" ON public.team_health_pulse_responses FOR SELECT TO authenticated USING ((auth.uid() = user_id));
 
 
 --
@@ -6640,6 +7540,12 @@ CREATE POLICY notifications_update_own ON public.notifications FOR UPDATE TO aut
 
 
 --
+-- Name: pulse_questions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.pulse_questions ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: review_cycles; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -6700,6 +7606,18 @@ ALTER TABLE public.security_audit ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY security_audit_admin_read ON public.security_audit FOR SELECT TO authenticated USING (public.check_user_permission('admin'::text));
 
+
+--
+-- Name: team_health_alerts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.team_health_alerts ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: team_health_pulse_responses; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.team_health_pulse_responses ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: training_requests; Type: ROW SECURITY; Schema: public; Owner: -

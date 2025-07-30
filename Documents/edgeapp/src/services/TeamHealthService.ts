@@ -1,4 +1,6 @@
 // src/services/TeamHealthService.ts - Team health monitoring service
+import { supabase } from './supabaseClient';
+
 export interface PulseResponse {
   questionId: string;
   question: string;
@@ -7,6 +9,8 @@ export interface PulseResponse {
   userId: string;
   category: 'satisfaction' | 'workload' | 'support' | 'engagement';
   isNegative?: boolean;
+  department?: string;
+  managerId?: string;
 }
 
 export interface TeamHealthAlert {
@@ -57,25 +61,52 @@ export class TeamHealthService {
     department?: string
   ): Promise<void> {
     try {
-      // Enhance the response with additional context
+      // Get employee info for database relationship
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('user_id', response.userId)
+        .single();
+
+      // Save to Supabase database
+      const { error: insertError } = await supabase
+        .from('team_health_pulse_responses')
+        .insert({
+          user_id: response.userId,
+          employee_id: employee?.id,
+          question_id: response.questionId,
+          question: response.question,
+          response: response.response,
+          category: response.category,
+          department: department,
+          manager_id: managerId,
+          timestamp: response.timestamp
+        });
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        // Fallback to localStorage if database fails
+        const enhancedResponse = {
+          ...response,
+          userName,
+          managerId,
+          department
+        };
+        const existingResponses = this.getAllResponses();
+        existingResponses.push(enhancedResponse);
+        localStorage.setItem('pulse_responses', JSON.stringify(existingResponses));
+      }
+
+      // Also keep localStorage backup for immediate access
       const enhancedResponse = {
         ...response,
         userName,
         managerId,
         department
       };
-
-      // Get existing responses
       const existingResponses = this.getAllResponses();
-      
-      // Add new response
       existingResponses.push(enhancedResponse);
-      
-      // Save back to localStorage
       localStorage.setItem('pulse_responses', JSON.stringify(existingResponses));
-      
-      // Check if this response should generate an alert
-      this.checkForAlert(enhancedResponse, userName, managerId, department);
       
     } catch (error) {
       console.error('Error saving pulse response:', error);
@@ -170,7 +201,23 @@ export class TeamHealthService {
   }
 
   // Calculate department satisfaction score 
-  static calculateDepartmentSatisfaction(department: string): number {
+  static async calculateDepartmentSatisfaction(department: string): Promise<number> {
+    try {
+      // Try to get from Supabase database first
+      const { data: dbResults } = await supabase
+        .rpc('get_department_satisfaction', { 
+          dept_name: department,
+          days_back: 30 
+        });
+
+      if (dbResults && dbResults.length > 0 && dbResults[0].avg_satisfaction) {
+        return parseFloat(dbResults[0].avg_satisfaction);
+      }
+    } catch (error) {
+      console.warn('Database query failed, falling back to localStorage:', error);
+    }
+
+    // Fallback to localStorage
     const responses = this.getAllResponses();
     
     // Filter for satisfaction responses from this department
@@ -192,7 +239,20 @@ export class TeamHealthService {
   }
 
   // Calculate company-wide satisfaction score
-  static calculateCompanySatisfaction(): number {
+  static async calculateCompanySatisfaction(): Promise<number> {
+    try {
+      // Try to get from Supabase database first
+      const { data: dbResults } = await supabase
+        .rpc('get_company_satisfaction', { days_back: 30 });
+
+      if (dbResults && dbResults.length > 0 && dbResults[0].avg_satisfaction) {
+        return parseFloat(dbResults[0].avg_satisfaction);
+      }
+    } catch (error) {
+      console.warn('Database query failed, falling back to localStorage:', error);
+    }
+
+    // Fallback to localStorage
     const responses = this.getAllResponses();
     
     const satisfactionResponses = responses.filter(response => 

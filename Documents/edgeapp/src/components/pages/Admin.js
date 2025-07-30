@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus, Square } from 'lucide-react';
+import PulseQuestionsManager from '../admin/PulseQuestionsManager';
 import { useAdmin } from '../../hooks';
 import { useApp } from '../../contexts';
-import { AdminService, supabase } from '../../services';
+import { AdminService, supabase, DepartmentService } from '../../services';
 import { getStatusBadgeColor, formatDate, validateRequired, validateDateRange } from '../../utils';
 
 export default function Admin() {
@@ -32,7 +33,38 @@ export default function Admin() {
     try {
       setEmployeesLoading(true);
       const employeesData = await AdminService.getAllEmployees();
-      setAllEmployees(employeesData);
+      
+      // Enrich employee data with primary department information
+      const enrichedEmployees = await Promise.all(
+        employeesData.map(async (employee) => {
+          try {
+            // Get primary department for each employee
+            const { data: primaryDeptData, error: deptError } = await supabase
+              .rpc('get_employee_primary_department', { emp_id: employee.id });
+            
+            if (!deptError && primaryDeptData && primaryDeptData.length > 0) {
+              return {
+                ...employee,
+                primary_department: primaryDeptData[0].dept_name
+              };
+            }
+            
+            // Fallback: if no primary department found, use the backward compatibility column
+            return {
+              ...employee,
+              primary_department: employee.department || 'General'
+            };
+          } catch (deptErr) {
+            console.warn(`Error fetching department for employee ${employee.name}:`, deptErr);
+            return {
+              ...employee,
+              primary_department: employee.department || 'General'
+            };
+          }
+        })
+      );
+      
+      setAllEmployees(enrichedEmployees);
     } catch (err) {
       console.error('Error fetching employees:', err);
     } finally {
@@ -103,7 +135,6 @@ export default function Admin() {
         <div>
           <h1 className="text-3xl font-bold text-cyan-400">Admin Panel</h1>
           <p className="text-gray-400 mt-2">Manage employees and review cycles</p>
-          <p className="text-xs text-yellow-400 mt-1">Simplified version for testing</p>
         </div>
         <button
           onClick={() => openModal('createReviewCycle', { onComplete: refresh })}
@@ -130,125 +161,71 @@ export default function Admin() {
         </div>
       )}
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Employees Section */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <Users className="mr-2 text-cyan-400" size={24} />
-              <h2 className="text-xl font-semibold">Employees ({employees.length})</h2>
-            </div>
-            <button 
-              onClick={refresh}
-              className="text-cyan-400 hover:text-cyan-300 text-sm"
-            >
-              Refresh
-            </button>
+      {/* Review Cycles Section */}
+      <div className="bg-gray-800 rounded-lg p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <Calendar className="mr-2 text-cyan-400" size={24} />
+            <h2 className="text-xl font-semibold">Review Cycles ({cycles.length})</h2>
           </div>
-          
-          {employees.length > 0 ? (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {employees.map((employee) => (
-                <div key={employee.id} className="flex justify-between items-center p-3 bg-gray-700 rounded">
+        </div>
+        
+        {cycles.length > 0 ? (
+          <div className="space-y-3 max-h-96 overflow-y-auto">
+            {cycles.map((cycle) => (
+              <div key={cycle.id} className="p-3 bg-gray-700 rounded">
+                <div className="flex justify-between items-start mb-2">
                   <div>
-                    <p className="font-medium text-white">{employee.name}</p>
-                    <p className="text-sm text-gray-400">{employee.email}</p>
-                    <p className="text-xs text-gray-500">
-                      {employee.job_title || 'No Title'} • 
-                      {employee.manager_id ? ' Has Manager' : ' No Manager'}
+                    <p className="font-medium text-white">{cycle.name}</p>
+                    <p className="text-sm text-gray-400">
+                      {formatDate(cycle.start_date)} - {formatDate(cycle.end_date)}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs px-2 py-1 rounded bg-green-600 text-white">
-                      Active
-                    </span>
-                  </div>
+                  <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(cycle.status)}`}>
+                    {cycle.status}
+                  </span>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              {error ? (
-                <div className="text-red-400">
-                  <AlertTriangle size={48} className="mx-auto mb-4" />
-                  <p>Failed to load employees</p>
+                
+                <div className="flex gap-2 mt-2">
+                  {cycle.status === 'upcoming' && (
+                    <button
+                      onClick={() => handleActivateCycle(cycle.id)}
+                      className="text-green-400 hover:text-green-300 flex items-center text-sm"
+                    >
+                      <Play size={14} className="mr-1" />
+                      Activate
+                    </button>
+                  )}
+                  {cycle.status === 'active' && (
+                    <button
+                      onClick={() => handleCloseCycle(cycle.id)}
+                      className="text-red-400 hover:text-red-300 flex items-center text-sm"
+                    >
+                      <Square size={14} className="mr-1" />
+                      Close
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <div className="text-gray-500">
-                  <Users size={48} className="mx-auto mb-4" />
-                  <p>No employees found</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Review Cycles Section */}
-        <div className="bg-gray-800 rounded-lg p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center">
-              <Calendar className="mr-2 text-cyan-400" size={24} />
-              <h2 className="text-xl font-semibold">Review Cycles ({cycles.length})</h2>
-            </div>
+              </div>
+            ))}
           </div>
-          
-          {cycles.length > 0 ? (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {cycles.map((cycle) => (
-                <div key={cycle.id} className="p-3 bg-gray-700 rounded">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-medium text-white">{cycle.name}</p>
-                      <p className="text-sm text-gray-400">
-                        {formatDate(cycle.start_date)} - {formatDate(cycle.end_date)}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded ${getStatusBadgeColor(cycle.status)}`}>
-                      {cycle.status}
-                    </span>
-                  </div>
-                  
-                  <div className="flex gap-2 mt-2">
-                    {cycle.status === 'upcoming' && (
-                      <button
-                        onClick={() => handleActivateCycle(cycle.id)}
-                        className="text-green-400 hover:text-green-300 flex items-center text-sm"
-                      >
-                        <Play size={14} className="mr-1" />
-                        Activate
-                      </button>
-                    )}
-                    {cycle.status === 'active' && (
-                      <button
-                        onClick={() => handleCloseCycle(cycle.id)}
-                        className="text-red-400 hover:text-red-300 flex items-center text-sm"
-                      >
-                        <Square size={14} className="mr-1" />
-                        Close
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar size={48} className="mx-auto mb-4 text-gray-500" />
-              <p className="text-gray-400 mb-4">No review cycles found</p>
-              <p className="text-sm text-gray-500">Create your first review cycle to get started</p>
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="text-center py-8">
+            <Calendar size={48} className="mx-auto mb-4 text-gray-500" />
+            <p className="text-gray-400 mb-4">No review cycles found</p>
+            <p className="text-sm text-gray-500">Create your first review cycle to get started</p>
+          </div>
+        )}
       </div>
 
       {/* Summary Stats */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-gray-800 p-4 rounded-lg text-center">
-          <p className="text-2xl font-bold text-cyan-400">{employees.length}</p>
+          <p className="text-2xl font-bold text-cyan-400">{allEmployees.length}</p>
           <p className="text-gray-400">Total Employees</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg text-center">
-          <p className="text-2xl font-bold text-green-400">{employees.length}</p>
+          <p className="text-2xl font-bold text-green-400">{allEmployees.filter(e => e.is_active).length}</p>
           <p className="text-gray-400">Active Employees</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg text-center">
@@ -258,7 +235,7 @@ export default function Admin() {
           <p className="text-gray-400">Active Cycles</p>
         </div>
         <div className="bg-gray-800 p-4 rounded-lg text-center">
-          <p className="text-2xl font-bold text-purple-400">0</p>
+          <p className="text-2xl font-bold text-purple-400">{allEmployees.filter(e => e.manager_id).length}</p>
           <p className="text-gray-400">Manager Relations</p>
         </div>
       </div>
@@ -300,6 +277,7 @@ export default function Admin() {
                   <th className="text-left py-3 px-2 text-gray-400 font-medium">Email</th>
                   <th className="text-left py-3 px-2 text-gray-400 font-medium">Role</th>
                   <th className="text-left py-3 px-2 text-gray-400 font-medium">Job Title</th>
+                  <th className="text-left py-3 px-2 text-gray-400 font-medium">Primary Department</th>
                   <th className="text-left py-3 px-2 text-gray-400 font-medium">Manager</th>
                   <th className="text-left py-3 px-2 text-gray-400 font-medium">Reports</th>
                   <th className="text-left py-3 px-2 text-gray-400 font-medium">Status</th>
@@ -328,6 +306,11 @@ export default function Admin() {
                     </td>
                     <td className="py-3 px-2">
                       <div className="text-gray-300 text-sm">{employee.job_title}</div>
+                    </td>
+                    <td className="py-3 px-2">
+                      <div className="text-gray-300 text-sm">
+                        {employee.primary_department || employee.department || '—'}
+                      </div>
                     </td>
                     <td className="py-3 px-2">
                       <div className="text-gray-300 text-sm">
@@ -401,18 +384,79 @@ const ReviewOversightSection = () => {
   const fetchReviewOversight = async () => {
     try {
       setLoading(true);
-      // This would be a custom RPC function to get admin oversight data
-      const { data: stats, error: statsError } = await supabase.rpc('get_admin_review_stats');
-      const { data: recent, error: recentError } = await supabase.rpc('get_recent_review_activity');
       
-      if (!statsError && stats) {
-        setReviewStats(stats[0] || reviewStats);
+      // Get real assessment data for review stats
+      const { data: assessments, error: assessError } = await supabase
+        .from('assessments')
+        .select(`
+          *,
+          employee:employees(name, job_title),
+          cycle:review_cycles(name)
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (assessError) {
+        console.error('Error fetching assessments:', assessError);
+        setReviewStats({
+          total: 0,
+          pending_employee: 0,
+          pending_manager: 0,
+          completed: 0,
+          overdue: 0
+        });
+        setRecentReviews([]);
+        return;
       }
-      if (!recentError && recent) {
-        setRecentReviews(recent || []);
-      }
+      
+      // Calculate real stats from assessment data
+      const total = assessments?.length || 0;
+      const pending_employee = assessments?.filter(a => 
+        a.self_assessment_status === 'not_started' || a.self_assessment_status === 'in_progress'
+      ).length || 0;
+      const pending_manager = assessments?.filter(a => 
+        a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
+      ).length || 0;
+      const completed = assessments?.filter(a => 
+        a.manager_review_status === 'completed'
+      ).length || 0;
+      const overdue = assessments?.filter(a => {
+        const dueDate = new Date(a.due_date);
+        const now = new Date();
+        return dueDate < now && (a.self_assessment_status !== 'employee_complete' || a.manager_review_status !== 'completed');
+      }).length || 0;
+      
+      setReviewStats({
+        total,
+        pending_employee,
+        pending_manager,
+        completed,
+        overdue
+      });
+      
+      // Get recent assessment activity (last 10 assessments with recent updates)
+      const recentActivity = assessments?.filter(a => 
+        a.updated_at && new Date(a.updated_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
+      ).slice(0, 10).map(a => ({
+        assessment_id: a.id,
+        employee_name: a.employee?.name || 'Unknown',
+        cycle_name: a.cycle?.name || 'Unknown Cycle',
+        self_assessment_status: a.self_assessment_status,
+        manager_review_status: a.manager_review_status,
+        updated_at: a.updated_at
+      })) || [];
+      
+      setRecentReviews(recentActivity);
+      
     } catch (err) {
       console.error('Error fetching review oversight:', err);
+      setReviewStats({
+        total: 0,
+        pending_employee: 0,
+        pending_manager: 0,
+        completed: 0,
+        overdue: 0
+      });
+      setRecentReviews([]);
     } finally {
       setLoading(false);
     }
@@ -530,6 +574,9 @@ const ReviewOversightSection = () => {
           </div>
         )}
       </div>
+
+      {/* Pulse Questions Management Section */}
+      <PulseQuestionsManager />
     </div>
   );
 };

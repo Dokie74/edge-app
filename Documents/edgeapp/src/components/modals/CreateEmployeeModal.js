@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, User, Mail, Briefcase, Shield, Users, Copy, Check } from 'lucide-react';
 import { Button, LoadingSpinner } from '../ui';
 import { AdminService } from '../../services';
+import DepartmentService from '../../services/DepartmentService';
 
 const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
   const [formData, setFormData] = useState({
@@ -10,22 +11,12 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     jobTitle: '',
     role: 'employee',
     managerId: '',
-    departmentIds: [],
+    primaryDepartmentId: '',
+    secondaryDepartmentId: '',
     password: ''
   });
   const [managers, setManagers] = useState([]);
-  // Predefined department choices
-  const [departments] = useState([
-    { id: 'accounting', name: 'Accounting' },
-    { id: 'purchasing', name: 'Purchasing' },
-    { id: 'engineering', name: 'Engineering' },
-    { id: 'executive', name: 'Executive' },
-    { id: 'quality', name: 'Quality' },
-    { id: 'production', name: 'Production' },
-    { id: 'machining', name: 'Machining' },
-    { id: 'program-management', name: 'Program Management' },
-    { id: 'sales', name: 'Sales' }
-  ]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
@@ -33,6 +24,7 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
 
   useEffect(() => {
     fetchManagers();
+    fetchDepartments();
   }, []);
 
   const fetchManagers = async () => {
@@ -44,18 +36,45 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
     }
   };
 
+  const fetchDepartments = async () => {
+    try {
+      const departmentsData = await DepartmentService.getAllDepartments();
+      setDepartments(departmentsData);
+    } catch (err) {
+      console.error('Error fetching departments:', err);
+      // Fallback to default departments if service fails
+      setDepartments([
+        { id: 'general', name: 'General' },
+        { id: 'accounting', name: 'Accounting' },
+        { id: 'purchasing', name: 'Purchasing' },
+        { id: 'engineering', name: 'Engineering' },
+        { id: 'executive', name: 'Executive' },
+        { id: 'quality', name: 'Quality' },
+        { id: 'production', name: 'Production' },
+        { id: 'machining', name: 'Machining' },
+        { id: 'program-management', name: 'Program Management' },
+        { id: 'sales', name: 'Sales' }
+      ]);
+    }
+  };
+
   const handleInputChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (error) setError('');
   };
 
-  const handleDepartmentToggle = (departmentId) => {
-    setFormData(prev => ({
-      ...prev,
-      departmentIds: prev.departmentIds.includes(departmentId)
-        ? prev.departmentIds.filter(id => id !== departmentId)
-        : [...prev.departmentIds, departmentId]
+  const handlePrimaryDepartmentChange = (departmentId) => {
+    setFormData(prev => ({ 
+      ...prev, 
+      primaryDepartmentId: departmentId,
+      // Clear secondary if it's the same as primary
+      secondaryDepartmentId: prev.secondaryDepartmentId === departmentId ? '' : prev.secondaryDepartmentId
     }));
+    if (error) setError('');
+  };
+
+  const handleSecondaryDepartmentChange = (departmentId) => {
+    setFormData(prev => ({ ...prev, secondaryDepartmentId: departmentId }));
     if (error) setError('');
   };
 
@@ -84,6 +103,10 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
       setError('Password must be at least 6 characters');
       return false;
     }
+    if (!formData.primaryDepartmentId) {
+      setError('Primary department is required');
+      return false;
+    }
     return true;
   };
 
@@ -105,14 +128,37 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
         password: formData.password
       });
 
-      if (result.success) {
-        // Store selected departments for display (since they're predefined choices)
-        // Department assignment can be handled later if needed
+      if (result.success && result.data?.employee_id) {
+        try {
+          // Assign primary department (required)
+          await DepartmentService.assignPrimaryDepartment(
+            result.data.employee_id, 
+            formData.primaryDepartmentId
+          );
+          
+          // Assign secondary department if selected
+          if (formData.secondaryDepartmentId) {
+            await DepartmentService.addSecondaryDepartment(
+              result.data.employee_id,
+              formData.secondaryDepartmentId
+            );
+          }
+        } catch (deptError) {
+          console.warn('Error assigning departments:', deptError);
+          // Don't fail the entire process for department assignment errors
+        }
+        
+        const selectedDepartments = [];
+        if (formData.primaryDepartmentId) {
+          selectedDepartments.push(departments.find(d => d.id === parseInt(formData.primaryDepartmentId))?.name);
+        }
+        if (formData.secondaryDepartmentId) {
+          selectedDepartments.push(departments.find(d => d.id === parseInt(formData.secondaryDepartmentId))?.name);
+        }
+        
         setSuccess({
           ...result,
-          selectedDepartments: formData.departmentIds.map(id => 
-            departments.find(d => d.id === id)?.name
-          ).filter(Boolean)
+          selectedDepartments: selectedDepartments.filter(Boolean)
         });
       } else {
         setError(result.error || 'Failed to create employee');
@@ -387,10 +433,10 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
             </select>
           </div>
 
-          {/* Departments */}
+          {/* Primary Department */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-300">
-              Departments (Optional)
+              Primary Department *
             </label>
             <div className="grid grid-cols-1 gap-2 p-3 bg-gray-700 border border-gray-600 rounded-md max-h-48 overflow-y-auto">
               {departments.map((department) => (
@@ -399,19 +445,48 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
                   className="flex items-center space-x-2 cursor-pointer hover:bg-gray-600 p-2 rounded transition-colors"
                 >
                   <input
-                    type="checkbox"
-                    checked={formData.departmentIds.includes(department.id)}
-                    onChange={() => handleDepartmentToggle(department.id)}
-                    className="w-4 h-4 text-cyan-600 bg-gray-800 border-gray-600 rounded focus:ring-cyan-500 focus:ring-2"
+                    type="radio"
+                    name="primaryDepartment"
+                    value={department.id}
+                    checked={formData.primaryDepartmentId === department.id.toString()}
+                    onChange={() => handlePrimaryDepartmentChange(department.id.toString())}
+                    className="w-4 h-4 text-cyan-600 bg-gray-800 border-gray-600 focus:ring-cyan-500 focus:ring-2"
                     disabled={loading}
                   />
                   <span className="text-white text-sm flex-1">{department.name}</span>
                 </label>
               ))}
             </div>
-            {formData.departmentIds.length > 0 && (
-              <p className="text-xs text-gray-400">
-                Selected ({formData.departmentIds.length}): {departments.filter(d => formData.departmentIds.includes(d.id)).map(d => d.name).join(', ')}
+            {formData.primaryDepartmentId && (
+              <p className="text-xs text-green-400">
+                Primary: {departments.find(d => d.id.toString() === formData.primaryDepartmentId)?.name}
+              </p>
+            )}
+          </div>
+
+          {/* Secondary Department */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Secondary Department (Optional)
+            </label>
+            <select
+              value={formData.secondaryDepartmentId}
+              onChange={(e) => handleSecondaryDepartmentChange(e.target.value)}
+              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              disabled={loading}
+            >
+              <option value="">No Secondary Department</option>
+              {departments
+                .filter(dept => dept.id.toString() !== formData.primaryDepartmentId)
+                .map((department) => (
+                <option key={department.id} value={department.id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+            {formData.secondaryDepartmentId && (
+              <p className="text-xs text-blue-400">
+                Secondary: {departments.find(d => d.id.toString() === formData.secondaryDepartmentId)?.name}
               </p>
             )}
           </div>
@@ -443,7 +518,7 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
           <Button
             onClick={handleSubmit}
             variant="primary"
-            disabled={loading || !formData.name.trim() || !formData.email.trim() || !formData.jobTitle.trim() || !formData.password.trim()}
+            disabled={loading || !formData.name.trim() || !formData.email.trim() || !formData.jobTitle.trim() || !formData.password.trim() || !formData.primaryDepartmentId}
           >
             {loading ? (
               <>

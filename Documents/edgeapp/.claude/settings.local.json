@@ -34,7 +34,8 @@
       "Bash(supabase link:*)",
       "Bash(npx cypress open:*)",
       "Bash(npx cypress run:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": []
   }

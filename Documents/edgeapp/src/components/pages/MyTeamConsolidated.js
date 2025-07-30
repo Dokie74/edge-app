@@ -1,4 +1,4 @@
-// src/components/pages/MyTeamEnhancedRouter.tsx - Comprehensive single-page team view
+// src/components/pages/MyTeamConsolidated.js - Comprehensive single-page team view
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -32,7 +32,7 @@ import { LoadingSpinner, ErrorMessage, Button, StatusBadge } from '../ui';
 import { formatDate } from '../../utils';
 import NotificationService from '../../services/NotificationService';
 
-export default function MyTeamEnhancedRouter() {
+export default function MyTeamConsolidated() {
   const navigate = useNavigate();
   const { openModal, setActivePage } = useApp();
   const { 
@@ -44,27 +44,15 @@ export default function MyTeamEnhancedRouter() {
   } = useTeam();
   
   const [developmentPlans, setDevelopmentPlans] = useState([]);
-  const [employeePerformance, setEmployeePerformance] = useState<Record<string, {
-    assessments: any[];
-    pending_reviews: number;
-    completed_reviews: number;
-    latest_assessment: any;
-    performance_trend: string;
-  }>>({});
+  const [employeePerformance, setEmployeePerformance] = useState({});
   const [expandedEmployees, setExpandedEmployees] = useState(new Set());
 
   // Process all team data for comprehensive view
   useEffect(() => {
-    if (teamAssessments && Array.isArray(teamAssessments)) {
+    if (teamAssessments) {
       // Group assessments by employee
-      const performanceData: Record<string, {
-        assessments: any[];
-        pending_reviews: number;
-        completed_reviews: number;
-        latest_assessment: any;
-        performance_trend: string;
-      }> = {};
-      teamAssessments.forEach((assessment: any) => {
+      const performanceData = {};
+      teamAssessments.forEach(assessment => {
         if (!performanceData[assessment.employee_id]) {
           performanceData[assessment.employee_id] = {
             assessments: [],
@@ -97,7 +85,7 @@ export default function MyTeamEnhancedRouter() {
     }
   }, [teamAssessments]);
 
-  const toggleEmployeeExpansion = (employeeId: string) => {
+  const toggleEmployeeExpansion = (employeeId) => {
     const newExpanded = new Set(expandedEmployees);
     if (newExpanded.has(employeeId)) {
       newExpanded.delete(employeeId);
@@ -107,7 +95,7 @@ export default function MyTeamEnhancedRouter() {
     setExpandedEmployees(newExpanded);
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-600 text-green-100 border-green-500';
       case 'employee_complete': return 'bg-yellow-600 text-yellow-100 border-yellow-500';
@@ -118,13 +106,13 @@ export default function MyTeamEnhancedRouter() {
     }
   };
 
-  const getPriorityIcon = (pendingCount: number) => {
+  const getPriorityIcon = (pendingCount) => {
     if (pendingCount > 2) return <AlertCircle className="text-red-400" size={16} />;
     if (pendingCount > 0) return <Clock className="text-yellow-400" size={16} />;
     return <CheckCircle className="text-green-400" size={16} />;
   };
 
-  const calculateCompletionRate = (employeeId: string) => {
+  const calculateCompletionRate = (employeeId) => {
     const performance = employeePerformance[employeeId];
     if (!performance || performance.assessments.length === 0) return 0;
     
@@ -133,18 +121,6 @@ export default function MyTeamEnhancedRouter() {
     ).length;
     
     return Math.round((completedCount / performance.assessments.length) * 100);
-  };
-
-  const handleReviewAssessment = (assessment: any) => {
-    // Navigate to manager review page with assessment details
-    const searchParams = new URLSearchParams({
-      assessmentId: assessment.assessment_id,
-      employeeName: assessment.employee_name,
-      cycleId: assessment.cycle_id,
-      cycleName: assessment.cycle_name
-    });
-    
-    navigate(`/review/${assessment.employee_id}?${searchParams.toString()}`);
   };
 
   if (loading) {
@@ -170,7 +146,7 @@ export default function MyTeamEnhancedRouter() {
   }
 
   // Get unique team members from assessments
-  const teamMembers = (teamAssessments || []).reduce((acc: any[], assessment: any) => {
+  const teamMembers = teamAssessments.reduce((acc, assessment) => {
     if (!acc.find(member => member.employee_id === assessment.employee_id)) {
       acc.push({
         employee_id: assessment.employee_id,
@@ -186,11 +162,11 @@ export default function MyTeamEnhancedRouter() {
   }, []);
 
   const totalPending = Object.values(employeePerformance).reduce(
-    (sum: number, perf: any) => sum + perf.pending_reviews, 0
+    (sum, perf) => sum + perf.pending_reviews, 0
   );
   
   const totalCompleted = Object.values(employeePerformance).reduce(
-    (sum: number, perf: any) => sum + perf.completed_reviews, 0
+    (sum, perf) => sum + perf.completed_reviews, 0
   );
 
   return (
@@ -363,7 +339,10 @@ export default function MyTeamEnhancedRouter() {
                       <div className="flex items-center space-x-2">
                         {latestAssessment?.assessment_id && (
                           <button
-                            onClick={() => handleReviewAssessment(latestAssessment)}
+                            onClick={() => setActivePage({ 
+                              name: 'Assessment', 
+                              props: { assessmentId: latestAssessment.assessment_id } 
+                            })}
                             className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded text-sm flex items-center"
                           >
                             <Eye size={14} className="mr-1" />
@@ -436,7 +415,10 @@ export default function MyTeamEnhancedRouter() {
                                         {assessment.manager_review_status?.replace('_', ' ') || 'Not Started'}
                                       </span>
                                       <button
-                                        onClick={() => handleReviewAssessment(assessment)}
+                                        onClick={() => setActivePage({ 
+                                          name: 'Assessment', 
+                                          props: { assessmentId: assessment.assessment_id } 
+                                        })}
                                         className="text-cyan-400 hover:text-cyan-300 text-sm"
                                       >
                                         View

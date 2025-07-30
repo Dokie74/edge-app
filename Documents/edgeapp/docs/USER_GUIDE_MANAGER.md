@@ -1,298 +1,306 @@
 # EDGE Manager User Guide
 
+**Version: 5.0 - Production Ready**  
+**Date: July 30, 2025**  
+**Status: Enhanced Feature Set**
+
 ## Manager Overview
 
-As a manager in EDGE (Employee Development & Growth Engine), you have access to comprehensive tools for team performance management, review processes, and employee development. This guide covers all manager-specific features and best practices.
+As a manager in EDGE (Employee Development & Growth Engine), you have access to comprehensive tools for team performance management, review processes, and employee development. This updated guide covers all manager-specific features including the new enhanced My Team view, real-time analytics, and team health insights.
 
 ## Getting Started
 
-### Your Manager Dashboard
-
-After logging in, your manager dashboard displays:
-
-#### Key Manager Widgets
-- **Team Overview**: Summary of your direct reports
-- **Pending Reviews**: Assessments waiting for your input
-- **Team Performance**: Analytics and completion rates  
-- **Recent Activity**: Latest team updates and submissions
-- **Development Plans**: Plans submitted by your team members
-- **Quick Actions**: Common management tasks
-
-## Team Management
-
-### My Team View
-
-#### Accessing Your Team
-1. From the dashboard, click "My Team" or "Team View"
-2. View all your direct reports in a organized list/table
-
-#### Team Information Displayed:
-- **Employee Names**: All direct reports
-- **Job Titles**: Current roles
-- **Assessment Status**: Current review progress
-- **Development Plan Status**: Plan submission and review status
-- **Last Activity**: Recent actions taken
-
-#### Team Actions Available:
-- **View Employee Details**: Click on any team member
-- **Review Assessments**: Access submitted self-assessments
-- **Provide Feedback**: Complete manager reviews
-- **Review Development Plans**: Evaluate and approve development plans
-
-### Employee Profile Management
-
-#### Viewing Employee Profiles
-- Click on any team member's name
-- Access comprehensive employee information
-- View performance history and trends
-- See current and past development plans
-
-#### Employee Information Includes:
-- **Personal Details**: Name, role, contact information
-- **Performance History**: Past review scores and feedback
-- **Current Objectives**: Active goals and priorities
-- **Development Progress**: Skills being developed
-- **Recognition**: Kudos and feedback received
-
-## Performance Review Process
-
-### Managing Review Cycles
-
-#### Understanding Review Cycles
-- Review cycles are created by administrators
-- You'll receive notifications when cycles begin
-- Your team members complete self-assessments first
-- You then provide manager reviews and ratings
-
-#### Your Review Responsibilities:
-1. **Monitor Progress**: Track team members' self-assessment completion
-2. **Provide Timely Reviews**: Complete manager evaluations promptly
-3. **Schedule Meetings**: Arrange one-on-one review discussions
-4. **Set Goals**: Establish objectives for the next period
-
-### Completing Manager Reviews
-
-#### Step-by-Step Review Process:
-
-1. **Access Pending Reviews**
-   - From dashboard, click on pending reviews
-   - Select the employee assessment to review
-
-2. **Review Self-Assessment**
-   - Read the employee's self-evaluation carefully
-   - Note their self-ratings and comments
-   - Consider their examples and achievements
-
-3. **Provide Manager Evaluation**
-   - Rate performance in each competency area
-   - Provide detailed written feedback
-   - Be specific and constructive
-   - Include both strengths and development areas
-
-4. **Complete Manager Sections**
-   - **Overall Performance Rating**: Holistic assessment
-   - **Key Achievements**: Notable accomplishments
-   - **Areas for Improvement**: Specific development needs
-   - **Goals for Next Period**: Clear, measurable objectives
-   - **Support Needed**: Resources or training required
-
-#### Best Practices for Manager Reviews:
-
-**Be Specific and Actionable**
-- Use concrete examples and metrics
-- Provide clear, actionable feedback
-- Reference specific projects and outcomes
-
-**Be Balanced**
-- Acknowledge strengths and accomplishments
-- Address areas needing improvement constructively
-- Focus on behavior and performance, not personality
-
-**Be Future-Focused**
-- Set clear expectations for the next period
-- Identify development opportunities
-- Discuss career progression possibilities
-
-**Example Manager Review Comments:**
-```
-Strengths:
-"Sarah consistently delivered high-quality work on the Q3 marketing campaign, resulting in a 15% increase in lead generation. Her attention to detail and ability to meet tight deadlines stood out during our busiest period."
-
-Development Areas:
-"To advance in her role, Sarah should focus on developing presentation skills. Consider enrolling in the public speaking workshop and practicing with smaller group presentations first."
-
-Goals for Next Period:
-"1. Lead the Q1 product launch presentation to senior leadership
-2. Complete advanced Excel training to improve data analysis capabilities
-3. Mentor one new team member to develop leadership skills"
-```
-
-### Review Meetings
-
-#### Preparing for Review Meetings:
-1. **Schedule Appropriately**: Book adequate time (45-60 minutes)
-2. **Review Documentation**: Re-read both assessments beforehand  
-3. **Prepare Discussion Points**: Key topics and development areas
-4. **Plan Goal Setting**: Think about appropriate objectives
-
-#### Conducting Effective Review Meetings:
-1. **Start Positively**: Begin with accomplishments and strengths
-2. **Discuss Development**: Address areas for improvement constructively
-3. **Set Clear Goals**: Establish SMART objectives together
-4. **Plan Development**: Discuss training, mentoring, or stretch assignments
-5. **Document Outcomes**: Record agreed-upon goals and action steps
-
-## Development Plan Management
-
-### Reviewing Development Plans
-
-#### When Team Members Submit Plans:
-1. You'll receive a notification
-2. Access the plan from your dashboard or team view
-3. Review the proposed goals and timeline
-4. Provide feedback and approval
-
-#### Evaluating Development Plans:
-
-**Consider These Factors:**
-- **Relevance**: Does the plan align with role requirements and career goals?
-- **Feasibility**: Are the timelines and goals realistic?
-- **Business Impact**: Will this development benefit the team/organization?
-- **Resource Requirements**: What support or resources are needed?
-
-#### Providing Plan Feedback:
-
-**Approval Options:**
-- **Approved**: Plan is ready to proceed as submitted
-- **Needs Revision**: Requires modifications before approval
-- **Under Review**: More discussion needed
-
-**Feedback Examples:**
-```
-Approved:
-"Excellent plan! The focus on project management skills aligns perfectly with our upcoming initiatives. I'll support your PMP certification by adjusting your workload during study periods."
-
-Needs Revision:
-"Great start on identifying development areas. Please revise the timeline - 3 months for certification may be too aggressive given current project demands. Consider 6-9 months instead."
-```
-
-### Supporting Employee Development
-
-#### Ways to Support Development:
-- **Provide Stretch Assignments**: Challenging projects that build skills
-- **Offer Mentoring**: Regular guidance and coaching
-- **Approve Training**: Support conference attendance, courses, certifications
-- **Create Learning Opportunities**: Cross-functional projects, job shadowing
-- **Regular Check-ins**: Monitor progress and provide ongoing feedback
-
-## Team Analytics and Reporting
-
-### Dashboard Analytics
-
-#### Key Metrics Available:
-- **Team Completion Rates**: Assessment and development plan progress
-- **Performance Trends**: Team performance over time
-- **Development Activity**: Training and skill-building efforts
-- **Goal Achievement**: Progress on team objectives
-
-#### Using Analytics Effectively:
-- **Identify Trends**: Spot patterns in team performance
-- **Address Gaps**: Identify team members needing additional support
-- **Recognize Excellence**: Identify high performers for recognition
-- **Plan Resources**: Understand training and development needs
-
-### Reporting to Leadership
-
-#### Preparing Team Reports:
-- **Performance Summary**: Overall team performance trends
-- **Development Progress**: Skills being built across the team
-- **Challenges**: Obstacles and resource needs
-- **Achievements**: Notable team accomplishments
-- **Future Plans**: Upcoming goals and initiatives
-
-## Communication and Feedback
-
-### Managing Team Communication
-
-#### Regular Check-ins:
-- **Weekly One-on-ones**: Brief progress and support discussions
-- **Monthly Development Reviews**: Focus on skill building and growth
-- **Quarterly Goal Reviews**: Assess progress on major objectives
-- **Annual Performance Planning**: Comprehensive review and goal setting
-
-### Feedback Management
-
-#### Providing Ongoing Feedback:
-- **Immediate**: Address performance issues promptly
-- **Specific**: Use concrete examples and situations
-- **Constructive**: Focus on improvement and growth
-- **Regular**: Don't wait for formal review cycles
-
-#### Encouraging Peer Feedback:
-- **Model Behavior**: Give and receive feedback openly
-- **Create Safe Environment**: Encourage honest, constructive feedback
-- **Recognize Good Feedback**: Acknowledge team members who provide helpful input
-
-## Administrative Tasks
-
-### Employee Management (Limited)
-
-#### What Managers Can Do:
-- **Update Team Information**: Basic contact and role information
-- **Request Role Changes**: Submit requests for promotions or transfers
-- **Performance Documentation**: Record performance conversations and incidents
-
-#### What Requires Admin Support:
-- **New Hire Setup**: Contact HR/Admin for new employee creation
-- **Role Changes**: Promotion and transfer approvals
-- **System Access**: Technical issues and permissions
-
-### Review Cycle Participation
-
-#### Your Role in Review Cycles:
-- **Team Preparation**: Ensure team members understand the process
-- **Progress Monitoring**: Track completion rates and support strugglers
-- **Quality Reviews**: Provide thorough, helpful manager evaluations
-- **Follow-up**: Conduct review meetings and set next-period goals
-
-## Best Practices for Manager Success
-
-### Performance Management
-1. **Be Consistent**: Apply standards fairly across all team members
-2. **Document Everything**: Keep records of performance conversations
-3. **Focus on Development**: Help team members grow and advance
-4. **Communicate Clearly**: Ensure expectations are understood
-5. **Provide Support**: Give team members the resources they need
-
-### Development Coaching
-1. **Listen Actively**: Understand team members' career aspirations
-2. **Challenge Appropriately**: Provide stretch opportunities without overwhelming
-3. **Connect Learning**: Link development activities to business needs
-4. **Celebrate Progress**: Recognize growth and improvement
-5. **Be Patient**: Allow time for skills to develop
-
-### System Usage
-1. **Stay Current**: Regularly check your dashboard for updates
-2. **Meet Deadlines**: Complete reviews and approvals promptly
-3. **Use Data**: Leverage analytics to make informed decisions
-4. **Provide Feedback**: Give detailed, actionable input
-5. **Support Team**: Help team members navigate the system
-
-## Troubleshooting Common Issues
-
-### "I can't see my team members"
-- Verify reporting relationships are correctly set up
-- Contact HR/Admin to confirm team assignments
-- Check that you're logged in with manager-level access
-
-### "Reviews aren't showing up"
-- Confirm there's an active review cycle
-- Check that team members have submitted self-assessments
-- Verify your access permissions with the administrator
-
-### "Team member needs help with the system"
-- Provide basic guidance using employee user guide
-- Escalate technical issues to HR/Admin
-- Schedule time to walk through the process together
-
-Remember: Your role as a manager in EDGE is crucial for your team's development and success. Use these tools to provide meaningful feedback, support growth, and drive performance excellence.
+### Your Manager Dashboard (Enhanced)
+
+After logging in, your manager dashboard displays **100% real data** with enhanced analytics:
+
+#### Enhanced Manager Widgets
+- **Team Overview**: Comprehensive summary of your direct reports with real performance data
+- **Pending Reviews**: Assessments waiting for your input with priority indicators
+- **Team Performance**: Real-time analytics and completion rates (no random metrics)
+- **Peer Comparison**: Your ranking among other managers based on actual data
+- **Team Health Insights**: Pulse question performance specific to your team
+- **Development Plans**: Plans submitted by your team members with approval workflows
+- **Quick Actions**: Common management tasks and navigation shortcuts
+
+#### Real-Time Analytics Features
+- **Team Satisfaction**: Actual team health pulse response averages
+- **Completion Rates**: Real assessment and development plan progress
+- **Performance Trends**: Historical team performance with predictive insights
+- **Workload Management**: Pending actions prioritized by due dates and importance
+
+## Enhanced Team Management
+
+### My Team View (Completely Redesigned)
+
+#### Comprehensive Single-Page Team View
+The new My Team experience consolidates all team information into comprehensive employee widgets:
+
+**Accessing Enhanced Team View**
+1. From the dashboard, click "My Team" 
+2. View all your direct reports in expandable employee widgets
+3. No more tabs - everything visible in one consolidated view
+
+#### Employee Widget Features
+
+**Compact Widget View (Always Visible)**
+- **Employee Photo/Avatar**: Professional headshot or generated avatar
+- **Name and Job Title**: Current role and department information
+- **Performance Summary**: Completion rate and current status
+- **Priority Indicators**: Visual alerts for overdue items or high-priority actions
+- **Quick Action Buttons**: Review, Feedback, and Kudos buttons for immediate actions
+
+**Expanded Widget Details (Click to Expand)**
+- **Contact Information**: Email, phone, employee ID, and department
+- **Assessment History**: Recent reviews with status and completion dates
+- **Performance Metrics**: Detailed completion rates, pending items, and trends
+- **Development Progress**: Current development plans and goal progress
+- **Team Health Responses**: Individual pulse survey participation and trends
+
+#### Comprehensive Team Summary Statistics
+- **Team Size**: Total direct reports count
+- **Pending Reviews**: Number of assessments awaiting your review
+- **Completed Reviews**: Successfully finished assessments
+- **Average Completion Rate**: Real team completion percentage
+- **Team Health Pulse**: Average team satisfaction and wellbeing scores
+
+### Advanced Employee Profile Management
+
+#### Enhanced Employee Information
+- **Performance History**: Complete assessment timeline with trend analysis
+- **Development Journey**: Individual Development Plan progress and achievements
+- **Team Health Participation**: Employee pulse survey responses and engagement
+- **Recognition**: Kudos received and peer feedback history
+- **Manager Notes**: Private notes and coaching observations (Manager Playbook integration)
+
+#### Team Analytics Dashboard
+- **Individual Performance Trends**: Track each team member's progress over time
+- **Comparative Analysis**: See how team members perform relative to each other
+- **Development Pipeline**: Visualize skill development across your team
+- **Engagement Metrics**: Team health pulse participation and satisfaction trends
+
+## Enhanced Performance Review Process
+
+### Streamlined Review Workflow
+
+#### Real-Time Review Management
+- **Priority Queue**: Reviews organized by due date and priority level
+- **Progress Tracking**: Visual indicators of review completion status
+- **Quality Metrics**: Review depth and feedback quality indicators
+- **Approval Workflow**: Integration with admin approval process for high-quality reviews
+
+#### Enhanced Review Interface
+1. **Comprehensive Employee Context**: Access full employee profile during review
+2. **Historical Performance Data**: Previous review scores and development progress
+3. **Team Health Integration**: Employee pulse survey responses and wellbeing insights
+4. **Development Plan Alignment**: Connect reviews to current development goals
+5. **Peer Feedback Integration**: Include 360-degree feedback when available
+
+### Advanced Manager Review Features
+
+#### Review Quality Enhancement
+- **Guided Review Process**: Step-by-step workflow with best practice tips
+- **Example Comments Library**: Template responses for common review scenarios
+- **Performance Benchmarking**: Compare individual performance to team and organizational averages
+- **Development Recommendations**: AI-powered suggestions for employee growth opportunities
+
+#### Review Analytics
+- **Review Quality Score**: Metric based on completeness, specificity, and actionability
+- **Time to Complete**: Track how long reviews take to identify efficiency opportunities
+- **Follow-up Tracking**: Monitor whether review outcomes lead to actual development activities
+- **Team Impact Analysis**: Correlate review quality with team performance improvements
+
+## Team Health & Wellbeing Management (NEW)
+
+### Team Health Pulse Analytics
+
+#### Team-Specific Question Performance
+- **Top Performing Questions**: Questions where your team scores highest
+- **Bottom Performing Questions**: Areas where your team needs attention
+- **Participation Rates**: Track which team members regularly participate in pulse surveys
+- **Trend Analysis**: Monitor team health changes over time
+
+#### Proactive Team Health Management
+- **Health Alerts**: Automatic notifications when team health metrics decline
+- **Early Warning System**: Identify team members who may be struggling
+- **Intervention Recommendations**: Suggested actions based on pulse survey responses
+- **Resource Allocation**: Insights for supporting team members who need additional help
+
+#### Team Health Dashboard Integration
+- **Real-Time Metrics**: Current team satisfaction and wellbeing scores
+- **Historical Trends**: 6-month team health progression
+- **Comparative Analysis**: How your team compares to other teams and company average
+- **Action Items**: Recommended interventions based on team health data
+
+### Manager Coaching Tools (Enhanced)
+
+#### Data-Driven Coaching
+- **Performance Insights**: Individual and team performance analytics
+- **Development Opportunities**: Identify skill gaps and growth opportunities
+- **Coaching Recommendations**: Suggested coaching approaches based on employee data
+- **Progress Tracking**: Monitor the effectiveness of coaching interventions
+
+## Enhanced Development Plan Management
+
+### Advanced Development Plan Oversight
+
+#### Comprehensive Plan Review Interface
+- **Plan Quality Assessment**: Evaluate development plans against best practices
+- **Resource Requirements**: Understand what support each plan needs
+- **Timeline Feasibility**: Assess whether proposed timelines are realistic
+- **Business Alignment**: Ensure plans support team and organizational goals
+
+#### Enhanced Approval Workflow
+**Approval Options (Enhanced)**
+- **Approved**: Plan ready to proceed with optional success metrics
+- **Needs Revision**: Specific feedback with improvement suggestions
+- **Under Review**: Request additional discussion or clarification
+- **Approved with Conditions**: Conditional approval with specific requirements
+
+**Advanced Feedback Features**
+- **Structured Feedback Forms**: Guided feedback with specific improvement areas
+- **Resource Commitment**: Specify what support you'll provide (time, budget, training)
+- **Success Metrics**: Define measurable outcomes for development plan success
+- **Check-in Schedule**: Establish regular progress review meetings
+
+### Development Analytics
+
+#### Team Development Insights
+- **Development Plan Completion Rates**: Track how many plans are successfully completed
+- **Skill Development Mapping**: Visualize what skills your team is developing
+- **Resource Utilization**: Monitor training budget and time allocation
+- **ROI Analysis**: Measure the impact of development activities on performance
+
+## Advanced Analytics and Reporting
+
+### Enhanced Dashboard Analytics
+
+#### Real-Time Team Metrics
+- **Performance Trends**: Historical team performance with predictive analytics
+- **Engagement Indicators**: Team health pulse participation and satisfaction
+- **Development Activity**: Skills being built across the team with progress tracking
+- **Goal Achievement**: Progress on team objectives with timeline analysis
+
+#### Comparative Analytics
+- **Peer Manager Comparison**: Your team's performance vs other managers
+- **Department Benchmarking**: How your team compares within your department
+- **Organizational Context**: Your team's contribution to company-wide metrics
+- **Best Practice Identification**: Learn from top-performing teams
+
+### Advanced Reporting Capabilities
+
+#### Standard Reports (Enhanced)
+- **Team Performance Summary**: Comprehensive team analytics with trends
+- **Individual Development Reports**: Detailed progress for each team member
+- **Team Health Reports**: Wellbeing and satisfaction analysis
+- **Review Quality Reports**: Assessment of your review effectiveness
+
+#### Custom Analytics
+- **Development ROI**: Measure the return on investment for team development activities
+- **Performance Prediction**: Early indicators of potential performance issues
+- **Succession Planning**: Identify high-potential team members for advancement
+- **Team Health Correlation**: Connect team health metrics to performance outcomes
+
+## Communication and Feedback (Enhanced)
+
+### Advanced Team Communication
+
+#### Structured Communication Framework
+- **Weekly One-on-ones**: Guided discussion templates with performance integration
+- **Monthly Development Reviews**: Focus on skill building with progress tracking
+- **Quarterly Goal Reviews**: Comprehensive objective assessment with trend analysis
+- **Annual Performance Planning**: Holistic review and goal setting with team health insights
+
+#### Feedback Management (Enhanced)
+- **360-Degree Feedback**: Collect and manage peer feedback for team members
+- **Real-Time Feedback**: Provide immediate performance feedback through the platform
+- **Recognition Programs**: Award kudos and recognition tied to core values
+- **Peer Feedback Facilitation**: Guide team members in giving effective feedback to each other
+
+### Team Health Communication
+- **Pulse Survey Follow-up**: Structured conversations about team health responses
+- **Wellbeing Check-ins**: Regular individual conversations about work-life balance
+- **Team Health Meetings**: Group discussions about team satisfaction and improvement
+- **Anonymous Feedback**: Facilitate honest feedback about team dynamics and management
+
+## Administrative Tasks (Enhanced)
+
+### Advanced Team Management
+#### Enhanced Manager Capabilities
+- **Performance Documentation**: Comprehensive record-keeping for all team interactions
+- **Development Planning**: Guide team members through Individual Development Plan creation
+- **Resource Allocation**: Manage training budgets and development opportunities
+- **Succession Planning**: Identify and develop high-potential team members
+
+#### Integration with Admin Workflows
+- **Review Approval Process**: Your completed reviews may require admin approval
+- **Quality Feedback**: Receive feedback from administrators on review quality
+- **Training Recommendations**: Receive suggestions for improving management effectiveness
+- **Policy Updates**: Stay informed about system changes and new features
+
+## Best Practices for Manager Success (Updated)
+
+### Enhanced Performance Management
+1. **Data-Driven Decisions**: Use real analytics to guide management decisions
+2. **Proactive Team Health**: Monitor pulse survey responses and address issues early
+3. **Quality Reviews**: Focus on providing specific, actionable feedback
+4. **Development Focus**: Connect reviews to concrete development opportunities
+5. **Regular Check-ins**: Use platform data to inform one-on-one conversations
+
+### Advanced Coaching Techniques
+1. **Performance Analytics**: Leverage individual and team data for coaching conversations
+2. **Development Alignment**: Ensure development plans support both individual and team goals
+3. **Recognition Programs**: Use kudos and feedback systems to reinforce positive behaviors
+4. **Team Health Integration**: Address wellbeing concerns proactively
+5. **Continuous Improvement**: Regularly assess and improve your management approach
+
+### System Optimization
+1. **Dashboard Utilization**: Regularly review team analytics and insights
+2. **Workflow Efficiency**: Use priority indicators to manage workload effectively
+3. **Feature Adoption**: Stay current with new platform features and capabilities
+4. **Quality Focus**: Maintain high standards for review quality and development planning
+5. **Team Engagement**: Encourage active participation in all platform features
+
+## Advanced Troubleshooting
+
+### Team Performance Issues
+- **Low Engagement**: Use team health pulse data to identify and address satisfaction issues
+- **Poor Completion Rates**: Analyze individual performance data to provide targeted support
+- **Development Stagnation**: Review development plan effectiveness and adjust approaches
+- **Communication Breakdown**: Use platform tools to facilitate better team communication
+
+### System and Process Issues
+- **Dashboard Performance**: Report slow loading or data inconsistencies
+- **Review Workflow Problems**: Escalate approval process issues to administrators
+- **Team Health Analytics**: Verify pulse question participation and response quality
+- **Development Plan Issues**: Address resource allocation and timeline challenges
+
+### Manager Development
+- **Coaching Effectiveness**: Use team performance data to assess your management impact
+- **Review Quality**: Seek feedback from administrators on review completeness and quality
+- **Team Health Leadership**: Learn to interpret and act on team health metrics
+- **Platform Mastery**: Continuously improve your use of advanced platform features
+
+## New Manager Responsibilities
+
+### Team Health Leadership
+- **Pulse Survey Advocacy**: Encourage team participation in wellbeing surveys
+- **Data Interpretation**: Learn to read and act on team health analytics
+- **Intervention Planning**: Develop action plans based on team health insights
+- **Wellbeing Communication**: Have regular conversations about work-life balance and satisfaction
+
+### Advanced Performance Management
+- **Analytics Integration**: Use performance data to guide all management decisions
+- **Quality Reviews**: Maintain high standards for assessment quality and depth
+- **Development Facilitation**: Actively support team member development plans
+- **Succession Planning**: Identify and develop future leaders within your team
+
+### Platform Leadership
+- **Feature Adoption**: Model effective use of all platform capabilities
+- **Team Training**: Help team members maximize their use of EDGE features
+- **Continuous Improvement**: Provide feedback to administrators about platform effectiveness
+- **Best Practice Sharing**: Share successful management approaches with peer managers
+
+Remember: Your role as a manager in EDGE is crucial for your team's development and success. The enhanced features provide powerful tools for data-driven management, proactive team health management, and comprehensive development planning. Use these capabilities to provide meaningful feedback, support growth, and drive exceptional team performance.
+
+**🎉 EDGE Manager tools are now production-ready with comprehensive team management capabilities! 🎉**
