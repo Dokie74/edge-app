@@ -33,7 +33,6 @@ const AuthenticatedApp: React.FC = () => {
           <div className="text-center mb-6">
             <h1 className="text-3xl font-bold text-cyan-400">EDGE</h1>
             <p className="text-gray-400 text-sm">Employee Development & Growth Engine</p>
-            <p className="text-xs text-gray-500 mt-2">Version 2.5 - Enhanced with React Router</p>
           </div>
           <div className="bg-gray-800 p-6 rounded-lg">
             <Auth
@@ -59,15 +58,6 @@ const AuthenticatedApp: React.FC = () => {
               view="sign_in"
             />
             
-            {/* Test Users Helper */}
-            <div className="mt-6 p-4 bg-gray-700 rounded-lg">
-              <p className="text-xs text-gray-400 mb-2">Test Users:</p>
-              <div className="text-xs text-gray-300 space-y-1">
-                <div>• admin@lucerne.com (Admin)</div>
-                <div>• manager@lucerne.com (Manager)</div>
-                <div>• employee1@lucerne.com (Employee)</div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
