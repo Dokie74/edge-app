@@ -104,11 +104,12 @@ export interface AdminDashboardData {
   }>;
   systemAlerts: Array<{
     id: string;
-    type: 'error' | 'warning' | 'info';
+    type: 'error' | 'warning' | 'info' | 'success';
     title: string;
     message: string;
     timestamp: string;
     severity: 'low' | 'medium' | 'high' | 'critical';
+    source?: 'database' | 'application' | 'authentication' | 'performance';
   }>;
   performanceTrends: Array<{
     period: string;
