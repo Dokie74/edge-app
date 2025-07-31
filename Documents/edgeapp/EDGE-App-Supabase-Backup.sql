@@ -215,6 +215,7 @@ DROP TABLE IF EXISTS public.assessments;
 DROP TABLE IF EXISTS public.assessment_scorecard_metrics;
 DROP TABLE IF EXISTS public.assessment_rocks;
 DROP TABLE IF EXISTS public.assessment_feedback;
+DROP TABLE IF EXISTS public.admin_backup;
 DROP FUNCTION IF EXISTS public.upsert_development_goal(p_goal_id uuid, p_goal_type text, p_title text, p_description text, p_target_date date, p_priority text, p_status text);
 DROP FUNCTION IF EXISTS public.update_updated_at_column();
 DROP FUNCTION IF EXISTS public.update_manager_note(p_note_id uuid, p_title text, p_content text, p_category text, p_priority text);
@@ -1869,15 +1870,94 @@ CREATE FUNCTION public.get_dashboard_stats(p_role text) RETURNS jsonb
 DECLARE
     v_current_employee_id UUID;
     v_stats JSONB;
+    v_employee_count INT;
 BEGIN
     -- Get the employee_id for the currently authenticated user
-    SELECT id INTO v_current_employee_id FROM public.employees WHERE user_id = auth.uid() AND is_active = true;
+    -- Use a more robust approach that handles no results gracefully
+    SELECT id INTO v_current_employee_id 
+    FROM public.employees 
+    WHERE user_id = auth.uid() AND is_active = true
+    LIMIT 1; -- Prevent multiple rows error
+    
+    -- Check if we found an employee record
+    SELECT COUNT(*) INTO v_employee_count
+    FROM public.employees 
+    WHERE user_id = auth.uid() AND is_active = true;
 
-    IF v_current_employee_id IS NULL THEN
-        RETURN '{"error": "Employee not found for current user"}'::jsonb;
+    -- If no employee found, return appropriate default data based on role
+    IF v_current_employee_id IS NULL OR v_employee_count = 0 THEN
+        IF p_role = 'admin' THEN
+            RETURN jsonb_build_object(
+                'employees', jsonb_build_object(
+                    'total', 0,
+                    'by_role', jsonb_build_object(
+                        'admin', 0,
+                        'manager', 0,
+                        'employee', 0
+                    )
+                ),
+                'review_cycles', jsonb_build_object(
+                    'active', 0,
+                    'total', 0
+                ),
+                'assessments', jsonb_build_object(
+                    'pending', 0,
+                    'completed', 0,
+                    'manager_reviews_pending', 0,
+                    'total', 0,
+                    'completion_rate', 0
+                ),
+                'development_plans', jsonb_build_object(
+                    'submitted', 0,
+                    'approved', 0,
+                    'under_review', 0,
+                    'needs_revision', 0,
+                    'total', 0
+                ),
+                'recent_activity', '[]'::jsonb
+            );
+        ELSIF p_role = 'manager' THEN
+            RETURN jsonb_build_object(
+                'team', jsonb_build_object(
+                    'total_members', 0,
+                    'team_members', '[]'::jsonb
+                ),
+                'pending_reviews', 0,
+                'team_performance', '[]'::jsonb,
+                'assessments', jsonb_build_object(
+                    'team_completion_rate', 0
+                ),
+                'development_plans', jsonb_build_object(
+                    'pending_review', 0,
+                    'approved', 0,
+                    'needs_revision', 0
+                )
+            );
+        ELSE -- employee role
+            RETURN jsonb_build_object(
+                'assessments', jsonb_build_object(
+                    'pending', 0,
+                    'completed', 0,
+                    'manager_reviews_completed', 0,
+                    'total', 0
+                ),
+                'development_plans', jsonb_build_object(
+                    'total', 0,
+                    'approved', 0,
+                    'under_review', 0,
+                    'needs_revision', 0
+                ),
+                'profile', jsonb_build_object(
+                    'name', 'Unknown User',
+                    'job_title', 'No Position',
+                    'email', 'No Email',
+                    'manager_name', null
+                )
+            );
+        END IF;
     END IF;
 
-    -- Generate stats based on the provided role
+    -- Generate stats based on the provided role (original logic for when employee exists)
     IF p_role = 'admin' THEN
         SELECT jsonb_build_object(
             'employees', jsonb_build_object(
@@ -1912,12 +1992,34 @@ BEGIN
                     SELECT COUNT(*) FROM public.assessments a
                     JOIN public.review_cycles rc ON a.review_cycle_id = rc.id
                     WHERE rc.status = 'active'
-                )
-            )
+                ),
+                'completion_rate', CASE 
+                    WHEN (SELECT COUNT(*) FROM public.assessments a JOIN public.review_cycles rc ON a.review_cycle_id = rc.id WHERE rc.status = 'active') > 0
+                    THEN ROUND((
+                        (SELECT COUNT(*) FROM public.assessments a JOIN public.review_cycles rc ON a.review_cycle_id = rc.id WHERE rc.status = 'active' AND a.self_assessment_status = 'employee_complete')::numeric /
+                        (SELECT COUNT(*) FROM public.assessments a JOIN public.review_cycles rc ON a.review_cycle_id = rc.id WHERE rc.status = 'active')::numeric
+                    ) * 100)
+                    ELSE 0
+                END
+            ),
+            'development_plans', jsonb_build_object(
+                'submitted', (SELECT COUNT(*) FROM public.development_plans WHERE status != 'draft'),
+                'approved', (SELECT COUNT(*) FROM public.development_plans WHERE status = 'approved'),
+                'under_review', (SELECT COUNT(*) FROM public.development_plans WHERE status = 'under_review'),
+                'needs_revision', (SELECT COUNT(*) FROM public.development_plans WHERE status = 'needs_revision'),
+                'total', (SELECT COUNT(*) FROM public.development_plans)
+            ),
+            'recent_activity', COALESCE((
+                SELECT jsonb_agg(
+                    jsonb_build_object(
+                        'description', 'System activity',
+                        'timestamp', NOW()
+                    ) ORDER BY NOW() DESC
+                ) FROM (SELECT 1 LIMIT 0) x -- Empty result for now
+            ), '[]'::jsonb)
         ) INTO v_stats;
         
     ELSIF p_role = 'manager' THEN
-        -- FIXED: Separate subqueries to avoid GROUP BY issues
         SELECT jsonb_build_object(
             'team', jsonb_build_object(
                 'total_members', (
@@ -1986,6 +2088,23 @@ BEGIN
                     ) * 100)
                     ELSE 0 
                 END
+            ),
+            'development_plans', jsonb_build_object(
+                'pending_review', (
+                    SELECT COUNT(*) FROM public.development_plans dp
+                    JOIN public.employees e ON dp.employee_id = e.id
+                    WHERE e.manager_id = v_current_employee_id AND dp.status = 'under_review'
+                ),
+                'approved', (
+                    SELECT COUNT(*) FROM public.development_plans dp
+                    JOIN public.employees e ON dp.employee_id = e.id
+                    WHERE e.manager_id = v_current_employee_id AND dp.status = 'approved'
+                ),
+                'needs_revision', (
+                    SELECT COUNT(*) FROM public.development_plans dp
+                    JOIN public.employees e ON dp.employee_id = e.id
+                    WHERE e.manager_id = v_current_employee_id AND dp.status = 'needs_revision'
+                )
             )
         ) INTO v_stats;
         
@@ -2015,6 +2134,35 @@ BEGIN
                     JOIN public.review_cycles rc ON a.review_cycle_id = rc.id
                     WHERE a.employee_id = v_current_employee_id AND rc.status = 'active'
                 )
+            ),
+            'development_plans', jsonb_build_object(
+                'total', (
+                    SELECT COUNT(*) FROM public.development_plans 
+                    WHERE employee_id = v_current_employee_id
+                ),
+                'approved', (
+                    SELECT COUNT(*) FROM public.development_plans 
+                    WHERE employee_id = v_current_employee_id AND status = 'approved'
+                ),
+                'under_review', (
+                    SELECT COUNT(*) FROM public.development_plans 
+                    WHERE employee_id = v_current_employee_id AND status = 'under_review'
+                ),
+                'needs_revision', (
+                    SELECT COUNT(*) FROM public.development_plans 
+                    WHERE employee_id = v_current_employee_id AND status = 'needs_revision'
+                )
+            ),
+            'profile', (
+                SELECT jsonb_build_object(
+                    'name', e.name,
+                    'job_title', e.job_title,
+                    'email', e.email,
+                    'manager_name', m.name
+                )
+                FROM public.employees e
+                LEFT JOIN public.employees m ON e.manager_id = m.id
+                WHERE e.id = v_current_employee_id
             )
         ) INTO v_stats;
     END IF;
@@ -5102,6 +5250,27 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: admin_backup; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admin_backup (
+    id uuid,
+    user_id uuid,
+    name text,
+    email text,
+    job_title text,
+    manager_id uuid,
+    is_active boolean,
+    created_at timestamp with time zone,
+    role text,
+    updated_at timestamp with time zone,
+    temp_password text,
+    must_change_password boolean,
+    department text
+);
+
+
+--
 -- Name: assessment_feedback; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5780,6 +5949,15 @@ ALTER TABLE ONLY public.security_audit ALTER COLUMN id SET DEFAULT nextval('publ
 
 
 --
+-- Data for Name: admin_backup; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+COPY public.admin_backup (id, user_id, name, email, job_title, manager_id, is_active, created_at, role, updated_at, temp_password, must_change_password, department) FROM stdin;
+f07fc797-2849-4b8c-befe-c633732f18e9	34e47cd9-1b10-4114-b5f3-708309644924	Administrator	admin@lucerne.com	System Administrator	\N	t	2025-07-28 02:33:17.191444+00	admin	2025-07-28 02:33:17.191444+00	\N	f	Executive
+\.
+
+
+--
 -- Data for Name: assessment_feedback; Type: TABLE DATA; Schema: public; Owner: -
 --
 
@@ -5808,10 +5986,6 @@ COPY public.assessment_scorecard_metrics (id, assessment_id, metric_name, target
 --
 
 COPY public.assessments (id, employee_id, review_cycle_id, status, value_passionate_rating, value_passionate_examples, value_driven_rating, value_driven_examples, value_resilient_rating, value_resilient_examples, value_responsive_rating, value_responsive_examples, gwc_gets_it, gwc_gets_it_feedback, gwc_wants_it, gwc_wants_it_feedback, gwc_capacity, gwc_capacity_feedback, employee_strengths, employee_improvements, manager_summary_comments, manager_development_plan, submitted_by_employee_at, finalized_by_manager_at, created_at, self_assessment_status, employee_submitted_at, manager_reviewed_at, updated_at, manager_review_status, manager_feedback, employee_notified, manager_notified, due_date, self_assessment_data, manager_review_data, manager_notes, overall_rating, employee_acknowledgment, manager_passionate_feedback, manager_driven_feedback, manager_resilient_feedback, manager_responsive_feedback, manager_gwc_gets_it_feedback, manager_gwc_wants_it_feedback, manager_gwc_capacity_feedback, manager_strengths_feedback, manager_improvements_feedback, manager_performance_rating, manager_core_values_feedback, manager_action_items, manager_gwc_gets_it, manager_gwc_wants_it, manager_gwc_capacity, admin_approval_notes, admin_approved_at, admin_approved_by, admin_revision_notes, admin_revision_requested_at, admin_revision_requested_by, employee_acknowledged_at) FROM stdin;
-39	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	8	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-30 14:22:15.135218+00	not_started	\N	\N	2025-07-30 14:22:15.135218+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-40	f07fc797-2849-4b8c-befe-c633732f18e9	8	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-30 14:22:15.135218+00	not_started	\N	\N	2025-07-30 14:22:15.135218+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-42	d8dfa847-2caa-4408-9434-8e25fcfadcd0	8	not_started	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	2025-07-30 14:22:15.135218+00	not_started	\N	\N	2025-07-30 14:22:15.135218+00	pending	{}	f	f	\N	\N	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N
-41	3f2c6e27-8191-4bf1-9687-ba314598f39d	8	not_started	\N	aasdgasdg	\N	asga	\N	adsg	\N	asdga	t		t		f	asdgasdgasd	\N	\N	sdfhsdfhsdf	\N	\N	\N	2025-07-30 14:22:15.135218+00	acknowledged	2025-07-30 14:24:21.731+00	2025-07-30 14:25:39.775+00	2025-07-30 14:26:08.608654+00	completed	{}	f	f	\N	{"gwc_gets_it": true, "gwc_capacity": false, "gwc_wants_it": true, "support_needed": "asdgasdgasd", "challenges_faced": "asdgasdg", "skills_developed": "asdg'ag", "goals_next_period": "asdgag", "additional_comments": "asdgag", "key_accomplishments": "asdga", "gwc_gets_it_feedback": "", "overall_satisfaction": "neutral", "gwc_capacity_feedback": "asdgasdgasd", "gwc_wants_it_feedback": "", "core_values_driven_best": "asga", "core_values_respond_swiftly": "asdga", "core_values_passionate_purpose": "aasdgasdg", "core_values_resilient_together": "adsg"}	{"strengths": "sdfhsd", "goals_feedback": "sdh", "overall_rating": "exceeds_expectations", "skills_feedback": "sdfh", "manager_comments": "sdfhsdfhsdf", "passion_feedback": "sdh", "support_response": "sdfh", "challenges_feedback": "sdfghsdf", "excellence_feedback": "sdfh", "manager_gwc_gets_it": false, "resilience_feedback": "sdh", "areas_of_improvement": "sdfhsdf", "manager_gwc_capacity": true, "manager_gwc_wants_it": true, "goals_for_next_period": "sdh'", "satisfaction_feedback": "sdh", "development_priorities": "sdh", "responsiveness_feedback": "sdfh", "additional_manager_comments": "sdfhsdf", "key_accomplishments_feedback": "sry", "manager_gwc_gets_it_feedback": "sdh", "manager_gwc_capacity_feedback": "", "manager_gwc_wants_it_feedback": ""}	\N	\N	f	\N	\N	\N	\N	sdh			\N	\N	exceeds_expectations	\N	\N	f	t	t	\N	\N	\N	\N	\N	\N	2025-07-30 14:26:09.069+00
 \.
 
 
@@ -5854,13 +6028,7 @@ COPY public.development_plans (id, employee_id, title, description, goals, skill
 --
 
 COPY public.employee_departments (id, employee_id, department_id, created_at, is_primary, assigned_by) FROM stdin;
-8	3f2c6e27-8191-4bf1-9687-ba314598f39d	13	2025-07-30 15:22:00.329404+00	t	\N
-9	3f2c6e27-8191-4bf1-9687-ba314598f39d	18	2025-07-30 15:22:01.194497+00	f	\N
 10	f07fc797-2849-4b8c-befe-c633732f18e9	14	2025-07-30 17:33:46.141124+00	t	\N
-11	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	13	2025-07-30 17:34:04.217224+00	t	\N
-13	26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	12	2025-07-30 17:34:19.108541+00	f	\N
-14	d8dfa847-2caa-4408-9434-8e25fcfadcd0	13	2025-07-30 17:34:35.23078+00	t	\N
-15	d8dfa847-2caa-4408-9434-8e25fcfadcd0	14	2025-07-30 17:34:36.178579+00	f	\N
 \.
 
 
@@ -5877,10 +6045,7 @@ COPY public.employee_development_goals (goal_id, employee_id, goal_type, title, 
 --
 
 COPY public.employees (id, user_id, name, email, job_title, manager_id, is_active, created_at, role, updated_at, temp_password, must_change_password, department) FROM stdin;
-3f2c6e27-8191-4bf1-9687-ba314598f39d	a01ffcdb-c09d-4e61-b5c0-a0c5a076cd96	Employee1	employee1@lucerne.com	Employee1	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 12:45:18.769366+00	employee	2025-07-28 12:45:18.769366+00	Employee1	t	Engineering
 f07fc797-2849-4b8c-befe-c633732f18e9	34e47cd9-1b10-4114-b5f3-708309644924	Administrator	admin@lucerne.com	System Administrator	\N	t	2025-07-28 02:33:17.191444+00	admin	2025-07-28 02:33:17.191444+00	\N	f	Executive
-26e3ed38-ad4d-4f1b-9229-4d992bdb1e32	9f4ad8f1-50c8-4250-a0e9-11dc6ab5517c	Employee2	employee2@lucerne.com	Employee2	d8dfa847-2caa-4408-9434-8e25fcfadcd0	t	2025-07-28 16:44:38.768388+00	employee	2025-07-28 16:44:38.768388+00	Employee2	t	Engineering
-d8dfa847-2caa-4408-9434-8e25fcfadcd0	9a6b509f-9e0a-4b2d-b17e-af32abfc91f8	Manager1	manager1@lucerne.com	Manager1	f07fc797-2849-4b8c-befe-c633732f18e9	t	2025-07-28 12:38:47.540613+00	manager	2025-07-28 12:38:47.540613+00	Manager1	t	Engineering
 \.
 
 
@@ -5913,7 +6078,6 @@ COPY public.manager_notes (id, manager_id, employee_id, title, content, category
 --
 
 COPY public.notifications (id, recipient_id, sender_id, type, title, message, data, read_at, created_at, updated_at) FROM stdin;
-72a4f10c-478e-4cca-9e0b-f9b54331ddbe	3f2c6e27-8191-4bf1-9687-ba314598f39d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	manager_review_completed	Your Manager Review is Complete	Manager1 has completed your performance review for Ed's Demo Cycle. You can now view their feedback.	{"cycle_id": 8, "cycle_name": "Ed's Demo Cycle", "employee_id": "3f2c6e27-8191-4bf1-9687-ba314598f39d", "manager_name": "Manager1", "assessment_id": 41}	\N	2025-07-30 14:25:39.325223+00	2025-07-30 14:25:39.325223+00
 \.
 
 
@@ -5922,7 +6086,6 @@ COPY public.notifications (id, recipient_id, sender_id, type, title, message, da
 --
 
 COPY public.peer_feedback (feedback_id, giver_id, recipient_id, feedback_type, feedback_timestamp, category, message, is_anonymous, helpful_count, created_at, updated_at) FROM stdin;
-7	3f2c6e27-8191-4bf1-9687-ba314598f39d	d8dfa847-2caa-4408-9434-8e25fcfadcd0	appreciation	2025-07-30 14:26:34.195597+00	teamwork	Geta testcghsdffg	f	0	2025-07-30 14:26:34.195597+00	2025-07-30 14:26:34.195597+00
 \.
 
 
@@ -5947,7 +6110,6 @@ f36e88e3-1d5b-4f9a-8d51-22af6a1a818d	team_collaboration	How would you rate your 
 --
 
 COPY public.review_cycles (id, name, start_date, end_date, status, created_at, cycle_type, description, updated_at) FROM stdin;
-8	Ed's Demo Cycle	2025-07-01	2025-09-30	active	2025-07-30 14:22:14.854364+00	quarterly	\N	2025-07-30 14:22:15.135218+00
 \.
 
 
@@ -5956,19 +6118,6 @@ COPY public.review_cycles (id, name, start_date, end_date, status, created_at, c
 --
 
 COPY public.security_audit (id, user_id, employee_id, action, resource, success, ip_address, user_agent, "timestamp") FROM stdin;
-1	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_created	employee_id:36556956-ac4d-4cf3-9868-78ed84dc6a82,role:manager	t	\N	\N	2025-07-28 03:03:57.62216+00
-2	\N	\N	employee_created	employee_id:0595b6e2-aae7-41be-90d8-4a2051cd32da,role:manager	t	\N	\N	2025-07-28 12:11:18.210966+00
-3	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_created	employee_id:8f8228db-4312-4358-b2d4-d396f021af20,role:manager	t	\N	\N	2025-07-28 12:13:32.027337+00
-4	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_created	employee_id:43738820-153a-4947-aad9-45d12513dfc9,role:manager	t	\N	\N	2025-07-28 12:36:15.640576+00
-5	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:1,name:TestRevCycle1	t	\N	\N	2025-07-28 13:44:52.538884+00
-6	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:2,name:Q3TestReview	t	\N	\N	2025-07-28 15:24:18.394628+00
-7	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:4,name:Q22026Test	t	\N	\N	2025-07-28 16:36:16.071196+00
-8	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:caad3baa-7ae8-4241-9654-80ca6ffd578d,changes:role,manager_id,	t	\N	\N	2025-07-28 19:34:58.104608+00
-9	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:5,name:Q1 2020 Test	t	\N	\N	2025-07-29 17:16:17.880932+00
-10	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:3,name:Q12026Test	t	\N	\N	2025-07-29 17:16:25.100863+00
-11	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	review_cycle_closed	cycle_id:6,name:Q11999Test	t	\N	\N	2025-07-29 19:54:44.812451+00
-12	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:caad3baa-7ae8-4241-9654-80ca6ffd578d,changes:manager_id,	t	\N	\N	2025-07-29 20:34:31.854952+00
-13	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	employee_updated	employee_id:71dc105f-4f64-4ab5-b308-54d02ad9f4d1,changes:manager_id,	t	\N	\N	2025-07-29 20:34:45.996953+00
 \.
 
 
@@ -5977,7 +6126,6 @@ COPY public.security_audit (id, user_id, employee_id, action, resource, success,
 --
 
 COPY public.team_health_alerts (id, user_id, employee_id, employee_name, manager_id, department, question_id, question, response, severity, acknowledged, acknowledged_by, acknowledged_at, created_at, updated_at) FROM stdin;
-70030d0c-d708-467e-93b9-053f4d770df4	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	Administrator	\N	General	workplace_satisfaction	How satisfied are you with your workplace today?	2	medium	f	\N	\N	2025-07-30 17:33:02.748475+00	2025-07-30 17:33:02.748475+00
 \.
 
 
@@ -5988,7 +6136,7 @@ COPY public.team_health_alerts (id, user_id, employee_id, employee_name, manager
 COPY public.team_health_pulse_responses (id, user_id, employee_id, question_id, question, response, category, department, manager_id, "timestamp", created_at, updated_at) FROM stdin;
 feaa143b-1671-4d1e-90ff-9b554ec3e0cb	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	workload_balance	How manageable is your workload today?	4	satisfaction	General	\N	2025-07-30 16:16:47.456+00	2025-07-30 16:16:47.249171+00	2025-07-30 16:16:47.249171+00
 4fc05e17-b04f-4018-a879-5a65bc5c27a8	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	workplace_satisfaction	How satisfied are you with your workplace today?	2	satisfaction	General	\N	2025-07-30 17:33:03.032+00	2025-07-30 17:33:02.748475+00	2025-07-30 17:33:02.748475+00
-99d31bea-6e6d-4440-a166-fe470eb20c1d	9a6b509f-9e0a-4b2d-b17e-af32abfc91f8	d8dfa847-2caa-4408-9434-8e25fcfadcd0	workload_balance	How manageable is your workload today?	5	satisfaction	Engineering	f07fc797-2849-4b8c-befe-c633732f18e9	2025-07-30 17:51:18.311+00	2025-07-30 17:51:18.017046+00	2025-07-30 17:51:18.017046+00
+0c4b6306-a653-4788-a383-ab9b646b0a0a	34e47cd9-1b10-4114-b5f3-708309644924	f07fc797-2849-4b8c-befe-c633732f18e9	workplace_satisfaction	How satisfied are you with your workplace today?	5	satisfaction	Executive	\N	2025-07-31 22:28:20.264+00	2025-07-31 22:28:23.500567+00	2025-07-31 22:28:23.500567+00
 \.
 
 
