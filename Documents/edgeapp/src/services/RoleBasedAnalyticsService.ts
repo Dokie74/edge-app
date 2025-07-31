@@ -2,6 +2,7 @@
 import { supabase } from './supabaseClient';
 import { DashboardStats } from '../types';
 import { TeamHealthService } from './TeamHealthService';
+import SystemMonitoringService, { SystemAlert } from './SystemMonitoringService';
 
 export interface EmployeeDashboardData {
   personalStats: {
@@ -366,7 +367,7 @@ class RoleBasedAnalyticsService {
           overdueItems
         },
         departmentBreakdown: this.generateDepartmentBreakdown(allEmployees || []),
-        systemAlerts: this.generateSystemAlerts(),
+        systemAlerts: await this.generateSystemAlerts(),
         performanceTrends: await this.generatePerformanceTrends()
       };
       
@@ -552,25 +553,25 @@ class RoleBasedAnalyticsService {
     });
   }
   
-  private static generateSystemAlerts() {
-    return [
-      {
-        id: '1',
-        type: 'warning' as const,
-        title: 'High System Load',
-        message: 'Database queries are running slower than normal',
-        timestamp: new Date().toISOString(),
-        severity: 'medium' as const
-      },
-      {
-        id: '2',
-        type: 'info' as const,
-        title: 'Scheduled Maintenance',
-        message: 'System maintenance scheduled for this weekend',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        severity: 'low' as const
-      }
-    ];
+  private static async generateSystemAlerts(): Promise<SystemAlert[]> {
+    try {
+      const monitoringService = SystemMonitoringService.getInstance();
+      return await monitoringService.generateSystemAlerts();
+    } catch (error) {
+      console.error('Error generating system alerts:', error);
+      // Fallback to basic connectivity alert
+      return [
+        {
+          id: 'monitoring-fallback',
+          type: 'warning' as const,
+          title: 'Monitoring System Unavailable',
+          message: 'Unable to retrieve real-time system alerts',
+          timestamp: new Date().toISOString(),
+          severity: 'medium' as const,
+          source: 'application' as const
+        }
+      ];
+    }
   }
   
   private static async generatePerformanceTrends() {

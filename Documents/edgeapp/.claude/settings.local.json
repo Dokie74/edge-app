@@ -35,7 +35,8 @@
       "Bash(npx cypress open:*)",
       "Bash(npx cypress run:*)",
       "Bash(git commit:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(git rev-parse:*)"
     ],
     "deny": []
   }

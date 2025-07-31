@@ -46,12 +46,14 @@ import {
 import { formatDate } from '../../utils';
 import RoleBasedAnalyticsService, { AdminDashboardData } from '../../services/RoleBasedAnalyticsService';
 import { FeedbackService, AdminApprovalService } from '../../services';
+import SystemMonitoringService, { SystemHealth } from '../../services/SystemMonitoringService';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { userName } = useApp();
   const [dashboardData, setDashboardData] = useState<AdminDashboardData | null>(null);
   const [realtimeMetrics, setRealtimeMetrics] = useState<any>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,37 +88,46 @@ export default function AdminDashboard() {
 
   const fetchRealtimeMetrics = async () => {
     try {
-      // In a real production system, these would come from monitoring APIs
-      // Calculate metrics based on actual system state without random components
-      const { supabase } = await import('../../services/supabaseClient');
+      const monitoringService = SystemMonitoringService.getInstance();
+      const health = await monitoringService.getSystemHealth();
       
-      // Simple health check to get actual response time
-      const start = Date.now();
-      const { data: healthCheck } = await supabase
-        .from('employees')
-        .select('id')
-        .limit(1)
-        .single();
-      const responseTime = Date.now() - start;
+      setSystemHealth(health);
       
-      // Calculate realistic metrics based on actual data only
+      // Transform health metrics to display format
       const metrics = {
-        currentLoad: dashboardData ? Math.min(85, Math.max(15, dashboardData.systemStats.activeUsers * 1.8)) : 45,
-        responseTime: Math.max(80, responseTime),
-        activeConnections: dashboardData ? dashboardData.systemStats.activeUsers : 25,
-        memoryUsage: dashboardData ? Math.min(90, Math.max(40, Math.floor(dashboardData.systemStats.totalEmployees * 0.8) + 35)) : 65,
-        diskUsage: dashboardData ? Math.min(85, Math.max(35, Math.floor(dashboardData.organizationMetrics.totalAssessments * 0.1) + 40)) : 50
+        currentLoad: Math.min(85, Math.max(15, (health.metrics.activeConnections * 2.5) + 15)),
+        responseTime: health.metrics.databaseResponseTime,
+        activeConnections: health.metrics.activeConnections,
+        memoryUsage: Math.min(90, Math.max(30, (health.metrics.activeConnections * 1.2) + 40)),
+        diskUsage: Math.min(85, Math.max(25, (health.metrics.activeConnections * 0.8) + 35)),
+        errorRate: health.metrics.errorRate,
+        uptime: health.metrics.uptime,
+        status: health.status
       };
+      
       setRealtimeMetrics(metrics);
     } catch (err) {
       console.warn('Error fetching real-time metrics:', err);
-      // Fallback metrics if health check fails - use consistent values
+      // Fallback metrics if health check fails
       setRealtimeMetrics({
         currentLoad: 45,
         responseTime: 150,
-        activeConnections: 25,
+        activeConnections: 0,
         memoryUsage: 65,
-        diskUsage: 50
+        diskUsage: 50,
+        errorRate: 0,
+        uptime: 0,
+        status: 'warning'
+      });
+      setSystemHealth({
+        status: 'warning',
+        lastChecked: new Date().toISOString(),
+        metrics: {
+          databaseResponseTime: 150,
+          activeConnections: 0,
+          errorRate: 0,
+          uptime: 0
+        }
       });
     }
   };
