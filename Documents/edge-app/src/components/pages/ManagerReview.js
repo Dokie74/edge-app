@@ -59,7 +59,7 @@ export default function ManagerReview({ pageProps = {} }) {
         .select(`
           *,
           employee:employees(name, email, job_title),
-          review_cycle:review_cycles(name, description, start_date, end_date)
+          review_cycles!review_cycle_id(name, description, start_date, end_date)
         `)
         .eq('id', assessmentId)
         .single();
@@ -206,12 +206,12 @@ export default function ManagerReview({ pageProps = {} }) {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <p className="text-sm text-gray-400">Review Cycle</p>
-                <p className="text-white font-medium">{assessment.review_cycle?.name}</p>
+                <p className="text-white font-medium">{assessment.review_cycles?.name}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-400">Period</p>
                 <p className="text-white">
-                  {formatDate(assessment.review_cycle?.start_date)} - {formatDate(assessment.review_cycle?.end_date)}
+                  {formatDate(assessment.review_cycles?.start_date)} - {formatDate(assessment.review_cycles?.end_date)}
                 </p>
               </div>
               <div>
@@ -231,17 +231,102 @@ export default function ManagerReview({ pageProps = {} }) {
               Employee Self-Assessment
             </h3>
             
-            {assessment.responses && Object.keys(assessment.responses).length > 0 ? (
+            {assessment.self_assessment_status === 'submitted' && (
+              assessment.value_passionate_rating || assessment.self_assessment_data
+            ) ? (
               <div className="space-y-4">
-                {Object.entries(assessment.responses).map(([question, answer]) => (
-                  <div key={question} className="border-b border-gray-700 pb-4 last:border-b-0">
-                    <p className="text-gray-300 font-medium mb-2">{question}</p>
-                    <p className="text-gray-400">{answer || 'No response provided'}</p>
+                {/* Core Values Assessment */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="border-b border-gray-700 pb-4">
+                    <p className="text-gray-300 font-medium mb-2">Passionate</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-cyan-400">Rating:</span>
+                      <span className="text-white">{assessment.value_passionate_rating || 'Not rated'}/5</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.value_passionate_examples || 'No examples provided'}</p>
                   </div>
-                ))}
+                  
+                  <div className="border-b border-gray-700 pb-4">
+                    <p className="text-gray-300 font-medium mb-2">Driven</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-cyan-400">Rating:</span>
+                      <span className="text-white">{assessment.value_driven_rating || 'Not rated'}/5</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.value_driven_examples || 'No examples provided'}</p>
+                  </div>
+                  
+                  <div className="border-b border-gray-700 pb-4">
+                    <p className="text-gray-300 font-medium mb-2">Resilient</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-cyan-400">Rating:</span>
+                      <span className="text-white">{assessment.value_resilient_rating || 'Not rated'}/5</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.value_resilient_examples || 'No examples provided'}</p>
+                  </div>
+                  
+                  <div className="border-b border-gray-700 pb-4">
+                    <p className="text-gray-300 font-medium mb-2">Responsive</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className="text-cyan-400">Rating:</span>
+                      <span className="text-white">{assessment.value_responsive_rating || 'Not rated'}/5</span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.value_responsive_examples || 'No examples provided'}</p>
+                  </div>
+                </div>
+
+                {/* GWC Assessment */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <p className="text-gray-300 font-medium mb-2">Gets It</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`px-2 py-1 rounded text-xs ${assessment.gwc_gets_it ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                        {assessment.gwc_gets_it ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.gwc_gets_it_feedback || 'No feedback provided'}</p>
+                  </div>
+                  
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <p className="text-gray-300 font-medium mb-2">Wants It</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`px-2 py-1 rounded text-xs ${assessment.gwc_wants_it ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                        {assessment.gwc_wants_it ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.gwc_wants_it_feedback || 'No feedback provided'}</p>
+                  </div>
+                  
+                  <div className="bg-gray-700 rounded-lg p-4">
+                    <p className="text-gray-300 font-medium mb-2">Capacity</p>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`px-2 py-1 rounded text-xs ${assessment.gwc_capacity ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                        {assessment.gwc_capacity ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <p className="text-gray-400 text-sm">{assessment.gwc_capacity_feedback || 'No feedback provided'}</p>
+                  </div>
+                </div>
+
+                {/* Employee Reflection */}
+                {(assessment.employee_strengths || assessment.employee_improvements) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {assessment.employee_strengths && (
+                      <div className="bg-gray-700 rounded-lg p-4">
+                        <p className="text-gray-300 font-medium mb-2">Strengths</p>
+                        <p className="text-gray-400 text-sm">{assessment.employee_strengths}</p>
+                      </div>
+                    )}
+                    {assessment.employee_improvements && (
+                      <div className="bg-gray-700 rounded-lg p-4">
+                        <p className="text-gray-300 font-medium mb-2">Areas for Improvement</p>
+                        <p className="text-gray-400 text-sm">{assessment.employee_improvements}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
-              <p className="text-gray-400">No self-assessment responses available.</p>
+              <p className="text-gray-400">No self-assessment data available.</p>
             )}
           </div>
         </div>

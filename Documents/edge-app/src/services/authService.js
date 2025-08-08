@@ -17,18 +17,33 @@ export class AuthService {
   }
 
   static async getUserRole(userEmail) {
-    // Simple role assignment logic
-    if (userEmail === 'admin@lucerne.com') {
-      return { role: 'admin', name: 'Admin' };
-    } else if (userEmail === 'manager@lucerne.com') {
-      return { role: 'manager', name: 'Manager' };
-    } else if (userEmail === 'employee1@lucerne.com') {
-      return { role: 'employee', name: 'Employee 1' };
+    try {
+      // Query the employees table to get the actual role
+      const { data: employee, error } = await supabase
+        .from('employees')
+        .select('role, name')
+        .eq('email', userEmail)
+        .eq('is_active', true)
+        .single();
+
+      if (error || !employee) {
+        console.warn('No employee record found for:', userEmail);
+        return {
+          role: 'employee',
+          name: userEmail.split('@')[0]
+        };
+      }
+
+      return {
+        role: employee.role,
+        name: employee.name
+      };
+    } catch (error) {
+      console.error('Error getting user role:', error);
+      return {
+        role: 'employee',
+        name: userEmail.split('@')[0]
+      };
     }
-    
-    return {
-      role: 'employee',
-      name: userEmail.split('@')[0]
-    };
   }
 }

@@ -13,7 +13,11 @@ import {
   Clock,
   MessageSquare,
   Award,
-  Lightbulb
+  Lightbulb,
+  Edit3,
+  AlertCircle,
+  Check,
+  MessageCircle
 } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { LoadingSpinner, ErrorMessage, Button, StatusBadge } from '../ui';
@@ -21,13 +25,21 @@ import { formatDate } from '../../utils';
 import NotificationService from '../../services/NotificationService';
 
 export default function MyDevelopmentCenterEnhanced() {
-  const { userName } = useApp();
+  const { userName, userRole, user } = useApp();
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [developmentPlans, setDevelopmentPlans] = useState([]);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  
+  // New state for enhanced functionality
+  const [editingPlan, setEditingPlan] = useState(null);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [currentCompletionItem, setCurrentCompletionItem] = useState(null);
+  const [completionComment, setCompletionComment] = useState('');
+  const [managerReplyMode, setManagerReplyMode] = useState(null); // planId when in reply mode
+  const [managerReply, setManagerReply] = useState('');
   
   const [newPlan, setNewPlan] = useState({
     title: '',
@@ -147,6 +159,175 @@ export default function MyDevelopmentCenterEnhanced() {
     return colors[status] || 'gray';
   };
 
+  // New functions for enhanced functionality
+  const canEditPlan = (plan) => {
+    // Only managers can edit plans, and only if they're the manager of the employee who created it
+    return userRole === 'manager' || userRole === 'admin';
+  };
+
+  const canRequestModification = (plan) => {
+    // Employees can request modifications to their own plans
+    return userRole === 'employee' && plan.created_by === user?.id;
+  };
+
+  const handleRequestModification = async (planId) => {
+    try {
+      // Create a notification for the manager
+      await NotificationService.createNotification({
+        recipient_id: developmentPlans.find(p => p.id === planId)?.manager_id,
+        title: 'Development Plan Modification Request',
+        message: `${userName} has requested modifications to their development plan`,
+        type: 'plan_modification_request',
+        metadata: { plan_id: planId, employee_name: userName }
+      });
+      
+      // Show success message
+      alert('Modification request sent to your manager');
+    } catch (error) {
+      console.error('Error requesting modification:', error);
+      alert('Failed to send modification request');
+    }
+  };
+
+  const handleGoalSkillCompletion = (planId, itemType, itemIndex, isCompleted) => {
+    if (isCompleted) {
+      // Open comment modal
+      setCurrentCompletionItem({ planId, itemType, itemIndex });
+      setShowCommentModal(true);
+    } else {
+      // Mark as incomplete directly
+      updatePlanProgress(planId, itemType, itemIndex, false, '');
+    }
+  };
+
+  const updatePlanProgress = async (planId, itemType, itemIndex, isCompleted, comment = '') => {
+    try {
+      const planIndex = developmentPlans.findIndex(p => p.id === planId);
+      if (planIndex === -1) return;
+
+      const updatedPlans = [...developmentPlans];
+      const plan = updatedPlans[planIndex];
+      
+      // Update the specific goal or skill
+      if (itemType === 'goal') {
+        if (!plan.goals[itemIndex].progress) {
+          plan.goals[itemIndex].progress = {};
+        }
+        plan.goals[itemIndex].progress.completed = isCompleted;
+        plan.goals[itemIndex].progress.completion_comment = comment;
+        plan.goals[itemIndex].progress.completed_at = isCompleted ? new Date().toISOString() : null;
+      } else if (itemType === 'skill') {
+        if (!plan.skills_to_develop[itemIndex].progress) {
+          plan.skills_to_develop[itemIndex].progress = {};
+        }
+        plan.skills_to_develop[itemIndex].progress.completed = isCompleted;
+        plan.skills_to_develop[itemIndex].progress.completion_comment = comment;
+        plan.skills_to_develop[itemIndex].progress.completed_at = isCompleted ? new Date().toISOString() : null;
+      }
+
+      setDevelopmentPlans(updatedPlans);
+
+      // If marking as complete, notify manager (if they have one)
+      if (isCompleted && plan.manager_id) {
+        try {
+          await NotificationService.createNotification({
+            recipient_id: plan.manager_id,
+            title: 'Development Plan Progress Update',
+            message: `${userName} has completed a ${itemType} in their development plan: "${comment}"`,
+            type: 'plan_progress_update',
+            metadata: { 
+              plan_id: planId, 
+              item_type: itemType, 
+              item_index: itemIndex,
+              employee_name: userName,
+              comment: comment
+            }
+          });
+          console.log('✅ Manager notification sent successfully');
+        } catch (notificationError) {
+          console.error('⚠️ Failed to notify manager:', notificationError);
+          // Don't fail the entire operation if notification fails
+        }
+      } else if (isCompleted && !plan.manager_id) {
+        console.log('ℹ️ No manager assigned - skipping manager notification');
+      }
+
+      // TODO: Save to backend
+      console.log('Plan progress updated:', { planId, itemType, itemIndex, isCompleted, comment });
+
+    } catch (error) {
+      console.error('Error updating plan progress:', error);
+      alert('Failed to update progress');
+    }
+  };
+
+  const submitCompletionComment = async () => {
+    if (!currentCompletionItem || !completionComment.trim()) {
+      alert('Please enter a comment about your completion');
+      return;
+    }
+
+    const { planId, itemType, itemIndex } = currentCompletionItem;
+    await updatePlanProgress(planId, itemType, itemIndex, true, completionComment);
+    
+    // Reset modal state
+    setShowCommentModal(false);
+    setCurrentCompletionItem(null);
+    setCompletionComment('');
+  };
+
+  const submitManagerReply = async (planId) => {
+    if (!managerReply.trim()) {
+      alert('Please enter a reply comment');
+      return;
+    }
+
+    try {
+      const planIndex = developmentPlans.findIndex(p => p.id === planId);
+      if (planIndex === -1) return;
+
+      const updatedPlans = [...developmentPlans];
+      const plan = updatedPlans[planIndex];
+      
+      // Add manager reply to the plan
+      if (!plan.manager_replies) {
+        plan.manager_replies = [];
+      }
+      
+      plan.manager_replies.push({
+        reply: managerReply,
+        replied_at: new Date().toISOString(),
+        replied_by: userName
+      });
+
+      setDevelopmentPlans(updatedPlans);
+
+      // Notify the employee
+      await NotificationService.createNotification({
+        recipient_id: plan.created_by,
+        title: 'Manager Response to Development Plan',
+        message: `Your manager has responded to your development plan progress`,
+        type: 'plan_manager_response',
+        metadata: { 
+          plan_id: planId, 
+          manager_name: userName,
+          reply: managerReply
+        }
+      });
+
+      // Reset reply state
+      setManagerReplyMode(null);
+      setManagerReply('');
+
+      // TODO: Save to backend
+      console.log('Manager reply submitted:', { planId, reply: managerReply });
+
+    } catch (error) {
+      console.error('Error submitting manager reply:', error);
+      alert('Failed to submit reply');
+    }
+  };
+
   const tabs = [
     { id: 'overview', name: 'Overview', icon: Target },
     { id: 'plans', name: 'My Development Plans', icon: BookOpen },
@@ -165,20 +346,10 @@ export default function MyDevelopmentCenterEnhanced() {
   return (
     <div className="p-8">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="mb-8">
         <div>
           <h1 className="text-3xl font-bold text-cyan-400">My Development Center</h1>
           <p className="text-gray-400 mt-2">Plan and track your professional development journey</p>
-        </div>
-        <div className="flex space-x-3">
-          <Button 
-            variant="primary"
-            onClick={() => setActiveTab('create')}
-            data-testid="create-development-plan-button"
-          >
-            <Plus size={16} className="mr-2" />
-            Create Development Plan
-          </Button>
         </div>
       </div>
 
@@ -323,21 +494,86 @@ export default function MyDevelopmentCenterEnhanced() {
                         </div>
                       </div>
 
-                      {plan.goals && plan.goals.length > 0 && (
+                      {/* Enhanced Goals with Progress Tracking - Hidden when editing */}
+                      {!editingPlan && plan.goals && plan.goals.length > 0 && (
                         <div className="mb-4">
-                          <p className="text-sm text-gray-400 mb-2">Goals ({plan.goals.length})</p>
-                          <div className="space-y-1">
-                            {plan.goals.slice(0, 2).map((goal, index) => (
-                              <p key={index} className="text-gray-300 text-sm">• {goal.goal}</p>
+                          <p className="text-sm text-gray-400 mb-3">Development Goals ({plan.goals.length})</p>
+                          <div className="space-y-3">
+                            {plan.goals.map((goal, index) => (
+                              <div key={index} className="bg-gray-700 rounded-lg p-3">
+                                <div className="flex items-start space-x-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={goal.progress?.completed || false}
+                                    onChange={(e) => handleGoalSkillCompletion(plan.id, 'goal', index, e.target.checked)}
+                                    className="mt-1 h-4 w-4 text-cyan-500 bg-gray-600 border-gray-500 rounded focus:ring-cyan-500"
+                                  />
+                                  <div className="flex-1">
+                                    <p className={`text-sm font-medium ${goal.progress?.completed ? 'text-green-400 line-through' : 'text-white'}`}>
+                                      {goal.goal}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      Priority: {goal.priority} | Timeline: {goal.timeline}
+                                    </p>
+                                    
+                                    {goal.progress?.completed && goal.progress?.completion_comment && (
+                                      <div className="mt-2 p-2 bg-gray-600 rounded text-xs">
+                                        <p className="text-green-400 font-medium">Completion Note:</p>
+                                        <p className="text-gray-300">{goal.progress.completion_comment}</p>
+                                        <p className="text-gray-500 mt-1">
+                                          Completed: {formatDate(goal.progress.completed_at)}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
                             ))}
-                            {plan.goals.length > 2 && (
-                              <p className="text-gray-500 text-sm">... and {plan.goals.length - 2} more</p>
-                            )}
                           </div>
                         </div>
                       )}
 
-                      {plan.manager_feedback && (
+                      {/* Enhanced Skills with Progress Tracking - Hidden when editing */}
+                      {!editingPlan && plan.skills_to_develop && plan.skills_to_develop.length > 0 && (
+                        <div className="mb-4">
+                          <p className="text-sm text-gray-400 mb-3">Skills to Develop ({plan.skills_to_develop.length})</p>
+                          <div className="space-y-3">
+                            {plan.skills_to_develop.map((skill, index) => (
+                              <div key={index} className="bg-gray-700 rounded-lg p-3">
+                                <div className="flex items-start space-x-3">
+                                  <input
+                                    type="checkbox"
+                                    checked={skill.progress?.completed || false}
+                                    onChange={(e) => handleGoalSkillCompletion(plan.id, 'skill', index, e.target.checked)}
+                                    className="mt-1 h-4 w-4 text-cyan-500 bg-gray-600 border-gray-500 rounded focus:ring-cyan-500"
+                                  />
+                                  <div className="flex-1">
+                                    <p className={`text-sm font-medium ${skill.progress?.completed ? 'text-green-400 line-through' : 'text-white'}`}>
+                                      {skill.skill}
+                                    </p>
+                                    <p className="text-xs text-gray-400 mt-1">
+                                      Method: {skill.method}
+                                    </p>
+                                    
+                                    {skill.progress?.completed && skill.progress?.completion_comment && (
+                                      <div className="mt-2 p-2 bg-gray-600 rounded text-xs">
+                                        <p className="text-green-400 font-medium">Completion Note:</p>
+                                        <p className="text-gray-300">{skill.progress.completion_comment}</p>
+                                        <p className="text-gray-500 mt-1">
+                                          Completed: {formatDate(skill.progress.completed_at)}
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manager Feedback and Replies Section - Hidden when editing */}
+                      {!editingPlan && plan.manager_feedback && (
                         <div className="bg-gray-700 rounded-lg p-3 mt-4">
                           <p className="text-sm text-gray-400 mb-1">Manager Feedback</p>
                           <p className="text-gray-300 text-sm">{plan.manager_feedback}</p>
@@ -346,7 +582,202 @@ export default function MyDevelopmentCenterEnhanced() {
                           </p>
                         </div>
                       )}
+
+                      {/* Edit Plan Interface (when editing) */}
+                      {editingPlan === plan.id && (
+                        <div className="mt-4 bg-gray-700 rounded-lg p-4 border-2 border-cyan-500">
+                          <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
+                            <Edit3 className="mr-2 text-cyan-400" size={18} />
+                            Edit Development Plan
+                          </h4>
+                          
+                          <div className="space-y-4">
+                            {/* Edit Title */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-300 mb-2">Plan Title</label>
+                              <input
+                                type="text"
+                                value={plan.title}
+                                onChange={(e) => {
+                                  const updatedPlans = developmentPlans.map(p => 
+                                    p.id === plan.id ? { ...p, title: e.target.value } : p
+                                  );
+                                  setDevelopmentPlans(updatedPlans);
+                                }}
+                                className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                              />
+                            </div>
+                            
+                            {/* Edit Description */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                              <textarea
+                                value={plan.description || ''}
+                                onChange={(e) => {
+                                  const updatedPlans = developmentPlans.map(p => 
+                                    p.id === plan.id ? { ...p, description: e.target.value } : p
+                                  );
+                                  setDevelopmentPlans(updatedPlans);
+                                }}
+                                rows={3}
+                                className="w-full p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                              />
+                            </div>
+                            
+                            {/* Edit Goals */}
+                            {plan.goals && plan.goals.length > 0 && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-3">Goals</label>
+                                <div className="space-y-2">
+                                  {plan.goals.map((goal, goalIndex) => (
+                                    <div key={goalIndex} className="bg-gray-600 rounded p-3">
+                                      <input
+                                        type="text"
+                                        value={goal.goal || ''}
+                                        onChange={(e) => {
+                                          const updatedPlans = developmentPlans.map(p => {
+                                            if (p.id === plan.id) {
+                                              const updatedGoals = p.goals.map((g, i) => 
+                                                i === goalIndex ? { ...g, goal: e.target.value } : g
+                                              );
+                                              return { ...p, goals: updatedGoals };
+                                            }
+                                            return p;
+                                          });
+                                          setDevelopmentPlans(updatedPlans);
+                                        }}
+                                        className="w-full p-2 bg-gray-500 border border-gray-400 rounded text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                                        placeholder="Goal description"
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Save/Cancel Buttons */}
+                            <div className="flex justify-end space-x-2 pt-4 border-t border-gray-600">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingPlan(null);
+                                  fetchDevelopmentPlans(); // Refresh to undo changes
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    // Here you would typically save to backend
+                                    // For now, just close the editor
+                                    setEditingPlan(null);
+                                    alert('Plan updated successfully (Note: Backend save not yet implemented)');
+                                  } catch (error) {
+                                    console.error('Error saving plan:', error);
+                                    alert('Failed to save plan changes');
+                                  }
+                                }}
+                              >
+                                <Save size={14} className="mr-1" />
+                                Save Changes
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Manager Replies */}
+                      {plan.manager_replies && plan.manager_replies.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          {plan.manager_replies.map((reply, index) => (
+                            <div key={index} className="bg-blue-900 bg-opacity-50 rounded-lg p-3 border-l-4 border-blue-400">
+                              <div className="flex items-start justify-between mb-1">
+                                <p className="text-sm text-blue-300 font-medium">Manager Response</p>
+                                <p className="text-xs text-blue-400">{formatDate(reply.replied_at)}</p>
+                              </div>
+                              <p className="text-gray-300 text-sm">{reply.reply}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Manager Reply Interface (for managers only) - Hidden when editing */}
+                      {!editingPlan && userRole === 'manager' && (
+                        <div className="mt-4">
+                          {managerReplyMode === plan.id ? (
+                            <div className="bg-gray-700 rounded-lg p-3">
+                              <p className="text-sm text-gray-400 mb-2">Add your response:</p>
+                              <textarea
+                                value={managerReply}
+                                onChange={(e) => setManagerReply(e.target.value)}
+                                placeholder="Provide feedback, guidance, or acknowledgment of their progress..."
+                                className="w-full h-24 p-3 bg-gray-600 border border-gray-500 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+                              />
+                              <div className="flex justify-end space-x-2 mt-2">
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  onClick={() => {
+                                    setManagerReplyMode(null);
+                                    setManagerReply('');
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                                <Button
+                                  variant="primary"
+                                  size="sm"
+                                  onClick={() => submitManagerReply(plan.id)}
+                                  disabled={!managerReply.trim()}
+                                >
+                                  <MessageCircle size={14} className="mr-1" />
+                                  Send Response
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setManagerReplyMode(plan.id)}
+                            >
+                              <MessageCircle size={14} className="mr-1" />
+                              Respond to Progress
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
+                    
+                    {/* Action Buttons - Only show when not editing */}
+                    {!editingPlan && (
+                      <div className="flex space-x-2">
+                        {canEditPlan(plan) && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setEditingPlan(plan.id)}
+                          >
+                            <Edit3 size={14} className="mr-1" />
+                            Edit Plan
+                          </Button>
+                        )}
+                        {canRequestModification(plan) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRequestModification(plan.id)}
+                          >
+                            <AlertCircle size={14} className="mr-1" />
+                            Request Modification
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -552,6 +983,63 @@ export default function MyDevelopmentCenterEnhanced() {
                   {submitting ? 'Submitting...' : 'Submit Plan'}
                 </Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Completion Comment Modal */}
+      {showCommentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md border border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center">
+                <Check className="mr-2 text-green-400" size={20} />
+                Mark as Complete
+              </h3>
+              <button
+                onClick={() => {
+                  setShowCommentModal(false);
+                  setCurrentCompletionItem(null);
+                  setCompletionComment('');
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p className="text-gray-300 mb-4">
+              Please add a comment about what you accomplished and how you completed this {currentCompletionItem?.itemType}:
+            </p>
+
+            <textarea
+              value={completionComment}
+              onChange={(e) => setCompletionComment(e.target.value)}
+              placeholder="Describe what you learned, what you accomplished, or how you completed this item..."
+              className="w-full h-32 p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent resize-none"
+              autoFocus
+            />
+
+            <div className="flex justify-end space-x-3 mt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setShowCommentModal(false);
+                  setCurrentCompletionItem(null);
+                  setCompletionComment('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={submitCompletionComment}
+                disabled={!completionComment.trim()}
+              >
+                <Check size={16} className="mr-2" />
+                Mark Complete
+              </Button>
             </div>
           </div>
         </div>

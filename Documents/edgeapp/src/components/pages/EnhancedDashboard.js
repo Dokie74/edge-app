@@ -94,9 +94,11 @@ export default function EnhancedDashboard() {
       </div>
 
       {/* Role-specific Dashboard Content */}
-      {userRole === 'admin' && <AdminDashboard stats={stats} />}
-      {userRole === 'manager' && <ManagerDashboard stats={stats} />}
-      {userRole === 'employee' && <EmployeeDashboard stats={stats} />}
+      <div data-cy="dashboard-content" className="dashboard-content">
+        {userRole === 'admin' && <AdminDashboard stats={stats} />}
+        {userRole === 'manager' && <ManagerDashboard stats={stats} />}
+        {userRole === 'employee' && <EmployeeDashboard stats={stats} />}
+      </div>
     </div>
   );
 }

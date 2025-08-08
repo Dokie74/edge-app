@@ -272,7 +272,7 @@ export default function Admin() {
             </h2>
             <p className="text-gray-400 mt-1">Manage team members and their roles</p>
             {currentRole && (
-              <p className="text-xs text-yellow-400 mt-1">Your role: {currentRole}</p>
+              <p className="text-xs text-yellow-400 mt-1">Your role: {currentRole.role || 'Unknown'}</p>
             )}
           </div>
           <button

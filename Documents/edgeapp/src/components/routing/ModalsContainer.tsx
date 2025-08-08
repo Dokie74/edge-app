@@ -10,6 +10,7 @@ import CreateEmployeeModal from '../modals/CreateEmployeeModal';
 import EditEmployeeModal from '../modals/EditEmployeeModal';
 import GiveKudoModal from '../modals/GiveKudoModal';
 import GiveFeedbackModal from '../modals/GiveFeedbackModal';
+import UATFeedbackModal from '../modals/UATFeedbackModal';
 
 const ModalsContainer: React.FC = () => {
   const { modal, closeModal } = useApp();
@@ -98,6 +99,13 @@ const ModalsContainer: React.FC = () => {
             ...modal.props,
             onComplete: handleModalComplete
           }} 
+        />
+      );
+
+    case 'uatFeedback':
+      return (
+        <UATFeedbackModal 
+          closeModal={closeModal}
         />
       );
 

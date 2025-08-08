@@ -138,10 +138,10 @@ export default function MyReviews() {
                         {/* Show action needed for active reviews */}
                         {statusInfo.isActive && (
                           <p className={`font-medium ${statusInfo.color}`}>
-                            {review.self_assessment_status === 'not_started' && 'Action needed: Start your self-assessment'}
-                            {review.self_assessment_status === 'in_progress' && 'Action needed: Complete your self-assessment'}
-                            {review.self_assessment_status === 'employee_complete' && 'Waiting for manager review'}
-                            {review.self_assessment_status === 'manager_complete' && 'Review complete - view feedback'}
+                            {review.status === 'not_started' && 'Action needed: Start your self-assessment'}
+                            {review.status === 'in_progress' && 'Action needed: Complete your self-assessment'}
+                            {review.status === 'submitted' && 'Waiting for manager review'}
+                            {review.status === 'completed' && 'Review complete - view feedback'}
                           </p>
                         )}
                       </div>

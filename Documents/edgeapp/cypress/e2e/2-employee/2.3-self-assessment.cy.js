@@ -4,6 +4,7 @@ describe('Employee Self-Assessment Workflow', () => {
     cy.clearCookies();
     cy.clearLocalStorage();
     cy.login('employee');
+    cy.visit('/dashboard');
     cy.url({ timeout: 10000 }).should('include', '/dashboard');
   });
 

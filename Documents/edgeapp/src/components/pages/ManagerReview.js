@@ -31,6 +31,7 @@ export default function ManagerReview({ pageProps = {} }) {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [error, setError] = useState(null);
   const [assessment, setAssessment] = useState(null);
   const [managerFeedback, setManagerFeedback] = useState({
@@ -112,6 +113,48 @@ export default function ManagerReview({ pageProps = {} }) {
     }
   };
 
+  const handleSaveDraft = async () => {
+    try {
+      setSavingDraft(true);
+      setError(null);
+
+      // Update assessment with manager feedback as draft
+      const { error: updateError } = await supabase
+        .from('assessments')
+        .update({
+          manager_feedback: managerFeedback,
+          manager_review_status: 'in_progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', assessmentId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Draft saved successfully');
+    } catch (err) {
+      console.error('Error saving draft:', err);
+      setError(err.message);
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
+  // Calculate completion percentage
+  const calculateCompletionPercentage = () => {
+    const fields = [
+      managerFeedback.overall_performance,
+      managerFeedback.strengths,
+      managerFeedback.areas_for_improvement,
+      managerFeedback.goals_for_next_period,
+      managerFeedback.development_recommendations
+    ];
+    
+    const completedFields = fields.filter(field => field && field.trim().length > 0).length;
+    const totalFields = fields.length;
+    
+    return Math.round((completedFields / totalFields) * 100);
+  };
+
   const handleInputChange = (field, value) => {
     setManagerFeedback(prev => ({
       ...prev,
@@ -177,6 +220,14 @@ export default function ManagerReview({ pageProps = {} }) {
           </div>
         </div>
         <div className="flex space-x-3">
+          <Button 
+            variant="secondary"
+            onClick={handleSaveDraft}
+            disabled={savingDraft}
+          >
+            <Save size={16} className="mr-2" />
+            {savingDraft ? 'Saving Draft...' : 'Save Draft'}
+          </Button>
           <Button 
             variant="primary"
             onClick={handleSaveReview}
@@ -250,10 +301,15 @@ export default function ManagerReview({ pageProps = {} }) {
         {/* Manager Review Form (Right Side) */}
         <div className="space-y-6">
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center">
-              <MessageSquare className="mr-2 text-cyan-400" size={20} />
-              Your Review
-            </h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center">
+                <MessageSquare className="mr-2 text-cyan-400" size={20} />
+                Your Review
+              </h3>
+              <div className="text-sm text-gray-400">
+                <span className="text-cyan-400 font-medium">{calculateCompletionPercentage()}%</span> complete
+              </div>
+            </div>
             
             <div className="space-y-4">
               {/* Overall Rating */}
@@ -349,6 +405,29 @@ export default function ManagerReview({ pageProps = {} }) {
           {/* Action Buttons */}
           <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
             <div className="space-y-3">
+              <div className="mb-3">
+                <div className="text-sm text-gray-400 mb-2">Progress</div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-cyan-500 h-2 rounded-full transition-all duration-300" 
+                    style={{ width: `${calculateCompletionPercentage()}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {calculateCompletionPercentage()}% of fields completed
+                </div>
+              </div>
+              
+              <Button 
+                variant="secondary"
+                onClick={handleSaveDraft}
+                disabled={savingDraft}
+                className="w-full"
+              >
+                <Save size={16} className="mr-2" />
+                {savingDraft ? 'Saving Draft...' : 'Save Draft'}
+              </Button>
+              
               <Button 
                 variant="primary"
                 onClick={handleSaveReview}

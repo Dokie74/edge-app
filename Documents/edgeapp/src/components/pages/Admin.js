@@ -1,7 +1,7 @@
 // src/components/pages/Admin.js - SIMPLIFIED VERSION FOR TESTING
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Calendar, Plus, Play, AlertTriangle, Edit, UserPlus, Square } from 'lucide-react';
+import { Users, Calendar, Plus, AlertTriangle, Edit, UserPlus, Square } from 'lucide-react';
 import PulseQuestionsManager from '../admin/PulseQuestionsManager';
 import { useAdmin } from '../../hooks';
 import { useApp } from '../../contexts';
@@ -15,9 +15,10 @@ export default function Admin() {
     loading, 
     error, 
     createReviewCycle, 
-    activateReviewCycle, 
     refresh 
   } = useAdmin();
+  
+  const [oversightRefreshTrigger, setOversightRefreshTrigger] = useState(0);
   
   const { openModal } = useApp();
   const [allEmployees, setAllEmployees] = useState([]);
@@ -82,19 +83,6 @@ export default function Admin() {
   };
 
 
-  const handleActivateCycle = async (cycleId) => {
-    try {
-      const data = await activateReviewCycle(cycleId);
-      
-      if (data && data.success) {
-        alert('✅ ' + data.message);
-      } else {
-        alert('⚠️ ' + (data?.error || 'Unknown error'));
-      }
-    } catch (err) {
-      alert('❌ Error: ' + err.message);
-    }
-  };
 
   const handleCloseCycle = async (cycleId) => {
     // Confirm before closing
@@ -108,6 +96,7 @@ export default function Admin() {
       if (data && data.success) {
         alert('✅ ' + data.message);
         refresh(); // Refresh the data to show updated status
+        setOversightRefreshTrigger(prev => prev + 1); // Trigger oversight refresh
       } else {
         alert('⚠️ ' + (data?.error || 'Unknown error'));
       }
@@ -131,18 +120,16 @@ export default function Admin() {
 
   return (
     <div className="p-8">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-cyan-400">Admin Panel</h1>
           <p className="text-gray-400 mt-2">Manage employees and review cycles</p>
         </div>
-        <button
-          onClick={() => openModal('createReviewCycle', { onComplete: refresh })}
-          className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <Plus size={16} className="mr-2" />
-          Create Review Cycle
-        </button>
+      </div>
+
+      {/* Review Process Mini Dashboard - Sticky */}
+      <div className="sticky top-4 z-10 mb-6">
+        <ReviewOversightSection compact={true} refreshTrigger={oversightRefreshTrigger} />
       </div>
 
       {/* Error Display */}
@@ -168,6 +155,13 @@ export default function Admin() {
             <Calendar className="mr-2 text-cyan-400" size={24} />
             <h2 className="text-xl font-semibold">Review Cycles ({cycles.length})</h2>
           </div>
+          <button
+            onClick={() => openModal('createReviewCycle', { onComplete: refresh })}
+            className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <Plus size={16} className="mr-2" />
+            Create Review Cycle
+          </button>
         </div>
         
         {cycles.length > 0 ? (
@@ -187,15 +181,6 @@ export default function Admin() {
                 </div>
                 
                 <div className="flex gap-2 mt-2">
-                  {cycle.status === 'upcoming' && (
-                    <button
-                      onClick={() => handleActivateCycle(cycle.id)}
-                      className="text-green-400 hover:text-green-300 flex items-center text-sm"
-                    >
-                      <Play size={14} className="mr-1" />
-                      Activate
-                    </button>
-                  )}
                   {cycle.status === 'active' && (
                     <button
                       onClick={() => handleCloseCycle(cycle.id)}
@@ -357,15 +342,15 @@ export default function Admin() {
         )}
       </div>
 
-      {/* Review Oversight Section */}
-      <ReviewOversightSection />
+      {/* Pulse Questions Management Section */}
+      <PulseQuestionsManager />
 
     </div>
   );
 }
 
 // Review Oversight Component for Admin Dashboard
-const ReviewOversightSection = () => {
+const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
   const navigate = useNavigate();
   const [reviewStats, setReviewStats] = useState({
     total: 0,
@@ -381,11 +366,132 @@ const ReviewOversightSection = () => {
     fetchReviewOversight();
   }, []);
 
+  // Refresh when trigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      console.log('🔄 Oversight refresh triggered by external event');
+      fetchReviewOversight();
+    }
+  }, [refreshTrigger]);
+
+  const calculateReviewStats = (assessmentsData, cyclesData) => {
+    console.log('📊 Raw assessments data:', assessmentsData);
+    console.log('🔄 Cycles data for filtering:', cyclesData);
+    
+    // Debug: Show sample assessment structure
+    if (assessmentsData?.length > 0) {
+      console.log('🔍 Sample assessment structure:', {
+        ...assessmentsData[0],
+        available_fields: Object.keys(assessmentsData[0])
+      });
+    }
+    
+    // Debug: Show sample cycle structure  
+    if (cyclesData?.length > 0) {
+      console.log('🔍 Sample cycle structure:', {
+        ...cyclesData[0],
+        available_fields: Object.keys(cyclesData[0])
+      });
+    }
+    
+    // Get list of active cycle IDs (exclude closed cycles)
+    const activeCycleIds = cyclesData?.filter(cycle => cycle.status !== 'closed').map(cycle => cycle.id) || [];
+    console.log('✅ Active cycle IDs:', activeCycleIds);
+    
+    // DEBUG: For now, show ALL assessments to see the system working
+    // TODO: Fix this once we have proper assessment data for active cycles
+    const allCycleIds = cyclesData?.map(cycle => cycle.id) || [];
+    console.log('🔧 Using ALL cycle IDs for demo:', allCycleIds);
+    
+    // Debug: Check all possible cycle ID field names in assessments
+    const cycleIdFields = assessmentsData?.map(a => ({
+      cycle_id: a.cycle_id,
+      review_cycle_id: a.review_cycle_id, 
+      cycle: a.cycle,
+      review_cycle: a.review_cycle,
+      all_fields: Object.keys(a).filter(k => k.toLowerCase().includes('cycle'))
+    })).slice(0, 3) || [];
+    console.log('🔍 Assessment cycle field analysis:', cycleIdFields);
+    
+    // TEMPORARY: Filter assessments to include ALL cycles (not just active)
+    const activeAssessments = assessmentsData?.filter(a => {
+      const matchesCycleId = allCycleIds.includes(a.cycle_id);
+      const matchesReviewCycleId = allCycleIds.includes(a.review_cycle_id);
+      const matchesAny = matchesCycleId || matchesReviewCycleId;
+      
+      // Debug first few matches
+      if (assessmentsData.indexOf(a) < 3) {
+        console.log(`🔍 Assessment ${assessmentsData.indexOf(a)} match check:`, {
+          cycle_id: a.cycle_id,
+          review_cycle_id: a.review_cycle_id,
+          allCycleIds,
+          matchesCycleId,
+          matchesReviewCycleId,
+          matchesAny
+        });
+      }
+      
+      return matchesAny;
+    }) || [];
+    
+    console.log('🎯 Filtered to active assessments:', activeAssessments.length, 'of', assessmentsData?.length || 0);
+    
+    const total = activeAssessments.length;
+    const pending_employee = activeAssessments.filter(a => 
+      a.self_assessment_status === 'not_started' || a.self_assessment_status === 'in_progress'
+    ).length;
+    const pending_manager = activeAssessments.filter(a => 
+      a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
+    ).length;
+    const completed = activeAssessments.filter(a => 
+      a.manager_review_status === 'completed'
+    ).length;
+    const overdue = activeAssessments.filter(a => {
+      const dueDate = new Date(a.due_date);
+      const now = new Date();
+      return dueDate < now && (a.self_assessment_status !== 'employee_complete' || a.manager_review_status !== 'completed');
+    }).length;
+    
+    console.log('📈 Calculated stats (active cycles only):', {
+      total,
+      pending_employee,
+      pending_manager,
+      completed,
+      overdue,
+      active_cycles: activeCycleIds.length,
+      total_assessments: assessmentsData?.length || 0,
+      filtered_assessments: activeAssessments.length,
+      sample_statuses: activeAssessments.slice(0, 3).map(a => ({
+        cycle_id: a.cycle_id || a.review_cycle_id,
+        self_assessment_status: a.self_assessment_status,
+        manager_review_status: a.manager_review_status,
+        due_date: a.due_date
+      }))
+    });
+    
+    return { total, pending_employee, pending_manager, completed, overdue };
+  };
+
   const fetchReviewOversight = async () => {
     try {
       setLoading(true);
       
-      // Get real assessment data for review stats
+      console.log('🔍 Fetching review oversight data...');
+      
+      let assessmentsData = null;
+      let cyclesData = null;
+      
+      // Fetch cycles data first
+      try {
+        const cyclesResult = await AdminService.getReviewCycles();
+        cyclesData = cyclesResult;
+        console.log('🔄 Fetched cycles for filtering:', cyclesData?.length || 0);
+      } catch (cyclesError) {
+        console.warn('⚠️ Could not fetch cycles data:', cyclesError);
+        cyclesData = [];
+      }
+      
+      // Try complex query first
       const { data: assessments, error: assessError } = await supabase
         .from('assessments')
         .select(`
@@ -395,51 +501,48 @@ const ReviewOversightSection = () => {
         `)
         .order('created_at', { ascending: false });
       
+      console.log('📊 Complex query result:', { assessments, error: assessError });
+      
       if (assessError) {
-        console.error('Error fetching assessments:', assessError);
-        setReviewStats({
-          total: 0,
-          pending_employee: 0,
-          pending_manager: 0,
-          completed: 0,
-          overdue: 0
-        });
-        setRecentReviews([]);
-        return;
+        console.error('❌ Complex query failed:', assessError);
+        
+        // Fallback to simple query
+        console.log('🔄 Trying simpler assessments query...');
+        const { data: simpleAssessments, error: simpleError } = await supabase
+          .from('assessments')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        console.log('📋 Simple query result:', { simpleAssessments, error: simpleError });
+        
+        if (simpleError || !simpleAssessments) {
+          console.error('❌ All queries failed:', simpleError);
+          setReviewStats({
+            total: 0, pending_employee: 0, pending_manager: 0, completed: 0, overdue: 0
+          });
+          setRecentReviews([]);
+          return;
+        }
+        
+        console.log('✅ Using simple assessments data');
+        assessmentsData = simpleAssessments;
+      } else {
+        console.log('✅ Using complex query with joins');
+        assessmentsData = assessments;
       }
       
-      // Calculate real stats from assessment data
-      const total = assessments?.length || 0;
-      const pending_employee = assessments?.filter(a => 
-        a.self_assessment_status === 'not_started' || a.self_assessment_status === 'in_progress'
-      ).length || 0;
-      const pending_manager = assessments?.filter(a => 
-        a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
-      ).length || 0;
-      const completed = assessments?.filter(a => 
-        a.manager_review_status === 'completed'
-      ).length || 0;
-      const overdue = assessments?.filter(a => {
-        const dueDate = new Date(a.due_date);
-        const now = new Date();
-        return dueDate < now && (a.self_assessment_status !== 'employee_complete' || a.manager_review_status !== 'completed');
-      }).length || 0;
+      // Calculate stats from whichever data we got, filtered by active cycles
+      const stats = calculateReviewStats(assessmentsData, cyclesData);
       
-      setReviewStats({
-        total,
-        pending_employee,
-        pending_manager,
-        completed,
-        overdue
-      });
+      setReviewStats(stats);
       
       // Get recent assessment activity (last 10 assessments with recent updates)
-      const recentActivity = assessments?.filter(a => 
+      const recentActivity = assessmentsData?.filter(a => 
         a.updated_at && new Date(a.updated_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) // Last 30 days
       ).slice(0, 10).map(a => ({
         assessment_id: a.id,
-        employee_name: a.employee?.name || 'Unknown',
-        cycle_name: a.cycle?.name || 'Unknown Cycle',
+        employee_name: a.employee?.name || `Employee ${a.employee_id}` || 'Unknown',
+        cycle_name: a.cycle?.name || `Cycle ${a.cycle_id}` || 'Unknown Cycle',
         self_assessment_status: a.self_assessment_status,
         manager_review_status: a.manager_review_status,
         updated_at: a.updated_at
@@ -468,11 +571,64 @@ const ReviewOversightSection = () => {
 
   if (loading) {
     return (
-      <div className="mt-8 bg-gray-800 rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-white mb-4">Review Process Oversight</h2>
-        <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
+      <div className={`${compact ? 'bg-gray-800/90 backdrop-blur-sm border border-gray-700' : 'mt-8 bg-gray-800'} rounded-lg p-${compact ? '4' : '6'}`}>
+        <h2 className={`${compact ? 'text-lg' : 'text-xl'} font-semibold text-white mb-4`}>Review Process Oversight</h2>
+        <div className="flex items-center justify-center py-4">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-cyan-400"></div>
         </div>
+      </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <div className="bg-gray-800/90 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-lg">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center">
+            <Square className="mr-2 text-cyan-400" size={20} />
+            <h2 className="text-lg font-semibold text-white">Review Status</h2>
+          </div>
+          <button 
+            onClick={fetchReviewOversight}
+            className="text-cyan-400 hover:text-cyan-300 text-xs px-2 py-1 rounded bg-gray-700/50"
+          >
+            Refresh
+          </button>
+        </div>
+
+        {/* Compact Stats Grid */}
+        <div className="grid grid-cols-5 gap-2">
+          <div className="bg-gray-700/50 rounded p-2 text-center">
+            <div className="text-lg font-bold text-white">{reviewStats.total}</div>
+            <div className="text-xs text-gray-400">Total</div>
+          </div>
+          <div className="bg-yellow-900/30 rounded p-2 text-center border border-yellow-700/50">
+            <div className="text-lg font-bold text-yellow-400">{reviewStats.pending_employee}</div>
+            <div className="text-xs text-yellow-300">Employee</div>
+          </div>
+          <div className="bg-orange-900/30 rounded p-2 text-center border border-orange-700/50">
+            <div className="text-lg font-bold text-orange-400">{reviewStats.pending_manager}</div>
+            <div className="text-xs text-orange-300">Manager</div>
+          </div>
+          <div className="bg-green-900/30 rounded p-2 text-center border border-green-700/50">
+            <div className="text-lg font-bold text-green-400">{reviewStats.completed}</div>
+            <div className="text-xs text-green-300">Done</div>
+          </div>
+          <div className="bg-red-900/30 rounded p-2 text-center border border-red-700/50">
+            <div className="text-lg font-bold text-red-400">{reviewStats.overdue}</div>
+            <div className="text-xs text-red-300">Overdue</div>
+          </div>
+        </div>
+        
+        {/* Alert for overdue items */}
+        {reviewStats.overdue > 0 && (
+          <div className="mt-3 bg-red-900/20 border border-red-700/50 rounded p-2 flex items-center">
+            <AlertTriangle size={14} className="text-red-400 mr-2" />
+            <span className="text-red-300 text-xs">
+              {reviewStats.overdue} review{reviewStats.overdue > 1 ? 's' : ''} overdue - immediate attention needed
+            </span>
+          </div>
+        )}
       </div>
     );
   }

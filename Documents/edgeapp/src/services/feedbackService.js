@@ -54,4 +54,12 @@ export class FeedbackService {
     if (error) throw error;
     return data;
   }
+
+  static async deleteFeedback(feedbackId) {
+    const { data, error } = await supabase.rpc('delete_feedback', {
+      p_feedback_id: feedbackId
+    });
+    if (error) throw error;
+    return data;
+  }
 }

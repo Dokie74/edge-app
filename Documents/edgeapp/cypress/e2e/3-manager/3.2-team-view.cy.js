@@ -4,6 +4,7 @@ describe('Manager Team View', () => {
     cy.clearCookies();
     cy.clearLocalStorage();
     cy.login('manager');
+    cy.visit('/dashboard');
     cy.url({ timeout: 10000 }).should('include', '/dashboard');
     
     // Navigate to team view

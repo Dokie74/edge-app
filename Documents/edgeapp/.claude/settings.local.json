@@ -36,7 +36,17 @@
       "Bash(npx cypress run:*)",
       "Bash(git commit:*)",
       "Bash(taskkill:*)",
-      "Bash(git rev-parse:*)"
+      "Bash(git rev-parse:*)",
+      "Bash(supabase:*)",
+      "Bash(supabase:*)",
+      "Bash(where psql)",
+      "Bash(curl:*)",
+      "Bash(set PORT=3001)",
+      "Bash(curl:*)",
+      "Bash(start npx cypress open)",
+      "Bash(timeout 30 npx cypress run --spec=\"cypress/e2e/1-auth/1.1-programmatic-login.cy.js\" --config defaultCommandTimeout=5000,pageLoadTimeout=10000)",
+      "Bash(timeout:*)",
+      "WebFetch(domain:docs.anthropic.com)"
     ],
     "deny": []
   }

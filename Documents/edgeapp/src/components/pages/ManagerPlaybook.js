@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BookOpen, Plus, Search, Edit3, Save, X, User, Clock, MessageSquare, Target, Star } from 'lucide-react';
+import { BookOpen, Plus, Search, Edit3, Save, X, User, Clock, MessageSquare, Target, Star, Trash2 } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { Button, LoadingSpinner, ErrorMessage } from '../ui';
 import { formatDate } from '../../utils';
@@ -130,6 +130,26 @@ const ManagerPlaybook = () => {
     setShowAddNote(false);
     setEditingNote(null);
     setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
+  };
+
+  const handleDeleteNote = async (noteId, noteTitle) => {
+    if (!window.confirm(`Are you sure you want to delete the note "${noteTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await ManagerPlaybookService.deleteManagerNote(noteId);
+      
+      // Refresh notes after successful deletion
+      if (selectedEmployee) {
+        await fetchEmployeeNotes(selectedEmployee.employee_id);
+      }
+      
+      alert('Note deleted successfully!');
+    } catch (err) {
+      console.error('Delete note error:', err);
+      alert('Error deleting note: ' + err.message);
+    }
   };
 
   const filteredEmployees = employees.filter(emp => 
@@ -381,6 +401,7 @@ const ManagerPlaybook = () => {
                           categories={categories}
                           priorities={priorities}
                           onEdit={handleEditNote}
+                          onDelete={handleDeleteNote}
                         />
                       ))}
                     </div>
@@ -406,7 +427,7 @@ const ManagerPlaybook = () => {
 };
 
 // Note Card Component
-const NoteCard = ({ note, categories, priorities, onEdit }) => {
+const NoteCard = ({ note, categories, priorities, onEdit, onDelete }) => {
   const category = categories.find(c => c.value === note.category);
   const priority = priorities.find(p => p.value === note.priority);
 
@@ -425,12 +446,22 @@ const NoteCard = ({ note, categories, priorities, onEdit }) => {
           </div>
           <p className="text-gray-300 text-sm leading-relaxed">{note.content}</p>
         </div>
-        <button
-          onClick={() => onEdit(note)}
-          className="text-gray-400 hover:text-cyan-400 transition-colors ml-4"
-        >
-          <Edit3 size={16} />
-        </button>
+        <div className="flex items-center space-x-2 ml-4">
+          <button
+            onClick={() => onEdit(note)}
+            className="text-gray-400 hover:text-cyan-400 transition-colors"
+            title="Edit note"
+          >
+            <Edit3 size={16} />
+          </button>
+          <button
+            onClick={() => onDelete(note.id, note.title)}
+            className="text-gray-400 hover:text-red-400 transition-colors"
+            title="Delete note"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
       
       <div className="flex items-center justify-between text-xs text-gray-500">

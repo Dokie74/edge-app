@@ -1,7 +1,7 @@
 // src/components/shared/SidebarRouter.tsx - React Router enabled sidebar
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../contexts';
 import EnhancedNotificationCenter from '../ui/EnhancedNotificationCenter';
 
@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 const SidebarRouter: React.FC = () => {
-  const { userRole, userName, signOut } = useApp();
+  const { userRole, userName, signOut, openModal } = useApp();
   const location = useLocation();
 
   // Define navigation items with their routes and role requirements
@@ -77,7 +77,25 @@ const SidebarRouter: React.FC = () => {
         </ul>
       </nav>
       
+      {/* UAT Feedback Button - Prominent with Red Border */}
       <div className="p-4 border-t border-gray-700 flex-shrink-0">
+        <div className="mb-4">
+          <button
+            onClick={() => openModal('uatFeedback')}
+            className="w-full flex items-center p-4 rounded-lg text-white bg-red-600 hover:bg-red-700 transition-all duration-200 border-2 border-red-400 shadow-lg animate-pulse"
+            title="Report bugs, issues, or provide feedback during testing"
+          >
+            <AlertTriangle className="mr-3" size={22} />
+            <div className="text-left">
+              <div className="font-bold text-sm">Report Issue</div>
+              <div className="text-xs text-red-200">UAT Feedback</div>
+            </div>
+          </button>
+          <div className="text-xs text-red-400 text-center mt-2 font-medium">
+            🚨 Testing Phase - Please Report Any Issues!
+          </div>
+        </div>
+        
         <button
           onClick={signOut}
           className="w-full flex items-center p-3 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-all duration-200"

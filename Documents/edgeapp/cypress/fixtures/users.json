@@ -8,7 +8,7 @@
     "password": "Manager1"  
   },
   "admin": {
-    "email": "admin@lucerne.com",
-    "password": "Admin"
+    "email": "cypress-admin@lucerne.com",
+    "password": "CypressAdmin123!"
   }
 }

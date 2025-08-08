@@ -4,6 +4,7 @@ describe('Admin Review Cycle Management', () => {
     cy.clearCookies();
     cy.clearLocalStorage();
     cy.login('admin');
+    cy.visit('/dashboard');
     cy.url({ timeout: 10000 }).should('include', '/dashboard');
     
     // Navigate to admin page for cycle management

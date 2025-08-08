@@ -61,12 +61,32 @@ export default function PulseQuestionsManager() {
     options: [] as string[]
   });
 
+  // Edit question form state
+  const [editForm, setEditForm] = useState({
+    question_text: '',
+    category: 'satisfaction' as 'satisfaction' | 'workload' | 'support' | 'engagement',
+    type: 'scale' as 'scale' | 'boolean' | 'choice',
+    options: [] as string[]
+  });
+
   useEffect(() => {
     loadQuestions();
     if (viewMode === 'statistics') {
       loadQuestionStats();
     }
   }, [viewMode]);
+
+  // Populate edit form when editing question changes
+  useEffect(() => {
+    if (editingQuestion) {
+      setEditForm({
+        question_text: editingQuestion.question_text,
+        category: editingQuestion.category,
+        type: editingQuestion.type,
+        options: editingQuestion.options || []
+      });
+    }
+  }, [editingQuestion]);
 
   const loadQuestions = async () => {
     try {
@@ -91,23 +111,33 @@ export default function PulseQuestionsManager() {
       const { data, error } = await supabase
         .rpc('get_question_statistics', { days_back: 30 });
 
-      if (error) throw error;
+      if (error) {
+        console.warn('Statistics function not available:', error.message);
+        setQuestionStats([]);
+        return;
+      }
       setQuestionStats(data || []);
     } catch (error) {
       console.error('Error loading question statistics:', error);
+      setQuestionStats([]);
     }
   };
 
   const handleAddQuestion = async () => {
-    if (!newQuestion.question_text.trim() || !newQuestion.question_id.trim()) {
-      alert('Please fill in all required fields');
+    if (!newQuestion.question_text.trim()) {
+      alert('Please fill in the question text');
       return;
     }
 
     try {
+      // Auto-generate unique question ID
+      const timestamp = Date.now();
+      const categoryPrefix = newQuestion.category.substring(0, 3);
+      const autoQuestionId = `${categoryPrefix}_${timestamp}`;
+
       const { error } = await supabase
         .rpc('add_pulse_question', {
-          question_id_param: newQuestion.question_id,
+          question_id_param: autoQuestionId,
           question_text_param: newQuestion.question_text,
           category_param: newQuestion.category,
           type_param: newQuestion.type,
@@ -129,6 +159,35 @@ export default function PulseQuestionsManager() {
     } catch (error: any) {
       console.error('Error adding question:', error);
       alert(error.message || 'Failed to add question');
+    }
+  };
+
+  const handleEditQuestion = async () => {
+    if (!editForm.question_text.trim() || !editingQuestion) {
+      alert('Please fill in the question text');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('pulse_questions')
+        .update({
+          question_text: editForm.question_text,
+          category: editForm.category,
+          type: editForm.type,
+          options: editForm.options.length > 0 ? editForm.options : null
+        })
+        .eq('question_id', editingQuestion.question_id);
+
+      if (error) throw error;
+
+      // Reset and reload
+      setEditingQuestion(null);
+      loadQuestions();
+      alert('Question updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating question:', error);
+      alert(error.message || 'Failed to update question');
     }
   };
 
@@ -162,15 +221,15 @@ export default function PulseQuestionsManager() {
   };
 
   const getResponseDistributionBar = (stats: QuestionStats) => {
-    const total = stats.total_responses;
+    const total = stats.total_responses || 0;
     if (total === 0) return null;
 
     const responses = [
-      { count: stats.response_1_count, color: 'bg-red-500', label: '1' },
-      { count: stats.response_2_count, color: 'bg-orange-500', label: '2' },
-      { count: stats.response_3_count, color: 'bg-yellow-500', label: '3' },
-      { count: stats.response_4_count, color: 'bg-blue-500', label: '4' },
-      { count: stats.response_5_count, color: 'bg-green-500', label: '5' }
+      { count: stats.response_1_count || 0, color: 'bg-red-500', label: '1' },
+      { count: stats.response_2_count || 0, color: 'bg-orange-500', label: '2' },
+      { count: stats.response_3_count || 0, color: 'bg-yellow-500', label: '3' },
+      { count: stats.response_4_count || 0, color: 'bg-blue-500', label: '4' },
+      { count: stats.response_5_count || 0, color: 'bg-green-500', label: '5' }
     ];
 
     return (
@@ -354,7 +413,7 @@ export default function PulseQuestionsManager() {
                             <div>
                               <p className="text-sm text-gray-400 mb-1">Response Stats</p>
                               <p className="text-lg font-semibold text-white">
-                                {stats.avg_response.toFixed(1)}/5.0
+                                {(stats.avg_response || 0).toFixed(1)}/5.0
                               </p>
                               <p className="text-xs text-gray-400">
                                 {stats.total_responses} responses
@@ -363,7 +422,7 @@ export default function PulseQuestionsManager() {
                             <div>
                               <p className="text-sm text-gray-400 mb-1">Satisfaction Rate</p>
                               <p className="text-lg font-semibold text-green-400">
-                                {stats.satisfaction_percentage}%
+                                {stats.satisfaction_percentage || 0}%
                               </p>
                               <p className="text-xs text-gray-400">4+ rating</p>
                             </div>
@@ -398,19 +457,6 @@ export default function PulseQuestionsManager() {
                 </div>
 
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-1">
-                      Question ID
-                    </label>
-                    <input
-                      type="text"
-                      value={newQuestion.question_id}
-                      onChange={(e) => setNewQuestion(prev => ({ ...prev, question_id: e.target.value }))}
-                      className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
-                      placeholder="unique_question_id"
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-1">
                       Question Text
@@ -476,6 +522,87 @@ export default function PulseQuestionsManager() {
               </div>
             </div>
           )}
+
+          {/* Edit Question Form */}
+          {editingQuestion && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-gray-800 rounded-lg p-6 max-w-lg w-full">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-white">Edit Question</h3>
+                  <button
+                    onClick={() => setEditingQuestion(null)}
+                    className="text-gray-400 hover:text-white"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">
+                      Question Text
+                    </label>
+                    <textarea
+                      value={editForm.question_text}
+                      onChange={(e) => setEditForm(prev => ({ ...prev, question_text: e.target.value }))}
+                      className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                      rows={3}
+                      placeholder="How would you rate..."
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Category
+                      </label>
+                      <select
+                        value={editForm.category}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, category: e.target.value as any }))}
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                      >
+                        <option value="satisfaction">Satisfaction</option>
+                        <option value="workload">Workload</option>
+                        <option value="support">Support</option>
+                        <option value="engagement">Engagement</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-1">
+                        Type
+                      </label>
+                      <select
+                        value={editForm.type}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, type: e.target.value as any }))}
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                      >
+                        <option value="scale">Scale (1-5)</option>
+                        <option value="boolean">Yes/No</option>
+                        <option value="choice">Multiple Choice</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end space-x-3">
+                    <button
+                      onClick={() => setEditingQuestion(null)}
+                      className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleEditQuestion}
+                      className="flex items-center space-x-2 bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded transition-colors"
+                    >
+                      <Save size={16} />
+                      <span>Update Question</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       ) : (
         /* Statistics View */
@@ -483,7 +610,16 @@ export default function PulseQuestionsManager() {
           {questionStats.length === 0 ? (
             <div className="text-center py-8">
               <BarChart3 className="mx-auto mb-4 text-gray-500" size={48} />
-              <p className="text-gray-400">No response data available yet</p>
+              <p className="text-gray-400 mb-2">No statistics available</p>
+              <p className="text-gray-500 text-sm">
+                Statistics will show once the database statistics function is configured and there are employee responses.
+              </p>
+              <div className="mt-4 bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 text-left max-w-lg mx-auto">
+                <h4 className="text-blue-400 font-medium mb-2">Setup Required:</h4>
+                <p className="text-blue-300 text-sm">
+                  The <code className="bg-gray-700 px-1 rounded">get_question_statistics</code> database function needs to be created to display pulse question analytics.
+                </p>
+              </div>
             </div>
           ) : (
             questionStats.map(stats => (
@@ -502,7 +638,7 @@ export default function PulseQuestionsManager() {
                   </div>
                   <div className="text-right">
                     <p className="text-2xl font-bold text-cyan-400">
-                      {stats.avg_response.toFixed(1)}/5.0
+                      {(stats.avg_response || 0).toFixed(1)}/5.0
                     </p>
                     <p className="text-sm text-gray-400">
                       {stats.total_responses} responses
@@ -536,13 +672,13 @@ export default function PulseQuestionsManager() {
                       <div className="flex justify-between">
                         <span className="text-gray-400">Satisfaction Rate</span>
                         <span className="text-green-400 font-medium">
-                          {stats.satisfaction_percentage}%
+                          {stats.satisfaction_percentage || 0}%
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-400">Total Responses</span>
                         <span className="text-white font-medium">
-                          {stats.total_responses}
+                          {stats.total_responses || 0}
                         </span>
                       </div>
                       <div className="flex justify-between">

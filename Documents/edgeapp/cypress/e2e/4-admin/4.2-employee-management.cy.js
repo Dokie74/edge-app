@@ -4,6 +4,7 @@ describe('Admin Employee Management', () => {
     cy.clearCookies();
     cy.clearLocalStorage();
     cy.login('admin');
+    cy.visit('/dashboard');
     cy.url({ timeout: 10000 }).should('include', '/dashboard');
     
     // Navigate to admin/employee management page

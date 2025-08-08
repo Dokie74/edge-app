@@ -29,6 +29,7 @@ import CreateEmployeeModal from './components/modals/CreateEmployeeModal';
 import EditEmployeeModal from './components/modals/EditEmployeeModal';
 import GiveKudoModal from './components/modals/GiveKudoModal';
 import GiveFeedbackModal from './components/modals/GiveFeedbackModal';
+import UATFeedbackModal from './components/modals/UATFeedbackModal';
 
 
 // Main App Component
@@ -259,6 +260,7 @@ const MainApp = () => {
           }} 
         />
       )}
+
 
       {/* DEBUG INFO (only in development) */}
       {process.env.NODE_ENV === 'development' && (

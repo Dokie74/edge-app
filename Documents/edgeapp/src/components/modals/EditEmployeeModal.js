@@ -285,9 +285,9 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md">
+      <div className="bg-gray-800 rounded-lg shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-700 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <User className="text-cyan-400" size={24} />
             <div>
@@ -303,8 +303,8 @@ const EditEmployeeModal = ({ supabase, closeModal, modalProps }) => {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
+        {/* Scrollable Content */}
+        <div className="p-6 space-y-4 overflow-y-auto flex-1">
           {error && (
             <div className="bg-red-900 border border-red-700 rounded-lg p-3">
               <p className="text-red-200 text-sm">{error}</p>

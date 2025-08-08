@@ -275,6 +275,42 @@ export class NotificationService {
 
 
 
+  // Create a notification
+  static async createNotification(notificationData) {
+    try {
+      const { recipient_id, title, message, type = 'info', metadata = {} } = notificationData;
+      
+      if (!recipient_id || !title || !message) {
+        throw new Error('recipient_id, title, and message are required');
+      }
+
+      const { data, error } = await supabase.rpc('create_notification', {
+        p_recipient_id: recipient_id,
+        p_title: title.trim(),
+        p_message: message.trim(),
+        p_type: type,
+        p_metadata: JSON.stringify(metadata)
+      });
+      
+      if (error) throw error;
+      
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+      
+      logger.logUserAction('notification_created', null, { 
+        recipient_id,
+        type,
+        title: title.substring(0, 50)
+      });
+      
+      return data;
+    } catch (error) {
+      logger.logError(error, { action: 'create_notification', data: notificationData });
+      throw new Error(`Failed to create notification: ${error.message}`);
+    }
+  }
+
   // Helper function to format notification time
   static formatNotificationTime(timestamp) {
     const now = new Date();

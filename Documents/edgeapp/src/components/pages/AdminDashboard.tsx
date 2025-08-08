@@ -30,7 +30,10 @@ import {
   ClipboardCheck,
   Check,
   AlertCircle,
-  Edit
+  Edit,
+  ExternalLink,
+  MonitorSpeaker,
+  UserCheck
 } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { LoadingSpinner, ErrorMessage, Button } from '../ui';
@@ -61,11 +64,14 @@ export default function AdminDashboard() {
   const [feedbackLoading, setFeedbackLoading] = useState(true);
   const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
   const [approvalsLoading, setApprovalsLoading] = useState(true);
+  const [uatFeedback, setUatFeedback] = useState<any[]>([]);
+  const [uatLoading, setUatLoading] = useState(true);
 
   useEffect(() => {
     fetchAdminDashboard();
     fetchRecentFeedback();
     fetchPendingApprovals();
+    fetchUATFeedback();
     // Set up metrics updates - less frequent since data is now consistent
     const interval = setInterval(fetchRealtimeMetrics, 120000); // Every 2 minutes instead of 30 seconds
     return () => clearInterval(interval);
@@ -194,6 +200,35 @@ export default function AdminDashboard() {
     } catch (err: any) {
       console.error('Error requesting revision:', err);
       alert('Error requesting revision: ' + err.message);
+    }
+  };
+
+  const fetchUATFeedback = async () => {
+    try {
+      setUatLoading(true);
+      console.log('🔍 AdminDashboard: Fetching UAT feedback...');
+      const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
+      const data = await UATFeedbackService.getUATFeedback(5, 'open' as any); // Get 5 most recent open UAT feedback items
+      console.log('📋 AdminDashboard: UAT feedback:', data);
+      setUatFeedback(data || []);
+    } catch (err: any) {
+      console.error('❌ AdminDashboard: Error fetching UAT feedback:', err);
+    } finally {
+      setUatLoading(false);
+    }
+  };
+
+  const handleUATFeedbackAction = async (feedbackId: number, action: string, notes?: string) => {
+    try {
+      const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
+      await UATFeedbackService.updateFeedbackStatus(feedbackId, action, notes as any);
+      
+      // Refresh UAT feedback list
+      await fetchUATFeedback();
+      alert(`✅ UAT feedback marked as ${action}!`);
+    } catch (err: any) {
+      console.error('Error updating UAT feedback:', err);
+      alert('Error updating feedback: ' + err.message);
     }
   };
 
@@ -446,9 +481,20 @@ export default function AdminDashboard() {
               <AlertTriangle className="mr-2" size={20} />
               System Alerts
             </h2>
-            <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-              {dashboardData.systemAlerts.filter(a => a.severity === 'high' || a.severity === 'critical').length}
-            </span>
+            <div className="flex items-center space-x-2">
+              {dashboardData.systemAlerts.filter(a => a.severity === 'high' || a.severity === 'critical').length > 0 && (
+                <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
+                  {dashboardData.systemAlerts.filter(a => a.severity === 'high' || a.severity === 'critical').length}
+                </span>
+              )}
+              <button
+                onClick={fetchRealtimeMetrics}
+                className="text-gray-400 hover:text-white transition-colors text-xs"
+                title="Refresh system health"
+              >
+                <RefreshCw size={14} />
+              </button>
+            </div>
           </div>
           
           <div className="space-y-3 max-h-64 overflow-y-auto">
@@ -461,31 +507,15 @@ export default function AdminDashboard() {
               dashboardData.systemAlerts.map((alert) => {
                 const Icon = getAlertIcon(alert.type);
                 return (
-                  <div 
-                    key={alert.id} 
-                    className={`p-3 rounded-lg border-l-4 ${getAlertSeverityColor(alert.severity)}`}
-                  >
-                    <div className="flex items-start space-x-2">
-                      <Icon size={16} className="mt-0.5" />
-                      <div className="flex-1">
-                        <h3 className="font-medium text-sm">{alert.title}</h3>
-                        <p className="text-xs mt-1 opacity-90">{alert.message}</p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs opacity-70">
-                            {formatDate(alert.timestamp)}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            alert.severity === 'critical' ? 'bg-red-600/20 text-red-300' :
-                            alert.severity === 'high' ? 'bg-red-500/20 text-red-400' :
-                            alert.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                            'bg-blue-500/20 text-blue-400'
-                          }`}>
-                            {alert.severity.toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                  <SystemAlertCard
+                    key={alert.id}
+                    alert={alert}
+                    Icon={Icon}
+                    getAlertSeverityColor={getAlertSeverityColor}
+                    formatDate={formatDate}
+                    onNavigate={navigate}
+                    systemHealth={systemHealth}
+                  />
                 );
               })
             )}
@@ -653,6 +683,40 @@ export default function AdminDashboard() {
           className="lg:col-span-2"
         />
       </div>
+
+      {/* UAT Feedback Alerts Section */}
+      {uatFeedback.length > 0 && (
+        <div className="bg-gray-800 rounded-lg p-6 border-2 border-red-500/50 shadow-lg">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white flex items-center">
+              <AlertTriangle className="mr-2 text-red-400" size={20} />
+              🚨 UAT User Reports ({uatFeedback.length})
+            </h2>
+            <div className="flex space-x-2">
+              <button
+                onClick={fetchUATFeedback}
+                className="text-red-400 hover:text-red-300 transition-colors text-sm"
+                title="Refresh UAT feedback"
+              >
+                🔄
+              </button>
+              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                URGENT
+              </span>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {uatFeedback.map(feedback => (
+              <UATFeedbackCard
+                key={feedback.id}
+                feedback={feedback}
+                onAction={handleUATFeedbackAction}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recent Feedback Section */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
@@ -1037,6 +1101,389 @@ const PendingApprovalCard = ({
                 Cancel
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Enhanced System Alert Card Component with actionable information
+const SystemAlertCard = ({ 
+  alert, 
+  Icon, 
+  getAlertSeverityColor, 
+  formatDate, 
+  onNavigate, 
+  systemHealth 
+}: { 
+  alert: any, 
+  Icon: any, 
+  getAlertSeverityColor: (severity: string) => string, 
+  formatDate: (date: string) => string, 
+  onNavigate: (path: string) => void,
+  systemHealth: SystemHealth | null 
+}) => {
+  const [showDetails, setShowDetails] = useState(false);
+
+  // Generate actionable information based on alert type and source
+  const getActionableInfo = () => {
+    const actions = [];
+    const details = [];
+
+    switch (alert.source) {
+      case 'database':
+        if (alert.title.includes('Performance')) {
+          details.push(`Current response time: ${systemHealth?.metrics.databaseResponseTime || 'Unknown'}ms`);
+          details.push(`Active connections: ${systemHealth?.metrics.activeConnections || 0}`);
+          actions.push({ 
+            label: 'View Database Monitoring', 
+            action: () => onNavigate('/admin'), 
+            icon: Database 
+          });
+          actions.push({ 
+            label: 'Check System Health', 
+            action: () => window.open('https://console.supabase.com', '_blank'), 
+            icon: ExternalLink 
+          });
+        }
+        break;
+
+      case 'authentication':
+        if (alert.title.includes('Authentication')) {
+          details.push(`Current error rate: ${((systemHealth?.metrics.errorRate || 0) * 100).toFixed(2)}%`);
+          details.push(`Recent users active: ${systemHealth?.metrics.activeConnections || 0}`);
+          details.push('Check browser console for authentication error details');
+          actions.push({ 
+            label: 'View Employee Management', 
+            action: () => onNavigate('/admin'), 
+            icon: UserCheck 
+          });
+          actions.push({ 
+            label: 'Open Browser Console', 
+            action: () => {
+              window.alert('Press F12 or right-click -> Inspect -> Console tab to view authentication logs');
+              // For developers: console logs are where auth events are recorded
+              console.log('🔍 Authentication Alert Details:', {
+                errorRate: systemHealth?.metrics.errorRate,
+                activeConnections: systemHealth?.metrics.activeConnections,
+                timestamp: new Date().toISOString(),
+                suggestion: 'Check console logs for detailed authentication events'
+              });
+            }, 
+            icon: FileText 
+          });
+        }
+        break;
+
+      case 'performance':
+        if (alert.title.includes('High System Usage')) {
+          details.push(`Active users: ${systemHealth?.metrics.activeConnections || 0}`);
+          details.push(`System uptime: ${Math.floor((systemHealth?.metrics.uptime || 0) / 3600000)}h`);
+          actions.push({ 
+            label: 'View System Monitoring', 
+            action: () => onNavigate('/admin'), 
+            icon: MonitorSpeaker 
+          });
+          actions.push({ 
+            label: 'Check Performance Metrics', 
+            action: () => setShowDetails(!showDetails), 
+            icon: Activity 
+          });
+        }
+        break;
+
+      case 'application':
+        if (alert.title.includes('Assessment')) {
+          details.push('Check recent assessment submissions');
+          details.push('Review incomplete assessments');
+          actions.push({ 
+            label: 'View Assessments', 
+            action: () => onNavigate('/admin'), 
+            icon: ClipboardCheck 
+          });
+          actions.push({ 
+            label: 'Review Manager Dashboard', 
+            action: () => onNavigate('/manager-dashboard'), 
+            icon: Users 
+          });
+        } else if (alert.title.includes('Monitoring')) {
+          details.push('System health monitoring is experiencing issues');
+          details.push('Manual verification may be required');
+          actions.push({ 
+            label: 'Manual Health Check', 
+            action: () => window.location.reload(), 
+            icon: RefreshCw 
+          });
+        } else if (alert.title.includes('System Operating')) {
+          details.push('All system components functioning normally');
+          details.push('No immediate action required');
+          actions.push({ 
+            label: 'View Full Report', 
+            action: () => setShowDetails(!showDetails), 
+            icon: Eye 
+          });
+        }
+        break;
+
+      default:
+        details.push('System alert requires attention');
+        actions.push({ 
+          label: 'View Admin Panel', 
+          action: () => onNavigate('/admin'), 
+          icon: Settings 
+        });
+    }
+
+    return { actions, details };
+  };
+
+  const { actions, details } = getActionableInfo();
+
+  return (
+    <div className={`p-4 rounded-lg border-l-4 ${getAlertSeverityColor(alert.severity)} hover:bg-gray-700/30 transition-colors`}>
+      <div className="flex items-start space-x-3">
+        <Icon size={18} className="mt-0.5 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-medium text-sm text-white">{alert.title}</h3>
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-gray-400 hover:text-white transition-colors"
+              title={showDetails ? 'Hide details' : 'Show details'}
+            >
+              <Eye size={14} />
+            </button>
+          </div>
+          
+          <p className="text-xs mt-1 text-gray-300 leading-relaxed">{alert.message}</p>
+          
+          {/* Quick Actions */}
+          {actions.length > 0 && (
+            <div className="flex items-center space-x-2 mt-3">
+              {actions.slice(0, 2).map((actionItem, index) => {
+                const ActionIcon = actionItem.icon;
+                return (
+                  <button
+                    key={index}
+                    onClick={actionItem.action}
+                    className="flex items-center space-x-1 px-2 py-1 bg-gray-600 hover:bg-gray-500 rounded text-xs text-gray-200 hover:text-white transition-colors"
+                    title={actionItem.label}
+                  >
+                    <ActionIcon size={12} />
+                    <span>{actionItem.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Detailed Information */}
+          {showDetails && details.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-600">
+              <h4 className="text-xs font-medium text-gray-300 mb-2">Details:</h4>
+              <ul className="space-y-1">
+                {details.map((detail, index) => (
+                  <li key={index} className="text-xs text-gray-400 flex items-center space-x-2">
+                    <div className="w-1 h-1 bg-gray-500 rounded-full flex-shrink-0" />
+                    <span>{detail}</span>
+                  </li>
+                ))}
+              </ul>
+              
+              {/* Additional Actions */}
+              {actions.length > 2 && (
+                <div className="flex items-center space-x-2 mt-3">
+                  {actions.slice(2).map((actionItem, index) => {
+                    const ActionIcon = actionItem.icon;
+                    return (
+                      <button
+                        key={index + 2}
+                        onClick={actionItem.action}
+                        className="flex items-center space-x-1 px-2 py-1 bg-blue-600/20 hover:bg-blue-600/40 rounded text-xs text-blue-300 hover:text-blue-200 transition-colors"
+                        title={actionItem.label}
+                      >
+                        <ActionIcon size={12} />
+                        <span>{actionItem.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer with timestamp and severity */}
+          <div className="flex items-center justify-between mt-3">
+            <span className="text-xs text-gray-500">
+              {formatDate(alert.timestamp)}
+            </span>
+            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+              alert.severity === 'critical' ? 'bg-red-600/20 text-red-300' :
+              alert.severity === 'high' ? 'bg-red-500/20 text-red-400' :
+              alert.severity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-blue-500/20 text-blue-400'
+            }`}>
+              {alert.severity.toUpperCase()}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+// UAT Feedback Card Component
+const UATFeedbackCard = ({ 
+  feedback, 
+  onAction 
+}: { 
+  feedback: any, 
+  onAction: (feedbackId: number, action: string, notes?: string) => void 
+}) => {
+  const [showActions, setShowActions] = useState(false);
+  const [showScreenshot, setShowScreenshot] = useState(false);
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "critical": return "bg-red-600/20 text-red-300 border-red-500";
+      case "high": return "bg-red-500/20 text-red-400 border-red-400";
+      case "medium": return "bg-yellow-500/20 text-yellow-400 border-yellow-500";
+      case "low": return "bg-gray-500/20 text-gray-400 border-gray-500";
+      default: return "bg-blue-500/20 text-blue-400 border-blue-500";
+    }
+  };
+
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case "bug": return "🐛";
+      case "ui_ux": return "🎨";
+      case "feature_request": return "💡";
+      case "question": return "❓";
+      case "other": return "📝";
+      default: return "📋";
+    }
+  };
+
+  const formatTimestamp = (timestamp: string) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  return (
+    <div className="bg-red-900/10 border border-red-500/30 rounded-lg p-4 hover:bg-red-900/20 transition-colors">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <div className="flex items-center space-x-3 mb-2">
+            <span className="text-lg">{getCategoryIcon(feedback.category)}</span>
+            <h3 className="text-white font-medium text-sm">{feedback.title}</h3>
+            <span className={`px-2 py-1 rounded text-xs font-medium border ${getPriorityColor(feedback.priority)}`}>
+              {feedback.priority?.toUpperCase() || "MEDIUM"}
+            </span>
+          </div>
+          
+          <p className="text-gray-300 text-sm mb-2 line-clamp-2">{feedback.description}</p>
+          
+          {feedback.current_url && (
+            <p className="text-blue-400 text-xs mb-2">
+              📍 {feedback.current_url}
+            </p>
+          )}
+          
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>👤 {feedback.user_email || "Anonymous"}</span>
+            <span>⏰ {formatTimestamp(feedback.submitted_at || feedback.created_at)}</span>
+          </div>
+        </div>
+        
+        <div className="flex items-center space-x-2 ml-4">
+          {feedback.screenshot_data && (
+            <button
+              onClick={() => setShowScreenshot(!showScreenshot)}
+              className="text-cyan-400 hover:text-cyan-300 text-xs"
+              title="View screenshot"
+            >
+              📷
+            </button>
+          )}
+          <button
+            onClick={() => setShowActions(!showActions)}
+            className="text-red-400 hover:text-red-300 text-sm"
+            title="Actions"
+          >
+            ⚙️
+          </button>
+        </div>
+      </div>
+
+      {/* Screenshot Modal */}
+      {showScreenshot && feedback.screenshot_data && (
+        <div className="mt-3 p-3 bg-gray-700 rounded border">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-gray-300">Screenshot:</span>
+            <button
+              onClick={() => setShowScreenshot(false)}
+              className="text-gray-400 hover:text-white text-xs"
+            >
+              ✕
+            </button>
+          </div>
+          <img
+            src={feedback.screenshot_data}
+            alt="User submitted screenshot"
+            className="max-w-full max-h-64 rounded border border-gray-600"
+          />
+        </div>
+      )}
+
+      {/* Reproduction Steps */}
+      {feedback.reproduction_steps && (
+        <div className="mt-3 p-3 bg-gray-700/50 rounded">
+          <h4 className="text-xs font-medium text-gray-300 mb-2">Steps to Reproduce:</h4>
+          <pre className="text-xs text-gray-400 whitespace-pre-wrap">{feedback.reproduction_steps}</pre>
+        </div>
+      )}
+
+      {/* System Info */}
+      {feedback.browser_info && (
+        <div className="mt-3 p-2 bg-gray-700/30 rounded">
+          <h4 className="text-xs font-medium text-gray-300 mb-1">System Info:</h4>
+          <p className="text-xs text-gray-500 font-mono">{feedback.browser_info}</p>
+        </div>
+      )}
+
+      {/* Actions */}
+      {showActions && (
+        <div className="mt-4 pt-3 border-t border-red-500/30">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => {
+                onAction(feedback.id, "in_progress");
+                setShowActions(false);
+              }}
+              className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-xs rounded"
+            >
+              📝 Working On It
+            </button>
+            <button
+              onClick={() => {
+                const notes = window.prompt("Resolution notes (optional):");
+                onAction(feedback.id, "resolved", notes || undefined);
+                setShowActions(false);
+              }}
+              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
+            >
+              ✅ Mark Resolved
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm("Are you sure you want to dismiss this feedback?")) {
+                  onAction(feedback.id, "dismissed");
+                  setShowActions(false);
+                }
+              }}
+              className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded"
+            >
+              ❌ Dismiss
+            </button>
           </div>
         </div>
       )}

@@ -4,6 +4,7 @@ describe('Manager Review Assessment Workflow', () => {
     cy.clearCookies();
     cy.clearLocalStorage();
     cy.login('manager');
+    cy.visit('/dashboard');
     cy.url({ timeout: 10000 }).should('include', '/dashboard');
   });
 

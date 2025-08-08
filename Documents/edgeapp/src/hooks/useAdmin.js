@@ -42,16 +42,6 @@ export const useAdmin = () => {
     }
   };
 
-  const activateReviewCycle = async (cycleId) => {
-    try {
-      const result = await AdminService.activateReviewCycle(cycleId);
-      await fetchData(); // Refresh data
-      return result;
-    } catch (err) {
-      console.error('Error activating review cycle:', err);
-      throw err;
-    }
-  };
 
   const refresh = () => {
     fetchData();
@@ -63,7 +53,6 @@ export const useAdmin = () => {
     loading,
     error,
     createReviewCycle,
-    activateReviewCycle,
     refresh
   };
 };

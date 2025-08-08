@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Star, User, Filter, Plus, Clock, ThumbsUp, Send, Inbox } from 'lucide-react';
+import { MessageSquare, Star, User, Filter, Plus, Clock, ThumbsUp, Send, Inbox, Trash2, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../contexts';
 import { Button, LoadingSpinner, ErrorMessage } from '../ui';
 import { formatDate } from '../../utils';
@@ -28,7 +28,7 @@ const feedbackTypeConfig = {
 };
 
 const FeedbackWall = () => {
-  const { openModal } = useApp();
+  const { openModal, userRole } = useApp();
   const [feedback, setFeedback] = useState([]);
   const [feedbackGiven, setFeedbackGiven] = useState([]);
   const [feedbackReceived, setFeedbackReceived] = useState([]);
@@ -37,6 +37,7 @@ const FeedbackWall = () => {
   const [filter, setFilter] = useState('all');
   const [view, setView] = useState('wall'); // 'wall', 'given', 'received'
   const [refreshing, setRefreshing] = useState(false);
+  const [deleting, setDeleting] = useState(null); // Track which feedback is being deleted
 
   useEffect(() => {
     fetchFeedback();
@@ -65,6 +66,30 @@ const FeedbackWall = () => {
     setRefreshing(true);
     await fetchFeedback();
     setRefreshing(false);
+  };
+
+  const handleDeleteFeedback = async (feedbackId) => {
+    if (!window.confirm('Are you sure you want to delete this feedback? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setDeleting(feedbackId);
+      await FeedbackService.deleteFeedback(feedbackId);
+      
+      // Remove the deleted feedback from all local state arrays
+      setFeedback(prev => prev.filter(item => item.feedback_id !== feedbackId));
+      setFeedbackGiven(prev => prev.filter(item => item.feedback_id !== feedbackId));
+      setFeedbackReceived(prev => prev.filter(item => item.feedback_id !== feedbackId));
+      
+      // Show success message
+      alert('Feedback deleted successfully');
+    } catch (error) {
+      console.error('Error deleting feedback:', error);
+      alert('Failed to delete feedback: ' + error.message);
+    } finally {
+      setDeleting(null);
+    }
   };
 
   const getCurrentData = () => {
@@ -103,13 +128,26 @@ const FeedbackWall = () => {
       <header className="mb-8">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-4xl font-bold text-white">
-              {view === 'wall' ? 'Feedback Wall' : 
-               view === 'given' ? 'Feedback Given' : 'Feedback Received'}
-            </h1>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-4xl font-bold text-white">
+                {view === 'wall' ? 'Feedback Wall' : 
+                 view === 'given' ? 'Feedback Given' : 'Feedback Received'}
+              </h1>
+              {userRole === 'admin' && (
+                <div className="flex items-center space-x-1 px-2 py-1 bg-red-900 bg-opacity-50 rounded-lg border border-red-700">
+                  <AlertTriangle size={14} className="text-red-400" />
+                  <span className="text-red-300 text-xs font-medium">Admin Mode</span>
+                </div>
+              )}
+            </div>
             <p className="text-gray-400 mt-2">
               {view === 'wall' ? 'Real-time peer feedback fostering continuous dialogue and growth' :
                view === 'given' ? 'Feedback you\'ve shared with colleagues' : 'Feedback you\'ve received from colleagues'}
+              {userRole === 'admin' && (
+                <span className="block text-red-300 text-sm mt-1">
+                  ⚠️ As an admin, you can delete inappropriate feedback using the trash icon.
+                </span>
+              )}
             </p>
           </div>
           <div className="flex items-center space-x-4">
@@ -222,7 +260,14 @@ const FeedbackWall = () => {
       ) : (
         <div className="space-y-4">
           {currentData.map(item => (
-            <FeedbackCard key={item.feedback_id} feedback={item} view={view} />
+            <FeedbackCard 
+              key={item.feedback_id} 
+              feedback={item} 
+              view={view}
+              userRole={userRole}
+              onDelete={handleDeleteFeedback}
+              deleting={deleting === item.feedback_id}
+            />
           ))}
         </div>
       )}
@@ -311,9 +356,10 @@ const EmptyState = ({ filter, view, onGiveFeedback }) => {
 };
 
 // Feedback Card Component
-const FeedbackCard = ({ feedback, view = 'wall' }) => {
+const FeedbackCard = ({ feedback, view = 'wall', userRole, onDelete, deleting = false }) => {
   const typeConfig = feedbackTypeConfig[feedback.feedback_type] || feedbackTypeConfig.positive;
   const Icon = typeConfig.icon;
+  const isAdmin = userRole === 'admin';
 
   const getDisplayText = () => {
     if (view === 'given') {
@@ -385,6 +431,24 @@ const FeedbackCard = ({ feedback, view = 'wall' }) => {
                 <ThumbsUp size={16} />
               </button>
               <span className="text-gray-500 text-xs">{feedback.helpful_count || 0}</span>
+              
+              {/* Admin Delete Button */}
+              {isAdmin && (
+                <button
+                  onClick={() => onDelete(feedback.feedback_id)}
+                  disabled={deleting}
+                  className={`ml-2 text-gray-400 hover:text-red-400 transition-colors ${
+                    deleting ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                  title="Delete feedback (Admin only)"
+                >
+                  {deleting ? (
+                    <Clock size={16} className="animate-spin" />
+                  ) : (
+                    <Trash2 size={16} />
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

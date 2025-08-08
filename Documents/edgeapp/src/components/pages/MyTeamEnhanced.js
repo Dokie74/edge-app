@@ -355,11 +355,17 @@ export default function MyTeamEnhanced() {
                           <p className="text-white font-medium">{assessment.cycle_name}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-400">Employee Status</p>
-                          <StatusBadge 
-                            status={assessment.self_assessment_status} 
-                            color={getAssessmentStatusColor(assessment.self_assessment_status)}
-                          />
+                          <p className="text-sm text-gray-400">Assessment Progress</p>
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <CheckCircle size={14} className="text-green-400" />
+                              <span className="text-green-400 text-sm">Employee: Complete</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Clock size={14} className="text-yellow-400" />
+                              <span className="text-yellow-400 text-sm">Manager: Pending Review</span>
+                            </div>
+                          </div>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Due Date</p>
@@ -437,11 +443,17 @@ export default function MyTeamEnhanced() {
                           <p className="text-white font-medium">{assessment.cycle_name}</p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-400">Manager Review</p>
-                          <StatusBadge 
-                            status={assessment.manager_review_status} 
-                            color={getManagerReviewStatusColor(assessment.manager_review_status)}
-                          />
+                          <p className="text-sm text-gray-400">Assessment Progress</p>
+                          <div className="flex flex-col space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <CheckCircle size={14} className="text-green-400" />
+                              <span className="text-green-400 text-sm">Employee: Complete</span>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <CheckCircle size={14} className="text-green-400" />
+                              <span className="text-green-400 text-sm">Manager: Complete</span>
+                            </div>
+                          </div>
                         </div>
                         <div>
                           <p className="text-sm text-gray-400">Completed</p>

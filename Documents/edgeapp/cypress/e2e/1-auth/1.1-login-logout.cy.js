@@ -41,7 +41,7 @@ describe('Authentication', () => {
   context('Programmatic Login and Logout', () => {
     it('should be able to log in as an employee via API', () => {
       // This test logs in programmatically, bypassing the flaky UI.
-      cy.loginByApi('employee');
+      cy.login('employee');
       cy.visit('/dashboard');
       
       cy.contains('Welcome,').should('be.visible');
@@ -49,14 +49,14 @@ describe('Authentication', () => {
     });
 
     it('should be able to log in as an admin via API', () => {
-      cy.loginByApi('admin');
+      cy.login('admin');
       cy.visit('/dashboard');
 
       cy.contains('Admin Dashboard').should('be.visible');
     });
 
     it('should be able to log out after an API login', () => {
-      cy.loginByApi('employee');
+      cy.login('employee');
       cy.visit('/dashboard');
 
       // You will need to replace 'Logout' with the actual text or selector for your logout button.

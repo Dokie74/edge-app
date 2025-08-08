@@ -115,7 +115,7 @@ export class AdminService {
         job_title: secureData.jobTitle,
         manager_id: secureData.managerId || null,
         department: secureData.department,
-        temp_password: secureData.tempPassword
+        temp_password: secureData.password
       });
 
       logger.logUserAction('create_employee_success', null, { 
@@ -134,7 +134,7 @@ export class AdminService {
             can_login_immediately: true,
             login_credentials: {
               email: secureData.email,
-              password: secureData.tempPassword
+              password: secureData.password
             }
           }
         }
@@ -260,7 +260,40 @@ export class AdminService {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      return data || [];
+      
+      // Add time-based status computation
+      const cyclesWithComputedStatus = (data || []).map(cycle => {
+        const now = new Date();
+        const startDate = new Date(cycle.start_date);
+        const endDate = new Date(cycle.end_date);
+        
+        let computedStatus = cycle.status; // Default to database status
+        
+        // Override status based on dates if the cycle is not manually closed
+        if (cycle.status !== 'closed') {
+          if (now < startDate) {
+            computedStatus = 'upcoming';
+          } else if (now >= startDate && now <= endDate) {
+            computedStatus = 'active';
+          } else if (now > endDate) {
+            computedStatus = 'closed';
+          }
+        }
+        
+        // Log status changes for debugging
+        if (computedStatus !== cycle.status) {
+          console.log(`📅 Auto-status change for "${cycle.name}": ${cycle.status} → ${computedStatus} (dates: ${startDate.toDateString()} - ${endDate.toDateString()})`);
+        }
+        
+        return {
+          ...cycle,
+          status: computedStatus,
+          _original_status: cycle.status, // Keep original for reference
+          _is_auto_status: computedStatus !== cycle.status // Flag for debugging
+        };
+      });
+      
+      return cyclesWithComputedStatus;
     } catch (error: any) {
       console.error('Error fetching review cycles:', error);
       throw new Error(`Failed to fetch review cycles: ${error?.message || 'Unknown error'}`);
@@ -317,41 +350,6 @@ export class AdminService {
     }
   }
 
-  // Activate review cycle with assessment creation
-  static async activateReviewCycle(cycleId: string) {
-    try {
-      // Log security event
-      logger.logUserAction('activate_review_cycle_attempt', null, { cycle_id: cycleId });
-
-      // Use secure RPC call with CSRF protection
-      const result = await csrfProtection.secureRPC('activate_review_cycle_with_assessments', {
-        p_cycle_id: cycleId
-      });
-      
-      if (result?.error) {
-        logger.logSecurity('review_cycle_activation_failed', 'warn', { 
-          cycle_id: cycleId,
-          error: result.error 
-        });
-        throw new Error(result.error);
-      }
-
-      logger.logUserAction('activate_review_cycle_success', null, { 
-        cycle_id: cycleId,
-        assessments_created: result.assessments_created,
-        cycle_name: result.cycle_name
-      });
-      
-      return {
-        success: true,
-        message: `Review cycle activated successfully! Created ${result.assessments_created} assessments.`,
-        data: result
-      };
-    } catch (error: any) {
-      logger.logError(error, { action: 'activate_review_cycle', cycle_id: cycleId });
-      throw new Error(`Failed to activate review cycle: ${error?.message || 'Unknown error'}`);
-    }
-  }
 
   // Close review cycle
   static async closeReviewCycle(cycleId: string) {
@@ -405,6 +403,40 @@ export class AdminService {
     } catch (error: any) {
       logger.logError(error, { action: 'get_review_cycle_details', cycle_id: cycleId });
       throw new Error(`Failed to get review cycle details: ${error?.message || 'Unknown error'}`);
+    }
+  }
+
+  // Cleanup test users while preserving admin user
+  static async cleanupTestUsers(testEmails?: string[]): Promise<ApiResponse> {
+    try {
+      const defaultTestEmails = [
+        'employee1@lucerne.com',
+        'manager1@lucerne.com'
+      ];
+
+      // Log security event
+      logger.logUserAction('cleanup_test_users_attempt', null, { 
+        test_emails: testEmails || defaultTestEmails 
+      });
+
+      // Call secure Edge Function for cleanup
+      const result = await this.callAdminFunction('cleanup_test_users', {
+        test_emails: testEmails || defaultTestEmails
+      });
+
+      logger.logUserAction('cleanup_test_users_success', null, { 
+        summary: result.summary,
+        admin_preserved: result.admin_preserved
+      });
+      
+      return {
+        success: true,
+        data: result,
+        message: result.message || 'Test users cleanup completed successfully'
+      };
+    } catch (error: any) {
+      logger.logError(error, { action: 'cleanup_test_users', test_emails: testEmails });
+      throw new Error(`Failed to cleanup test users: ${error?.message}`);
     }
   }
 

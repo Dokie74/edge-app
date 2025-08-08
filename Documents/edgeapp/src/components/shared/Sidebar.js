@@ -1,25 +1,22 @@
-// src/components/shared/Sidebar.js - Updated with React Router navigation
+// src/components/shared/Sidebar.js - Using context-based navigation
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog, HelpCircle } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, Target, MessageSquare, BookOpen, LogOut, UserCog, HelpCircle, AlertTriangle } from 'lucide-react';
 import { useApp } from '../../contexts';
 import NotificationCenter from '../ui/NotificationCenter';
 
 const Sidebar = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { userRole, userName, signOut } = useApp();
+  const { userRole, userName, signOut, openModal, activePage, setActivePage } = useApp();
   
-  // Define navigation items with role requirements and routes
+  // Define navigation items with role requirements and page names
   const navItems = [
-    { name: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'employee'], route: '/dashboard' },
-    { name: 'My Team', icon: Users, roles: ['admin', 'manager'], route: '/team' },
-    { name: 'Manager Playbook', icon: BookOpen, roles: ['admin', 'manager'], route: '/playbook' },
-    { name: 'My Reviews', icon: FileText, roles: ['admin', 'manager', 'employee'], route: '/reviews' },
-    { name: 'Feedback Wall', icon: MessageSquare, roles: ['admin', 'manager', 'employee'], route: '/feedback' },
-    { name: 'My Development', icon: Target, roles: ['admin', 'manager', 'employee'], route: '/development' },
-    { name: 'Admin', icon: UserCog, roles: ['admin'], route: '/admin' },
-    { name: 'Help', icon: HelpCircle, roles: ['admin', 'manager', 'employee'], route: '/help' },
+    { name: 'Dashboard', icon: LayoutDashboard, roles: ['admin', 'manager', 'employee'] },
+    { name: 'My Team', icon: Users, roles: ['admin', 'manager'] },
+    { name: 'Manager Playbook', icon: BookOpen, roles: ['admin', 'manager'] },
+    { name: 'My Reviews', icon: FileText, roles: ['admin', 'manager', 'employee'] },
+    { name: 'Feedback Wall', icon: MessageSquare, roles: ['admin', 'manager', 'employee'] },
+    { name: 'My Development', icon: Target, roles: ['admin', 'manager', 'employee'] },
+    { name: 'Admin', icon: UserCog, roles: ['admin'] },
+    { name: 'Help', icon: HelpCircle, roles: ['admin', 'manager', 'employee'] },
   ];
 
   // Filter items based on user role
@@ -47,13 +44,12 @@ const Sidebar = () => {
       <nav className="flex-grow overflow-y-auto p-4">
         <ul>
           {visibleItems.map((item) => {
-            const isActive = location.pathname === item.route || 
-                           (item.route === '/dashboard' && location.pathname === '/');
+            const isActive = activePage.name === item.name;
             
             return (
               <li key={item.name}>
                 <button
-                  onClick={() => navigate(item.route)}
+                  onClick={() => setActivePage({ name: item.name, props: {} })}
                   className={`w-full flex items-center p-3 my-2 rounded-lg transition-all duration-200 text-left ${
                     isActive
                       ? 'bg-cyan-500 text-white shadow-lg'
@@ -69,7 +65,28 @@ const Sidebar = () => {
         </ul>
       </nav>
       
+      {/* UAT Feedback Button - Prominent with Red Border */}
       <div className="p-4 border-t border-gray-700 flex-shrink-0">
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              console.log('UAT Feedback button clicked!');
+              openModal('uatFeedback');
+            }}
+            className="w-full flex items-center p-4 rounded-lg text-white bg-red-600 hover:bg-red-700 transition-all duration-200 border-2 border-red-400 shadow-lg animate-pulse"
+            title="Report bugs, issues, or provide feedback during testing"
+          >
+            <AlertTriangle className="mr-3" size={22} />
+            <div className="text-left">
+              <div className="font-bold text-sm">Report Issue</div>
+              <div className="text-xs text-red-200">UAT Feedback</div>
+            </div>
+          </button>
+          <div className="text-xs text-red-400 text-center mt-2 font-medium">
+            🚨 Testing Phase - Please Report Any Issues!
+          </div>
+        </div>
+        
         <button
           onClick={signOut}
           className="w-full flex items-center p-3 rounded-lg text-gray-400 hover:bg-red-600 hover:text-white transition-all duration-200"

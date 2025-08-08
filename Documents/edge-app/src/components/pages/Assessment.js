@@ -40,10 +40,15 @@ export default function Assessment({ pageProps }) {
           });
           
           // Auto-enable editing if assessment is in draft/in_progress state
-          if (assessmentData.can_edit_self_assessment && 
-              (assessmentData.self_assessment_status === 'not_started' || 
-               assessmentData.self_assessment_status === 'in_progress')) {
+          console.log('Assessment data received:', assessmentData);
+          console.log('Can edit:', assessmentData.can_edit_self_assessment);
+          console.log('Self assessment status:', assessmentData.self_assessment_status);
+          
+          if (assessmentData.can_edit_self_assessment) {
+            console.log('Setting isEditing to true');
             setIsEditing(true);
+          } else {
+            console.log('Not setting editing - can_edit_self_assessment is:', assessmentData.can_edit_self_assessment);
           }
         }
       } catch (err) {
@@ -117,7 +122,7 @@ export default function Assessment({ pageProps }) {
   const canEdit = assessment.can_edit_self_assessment && !assessment.is_manager_view;
   const isInProgress = assessment.self_assessment_status === 'in_progress';
   const isNotStarted = assessment.self_assessment_status === 'not_started';
-  const isSubmitted = assessment.self_assessment_status === 'employee_complete';
+  const isSubmitted = assessment.self_assessment_status === 'submitted';
 
   return (
     <div className="p-8 space-y-6">
@@ -363,7 +368,7 @@ const GWCSection = ({ assessment, formData, isEditing, onChange }) => {
                 onChange={(e) => onChange(`gwc_${item.key}_feedback`, e.target.value)}
                 className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-400 focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                 rows={2}
-                placeholder={`Explain why you ${formData[`gwc_${item.key}`] ? 'do' : 'don\'t'} ${item.label.toLowerCase()}...`}
+                placeholder={`Explain why you ${formData[`gwc_${item.key}`] ? 'do' : "don't"} ${item.label.toLowerCase()}...`}
               />
             ) : (
               <div className="p-3 bg-gray-700 rounded-md text-gray-300 min-h-[60px]">
