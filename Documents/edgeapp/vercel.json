@@ -1,6 +1,5 @@
 {
   "framework": "create-react-app",
-  "rootDirectory": "edge-app",
   "rewrites": [
     {
       "source": "/(.*)",
