@@ -18,7 +18,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "npm install react-scripts@5.0.1 --no-save && npx react-scripts build",
+    "build": "react-scripts build",
     "build:prod": "GENERATE_SOURCEMAP=false react-scripts build",
     "test": "react-scripts test",
     "test:watch": "react-scripts test --watchAll",
