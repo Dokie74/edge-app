@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@supabase/auth-ui-react": "^0.4.6",
@@ -31,7 +31,7 @@
     "test:all": "npm run test:ci && npm run test:e2e",
     "lint": "echo 'Linting not configured - using build-time checks'",
     "type-check": "tsc --noEmit",
-    "vercel-build": "npm install --legacy-peer-deps && npm run build",
+    "vercel-build": "npm run build",
     "eject": "react-scripts eject"
   },
   "browserslist": {
