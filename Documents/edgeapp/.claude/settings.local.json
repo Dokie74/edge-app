@@ -46,7 +46,13 @@
       "Bash(start npx cypress open)",
       "Bash(timeout 30 npx cypress run --spec=\"cypress/e2e/1-auth/1.1-programmatic-login.cy.js\" --config defaultCommandTimeout=5000,pageLoadTimeout=10000)",
       "Bash(timeout:*)",
-      "WebFetch(domain:docs.anthropic.com)"
+      "WebFetch(domain:docs.anthropic.com)",
+      "WebFetch(domain:supabase.com)",
+      "Bash(true)",
+      "Bash(vercel:*)",
+      "Bash(npx vercel:*)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": []
   }

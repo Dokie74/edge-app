@@ -133,24 +133,12 @@ export class NotificationService {
     }
   }
 
-  // Real-time subscription to notifications
+  // Real-time subscription to notifications using standardized service
   static subscribeToNotifications(userId, callback) {
     try {
-      const subscription = supabase
-        .channel('notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `recipient_id=eq.${userId}`
-          },
-          callback
-        )
-        .subscribe();
-
-      return subscription;
+      // Use standardized RealtimeService with public:notifications channel
+      const { RealtimeService } = require('./RealtimeService');
+      return RealtimeService.subscribeToNotifications(userId, callback);
     } catch (error) {
       console.error('Error subscribing to notifications:', error);
       return null;
@@ -159,8 +147,22 @@ export class NotificationService {
 
   // Unsubscribe from real-time notifications
   static unsubscribeFromNotifications(subscription) {
-    if (subscription) {
-      supabase.removeChannel(subscription);
+    try {
+      const { RealtimeService } = require('./RealtimeService');
+      // Try to find and remove the channel
+      for (const [channelName, channel] of RealtimeService.channels) {
+        if (channel === subscription) {
+          RealtimeService.unsubscribe(channelName);
+          return;
+        }
+      }
+      
+      // Fallback to direct removal
+      if (subscription) {
+        supabase.removeChannel(subscription);
+      }
+    } catch (error) {
+      console.error('Error unsubscribing from notifications:', error);
     }
   }
 

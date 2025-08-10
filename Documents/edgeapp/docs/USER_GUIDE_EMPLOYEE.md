@@ -1,8 +1,8 @@
 # EDGE Employee User Guide
 
-**Version: 5.0 - Production Ready**  
-**Date: July 30, 2025**  
-**Status: Enhanced Feature Set**
+**Version: 6.0 - Production Ready**  
+**Date: August 8, 2025**  
+**Status: Latest Feature Set with UAT Feedback & Clean Architecture**
 
 ## Welcome to EDGE
 
@@ -33,6 +33,8 @@ After logging in, you'll see your employee dashboard with **real-time insights a
 - **Development Progress**: Track your skill development and goal achievement
 - **Team Health Participation**: See how your responses contribute to team wellbeing insights
 - **Recognition Metrics**: View your kudos received and peer feedback impact
+- **Real-Time Notifications**: Live updates and system alerts with notification center
+- **UAT Feedback Access**: Direct feedback submission for system improvements
 
 ## Enhanced Performance Assessments
 
@@ -301,6 +303,46 @@ Success Metrics:
 - **Team Contribution**: See how your growth contributes to team success and organizational health
 - **Culture Participation**: Actively participate in recognition and feedback systems that build positive culture
 - **Resource Optimization**: Make the most of training budgets and development opportunities available
+
+## 🆕 NEW: UAT Feedback System
+
+### Providing System Feedback
+EDGE now includes a comprehensive feedback system to help improve the platform continuously based on your experience.
+
+#### Accessing UAT Feedback
+1. **Sidebar Button**: Look for the red "UAT Feedback" button in the sidebar (always visible)
+2. **Direct Access**: Click the button to open the feedback submission form
+3. **Context Awareness**: System automatically captures current page and browser information
+
+#### Feedback Categories
+- **🐛 Bug Report**: Something is broken or not working as expected
+- **🎨 UI/UX Issue**: Design problems, confusing interfaces, or usability concerns
+- **💡 Feature Request**: Suggestions for new features or improvements
+- **❓ Question/Help**: Need clarification or assistance with platform features
+
+#### Feedback Priority Levels
+- **🔴 High**: Critical issues affecting your ability to use the system
+- **🟡 Medium**: Important issues that cause inconvenience or confusion
+- **🟢 Low**: Minor issues or nice-to-have improvements
+
+#### What to Include in Feedback
+1. **Clear Title**: Brief, descriptive summary of the issue or suggestion
+2. **Detailed Description**: Explain what happened, what you expected, and the impact
+3. **Reproduction Steps**: For bugs, include step-by-step instructions to reproduce the issue
+4. **Screenshots**: Upload images to help illustrate the issue (optional)
+5. **Browser Information**: Automatically captured to help with troubleshooting
+
+#### Feedback Submission Process
+1. **Fill Out Form**: Complete the feedback form with relevant details
+2. **Review Information**: System shows browser info and current URL automatically
+3. **Submit**: Click "Submit Feedback" to send your feedback to the development team
+4. **Confirmation**: Receive confirmation that your feedback has been received
+
+#### Why Your Feedback Matters
+- **Platform Improvement**: Your input directly influences system enhancements and bug fixes
+- **User Experience**: Help make EDGE more intuitive and user-friendly for everyone
+- **Feature Development**: Suggest improvements that benefit all users
+- **Quality Assurance**: Report issues early to maintain system reliability
 
 Remember: EDGE is designed to empower your professional growth and career development. The enhanced features provide powerful tools for tracking progress, contributing to team health, and driving your own development. Take advantage of all capabilities to maximize your growth opportunities and contribute to organizational success!
 

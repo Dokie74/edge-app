@@ -24,6 +24,20 @@ npm run type-check && npm test
 node backups/supabase-backup.js && node backups/frontend-backup.js
 ```
 
+## 🚨 CRITICAL WORKFLOW REMINDER
+
+**⚠️ AFTER ANY BACKUP OPERATION:**
+1. ✅ Execute backup script
+2. ✅ Verify backup files created  
+3. ✅ **IMMEDIATELY update `backups/BACKUP_DOCUMENTATION.md`**
+4. ✅ Update "Latest Backup Status" section with:
+   - Current date/time
+   - Files backed up count and size
+   - Any changes or new components
+   - Backup file listings
+
+**❌ NEVER skip updating backup documentation!**
+
 ## Structure
 
 ```

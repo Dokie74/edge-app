@@ -1,8 +1,8 @@
 # EDGE Manager User Guide
 
-**Version: 5.0 - Production Ready**  
-**Date: July 30, 2025**  
-**Status: Enhanced Feature Set**
+**Version: 6.0 - Production Ready**  
+**Date: August 8, 2025**  
+**Status: Latest Feature Set with UAT Feedback & Enhanced Admin Operations**
 
 ## Manager Overview
 
@@ -232,11 +232,13 @@ The new My Team experience consolidates all team information into comprehensive 
 - **Resource Allocation**: Manage training budgets and development opportunities
 - **Succession Planning**: Identify and develop high-potential team members
 
-#### Integration with Admin Workflows
-- **Review Approval Process**: Your completed reviews may require admin approval
-- **Quality Feedback**: Receive feedback from administrators on review quality
-- **Training Recommendations**: Receive suggestions for improving management effectiveness
-- **Policy Updates**: Stay informed about system changes and new features
+#### Integration with Admin Workflows (Enhanced)
+- **Review Approval Process**: Your completed reviews may require admin approval with quality metrics
+- **Quality Feedback**: Receive detailed feedback from administrators on review quality and completeness
+- **Training Recommendations**: Receive AI-driven suggestions for improving management effectiveness
+- **Policy Updates**: Stay informed about system changes and new features through real-time notifications
+- **Performance Oversight**: Administrators can provide guidance on team management and performance trends
+- **Escalation Support**: Direct access to admin support for complex employee or team issues
 
 ## Best Practices for Manager Success (Updated)
 
@@ -300,6 +302,35 @@ The new My Team experience consolidates all team information into comprehensive 
 - **Team Training**: Help team members maximize their use of EDGE features
 - **Continuous Improvement**: Provide feedback to administrators about platform effectiveness
 - **Best Practice Sharing**: Share successful management approaches with peer managers
+
+## 🆕 NEW: UAT Feedback System
+
+### Manager Feedback Responsibilities
+As a manager, your feedback is especially valuable for improving EDGE's management and team oversight capabilities.
+
+#### Accessing UAT Feedback
+1. **Sidebar Access**: Red "UAT Feedback" button always visible in sidebar
+2. **Management Context**: Provide feedback specific to manager workflows and team management features
+3. **Team Advocacy**: Report issues that affect your team members' experience
+
+#### Manager-Specific Feedback Categories
+- **🐛 Team Management Issues**: Problems with team views, employee data, or manager-specific features
+- **📊 Analytics Problems**: Issues with team health data, performance metrics, or reporting
+- **⚖️ Review Process Issues**: Problems with assessment workflows, approval processes, or review tools
+- **👥 Team Feature Requests**: Suggestions for better team management and oversight capabilities
+
+#### Key Manager Feedback Areas
+1. **Team Dashboard Issues**: Problems with team overview, analytics, or data accuracy
+2. **Review Workflow Problems**: Issues in the manager review process or assessment tools
+3. **Team Health Analytics**: Problems with pulse survey data or team wellbeing insights
+4. **Admin Integration**: Issues with admin approval processes or communication workflows
+5. **Employee Management**: Problems managing team members or accessing employee information
+
+#### Impact of Manager Feedback
+- **Team Improvement**: Your feedback helps improve tools that directly impact your team's experience
+- **Management Efficiency**: Report workflow issues that slow down management processes
+- **Data Accuracy**: Ensure team analytics and reporting provide accurate, actionable insights
+- **Feature Priority**: Manager feedback influences development priorities for management tools
 
 Remember: Your role as a manager in EDGE is crucial for your team's development and success. The enhanced features provide powerful tools for data-driven management, proactive team health management, and comprehensive development planning. Use these capabilities to provide meaningful feedback, support growth, and drive exceptional team performance.
 

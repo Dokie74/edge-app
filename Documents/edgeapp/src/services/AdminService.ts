@@ -242,9 +242,9 @@ export class AdminService {
   // Check current user role for debugging
   static async checkCurrentRole() {
     try {
-      const { data, error } = await supabase.rpc('get_my_role');
-      if (error) throw error;
-      return data;
+      // Use standardized auth role service (session-derived only)
+      const { getMyRole } = await import('./authRole');
+      return await getMyRole();
     } catch (error: any) {
       console.error('Error checking role:', error);
       throw new Error(`Failed to check role: ${error?.message || 'Unknown error'}`);

@@ -1,46 +1,49 @@
-// Secure Admin Operations Edge Function - PRODUCTION VERSION
+// Secure Admin Operations Edge Function - PRODUCTION VERSION  
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': Deno.env.get('NODE_ENV') === 'production' ? 'https://edgeapp.vercel.app' : '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
+  const requestId = crypto.randomUUID();
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
+    console.log(JSON.stringify({ level: 'info', requestId, event: 'admin-op:start' }));
+    
     // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const serviceRoleKey = Deno.env.get('EDGE_SERVICE_ROLE_KEY')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     
-    if (!supabaseUrl || !serviceRoleKey) {
+    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
       throw new Error('Missing required environment variables')
     }
 
-    // Create admin client with service role key (secure on server-side only)
+    // Create clients - admin for privileged operations, user for auth validation
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
+    const supabaseUser = createClient(supabaseUrl, anonKey)
 
     // Verify the request is from an authenticated admin user
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.log(JSON.stringify({ level: 'warn', requestId, msg: 'missing auth header' }));
       throw new Error('No authorization header')
     }
 
-    // Create regular client to verify user authentication
-    const supabaseUser = createClient(supabaseUrl, anonKey || '')
-
-    // Extract and verify JWT token
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    )
+    // Extract and verify JWT token using user client
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token)
 
     if (userError || !user) {
+      console.log(JSON.stringify({ level: 'warn', requestId, msg: 'invalid token', error: userError?.message }));
       throw new Error('Invalid user token')
     }
 
@@ -278,15 +281,16 @@ serve(async (req) => {
         throw new Error(`Unknown action: ${action}`)
     }
 
+    console.log(JSON.stringify({ level: 'info', requestId, event: 'admin-op:success' }));
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({ ...result, requestId }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
   } catch (error) {
-    console.error('Admin operation error:', error)
+    console.error(JSON.stringify({ level: 'error', requestId, error: String(error) }));
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error.message, requestId }),
       { 
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

@@ -1,8 +1,8 @@
 # EDGE Administrator User Guide
 
-**Version: 5.0 - Production Ready**  
-**Date: July 30, 2025**  
-**Status: Complete Feature Set**
+**Version: 6.0 - Production Ready**  
+**Date: August 8, 2025**  
+**Status: Complete Feature Set with Advanced Admin Operations & UAT Feedback Management**
 
 ## Administrator Overview
 
@@ -72,6 +72,67 @@ Your administrator dashboard provides comprehensive system-wide visibility with 
 - **Role Changes**: Promote employees with automatic permission updates
 - **Performance Insights**: View individual assessment history and development progress
 - **Status Management**: Activate/deactivate accounts with audit trail
+
+### 🆕 Advanced Admin Operations (NEW)
+
+EDGE now includes powerful backend administrative operations accessible through secure Edge Functions for complex employee management tasks.
+
+#### Advanced Employee Operations
+
+**Create User with Full Integration**
+- **Secure User Creation**: Create both authentication user and employee record atomically
+- **Automatic Role Assignment**: Set employee, manager, or admin roles with appropriate permissions
+- **Department Integration**: Assign to departments with manager relationships
+- **Temp Password Generation**: Secure temporary passwords with forced reset on first login
+- **Transaction Safety**: Automatic cleanup if any part of user creation fails
+
+**Update Employee Information**
+- **Comprehensive Updates**: Modify all employee fields through secure admin operations
+- **Role Transitions**: Safely change employee roles (employee ↔ manager ↔ admin)
+- **Relationship Updates**: Change manager assignments and department transfers
+- **Audit Trail**: All changes logged with admin user attribution
+
+**Employee Deactivation (Soft Delete)**
+- **Safe Deactivation**: Mark employees inactive instead of hard deletion
+- **Data Preservation**: Maintain historical data for reporting and analytics
+- **Reversible Process**: Reactivate employees if needed
+- **Cascade Handling**: Properly handle dependent records and relationships
+
+**Password Reset Management**
+- **Secure Reset Links**: Generate secure password reset links for any user
+- **Admin-Initiated Resets**: Help employees who are locked out or forgot passwords
+- **Temporary Access**: Provide secure temporary access methods
+- **Email Integration**: Send reset links directly to employee email addresses
+
+#### Test Environment Management
+
+**Cleanup Test Users (Production-Safe)**
+- **Selective Cleanup**: Remove test accounts while preserving production data
+- **Admin Protection**: Built-in safeguards prevent accidental admin user deletion
+- **Cascade Cleanup**: Properly remove all related data (assessments, development plans, notifications)
+- **Verification Steps**: Multiple confirmation steps and admin user verification
+- **Cleanup Reports**: Detailed reports of what was cleaned up and any issues encountered
+
+**Safety Features**
+- **Admin Preservation**: Absolute protection of admin@lucerne.com account
+- **Verification Checks**: Multiple confirmation steps before any destructive operations
+- **Audit Logging**: Complete logs of all admin operations with request IDs
+- **Error Handling**: Graceful failure handling with detailed error reporting
+- **Transaction Safety**: All-or-nothing operations with automatic rollback on failure
+
+#### Accessing Advanced Operations
+
+**Security Requirements**
+- Admin role verification at multiple levels (UI, API, and database)
+- JWT token validation for all requests
+- Request ID tracking for audit and debugging
+- Production-grade logging with structured JSON output
+
+**Operation Methods**
+1. **UI Integration**: Some operations available through EDGE admin interface
+2. **Direct API**: Advanced operations through secure Edge Function endpoints
+3. **Request Tracking**: All operations tracked with unique request IDs for debugging
+4. **Status Monitoring**: Real-time operation status and completion reporting
 
 ## Pulse Questions Management (NEW)
 
@@ -318,6 +379,44 @@ Your administrator dashboard provides comprehensive system-wide visibility with 
 - [ ] Pulse question analytics updating properly
 - [ ] Manager approval workflows operating smoothly
 - [ ] Error monitoring active and alerts configured
+
+## 🆕 NEW: UAT Feedback Management
+
+### Administrator Feedback Oversight
+As an administrator, you have comprehensive access to manage and respond to user feedback for continuous platform improvement.
+
+#### UAT Feedback System Access
+1. **Feedback Collection**: All users can submit feedback through the red "UAT Feedback" button in sidebar
+2. **Admin Review**: Access feedback submissions through admin dashboard or dedicated feedback management section
+3. **Response Management**: Respond to user feedback and track resolution status
+4. **Priority Triage**: Categorize and prioritize feedback based on impact and severity
+
+#### Feedback Categories for Admin Review
+- **🐛 Bug Reports**: Critical system issues requiring immediate attention or development intervention
+- **🎨 UI/UX Issues**: Design problems, usability concerns, and interface improvements
+- **💡 Feature Requests**: User suggestions for new capabilities or enhancements
+- **❓ Questions/Help**: User support requests and platform clarification needs
+- **⚖️ Admin-Specific Issues**: Problems with admin tools, analytics, or administrative workflows
+
+#### Admin Feedback Responsibilities
+1. **Triage and Prioritization**: Review incoming feedback and assign priority levels
+2. **Issue Routing**: Direct technical issues to development team and user questions to support
+3. **Response Coordination**: Ensure users receive acknowledgment and updates on their feedback
+4. **Pattern Analysis**: Identify common issues or frequently requested features
+5. **System Improvement**: Use feedback data to drive platform enhancements and training needs
+
+#### Feedback Analytics and Reporting
+- **Feedback Volume Tracking**: Monitor feedback submission rates and response times
+- **Category Analysis**: Understanding most common types of feedback submitted
+- **User Satisfaction**: Track resolution rates and user satisfaction with responses
+- **System Improvement Metrics**: Measure how feedback leads to platform enhancements
+- **Training Needs Identification**: Use feedback patterns to identify user training requirements
+
+#### Integration with Development Process
+- **Bug Tracking**: Integration with development workflows for issue resolution
+- **Feature Planning**: Use feature requests to inform development priorities
+- **User Testing**: Coordinate with users who submit detailed feedback for testing new features
+- **Communication**: Keep users informed about the status of their feedback and any resulting improvements
 
 Remember: As an administrator, you're responsible for the success of EDGE across your entire organization. The enhanced features provide powerful tools for organizational insight and employee development. Regular monitoring, proactive management, and data-driven decision making are key to maximizing the platform's impact on your organization's growth and employee satisfaction.
 
