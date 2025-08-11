@@ -1,0 +1,61 @@
+{
+  "timestamp": "2025-08-11T20:39:45.425Z",
+  "system": "EDGE Primary Development",
+  "database": {
+    "project_ref": "blssdohlfcmyhxtpalcf",
+    "url": "https://blssdohlfcmyhxtpalcf.supabase.co",
+    "organization": "Lucerne International",
+    "admin_email": "dokonoski@gmail.com",
+    "description": "Primary development and reference database"
+  },
+  "frontend": {
+    "repository": "Documents/edgeapp",
+    "framework": "Create React App",
+    "deployment_url": "Local development",
+    "description": "Master development codebase"
+  },
+  "purpose": "Reference system for troubleshooting client deployments",
+  "template_usage": "Use as reference when setting up new clients or troubleshooting issues",
+  "client_deployment_guide": "See clients/CLIENT_DEPLOYMENT_GUIDE.md for deployment methodology",
+  "client_template": "Use clients/CLIENT_TEMPLATE/ for new client setup",
+  "lucerne_client_backup": "Use clients/lucerne-international/create-backup.js for client state",
+  "tables_backed_up": [
+    "employees",
+    "assessments",
+    "review_cycles",
+    "departments",
+    "employee_departments",
+    "development_plans",
+    "goals",
+    "pulse_questions",
+    "team_health_pulse_responses",
+    "kudos",
+    "feedback",
+    "notifications"
+  ],
+  "functions_backed_up": [
+    "set_config",
+    "get_my_assessments",
+    "get_my_feedback_received",
+    "delete_feedback",
+    "get_pending_admin_approvals",
+    "seed_self_assessments"
+  ],
+  "key_features": [
+    "Multi-tenant architecture foundation",
+    "Complete RLS policy system",
+    "Admin dashboard with full analytics",
+    "Employee self-assessment workflow",
+    "Manager review system",
+    "Team health pulse surveys",
+    "Development planning",
+    "Recognition and feedback systems"
+  ],
+  "environment_variables": {
+    "REACT_APP_SUPABASE_URL": "https://blssdohlfcmyhxtpalcf.supabase.co",
+    "REACT_APP_SUPABASE_ANON_KEY": "[PRIMARY_ANON_KEY]",
+    "REACT_APP_TENANT_ID": "edge",
+    "REACT_APP_CLIENT_NAME": "EDGE Development",
+    "REACT_APP_ENV": "development"
+  }
+}

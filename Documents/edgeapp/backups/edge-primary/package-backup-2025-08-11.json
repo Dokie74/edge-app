@@ -1,0 +1,69 @@
+{
+  "name": "edge-app",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@supabase/auth-ui-react": "^0.4.6",
+    "@supabase/auth-ui-shared": "^0.1.8",
+    "@supabase/supabase-js": "^2.39.0",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.26.1",
+    "react-scripts": "5.0.1",
+    "recharts": "^3.1.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "build:prod": "GENERATE_SOURCEMAP=false react-scripts build",
+    "test": "react-scripts test",
+    "test:watch": "react-scripts test --watchAll",
+    "test:coverage": "react-scripts test --coverage --watchAll=false",
+    "test:ci": "react-scripts test --coverage --watchAll=false --ci",
+    "cypress:open": "cypress open",
+    "cypress:run": "cypress run",
+    "test:e2e": "start-server-and-test start http://localhost:3001 cypress:run",
+    "test:dev-plan": "start-server-and-test start http://localhost:3001 'cypress run --spec cypress/e2e/development-plan-submission.cy.js'",
+    "test:all": "npm run test:ci && npm run test:e2e",
+    "lint": "echo 'Linting not configured - using build-time checks'",
+    "type-check": "tsc --noEmit",
+    "vercel-build": "npm run build",
+    "eject": "react-scripts eject"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "autoprefixer": "^10.4.21",
+    "cypress": "^14.5.3",
+    "postcss": "^8.4.31",
+    "start-server-and-test": "^2.0.12",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^4.9.5"
+  },
+  "overrides": {
+    "nth-check": "^2.1.1",
+    "svgo": "^3.0.2",
+    "webpack-dev-server": "^4.15.1"
+  }
+}
