@@ -1,5 +1,9 @@
 {
   "framework": "create-react-app",
+  "rootDirectory": "./",
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "build",
+  "installCommand": "npm install",
   "rewrites": [
     {
       "source": "/(.*)",
