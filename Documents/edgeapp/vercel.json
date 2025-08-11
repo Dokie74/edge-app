@@ -1,22 +1,11 @@
 {
-  "buildCommand": "ls -la && pwd && cat package.json | head -20 && npm install --verbose && ls -la node_modules/.bin/ | grep react && npm run build",
+  "buildCommand": "echo 'VERCEL.JSON IS WORKING' && npm install && npm run build",
   "outputDirectory": "build",
-  "installCommand": "npm install --verbose",
+  "installCommand": "echo 'INSTALL COMMAND FROM VERCEL.JSON' && npm install",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/static/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
     }
   ]
 }
