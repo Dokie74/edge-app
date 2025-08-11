@@ -32,8 +32,8 @@ const ManagerPlaybook = () => {
   }, [userRole]);
 
   useEffect(() => {
-    if (selectedEmployee) {
-      fetchEmployeeNotes(selectedEmployee.employee_id);
+    if (selectedEmployee && selectedEmployee.id) {
+      fetchEmployeeNotes(selectedEmployee.id);
     }
   }, [selectedEmployee]);
 
@@ -72,7 +72,7 @@ const ManagerPlaybook = () => {
       }
 
       const noteData = {
-        employee_id: selectedEmployee.employee_id,
+        employee_id: selectedEmployee.id,
         title: newNote.title,
         content: newNote.content,
         category: newNote.category,
@@ -82,7 +82,7 @@ const ManagerPlaybook = () => {
       await ManagerPlaybookService.saveManagerNote(noteData);
       
       // Refresh notes list
-      await fetchEmployeeNotes(selectedEmployee.employee_id);
+      await fetchEmployeeNotes(selectedEmployee.id);
       
       setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
       setShowAddNote(false);
@@ -115,7 +115,7 @@ const ManagerPlaybook = () => {
       await ManagerPlaybookService.updateManagerNote(editingNote.id, noteData);
       
       // Refresh notes list
-      await fetchEmployeeNotes(selectedEmployee.employee_id);
+      await fetchEmployeeNotes(selectedEmployee.id);
       
       setEditingNote(null);
       setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
@@ -142,7 +142,7 @@ const ManagerPlaybook = () => {
       
       // Refresh notes after successful deletion
       if (selectedEmployee) {
-        await fetchEmployeeNotes(selectedEmployee.employee_id);
+        await fetchEmployeeNotes(selectedEmployee.id);
       }
       
       alert('Note deleted successfully!');
@@ -229,10 +229,10 @@ const ManagerPlaybook = () => {
           <div className="p-4 space-y-2 max-h-96 overflow-y-auto">
             {filteredEmployees.map(employee => (
               <button
-                key={employee.employee_id}
+                key={employee.id}
                 onClick={() => setSelectedEmployee(employee)}
                 className={`w-full text-left p-3 rounded-lg transition-colors ${
-                  selectedEmployee?.employee_id === employee.employee_id
+                  selectedEmployee?.id === employee.id
                     ? 'bg-cyan-600 text-white'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
