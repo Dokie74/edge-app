@@ -1,9 +1,7 @@
 {
-  "framework": "create-react-app",
-  "rootDirectory": "./",
-  "buildCommand": "npm install && npm run build",
+  "buildCommand": "ls -la && pwd && cat package.json | head -20 && npm install --verbose && ls -la node_modules/.bin/ | grep react && npm run build",
   "outputDirectory": "build",
-  "installCommand": "npm install",
+  "installCommand": "npm install --verbose",
   "rewrites": [
     {
       "source": "/(.*)",
