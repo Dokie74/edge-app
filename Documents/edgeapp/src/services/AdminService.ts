@@ -25,7 +25,7 @@ export class AdminService {
   // Call secure edge function with proper authentication
   static async callAdminFunction(action: string, data: any): Promise<AdminFunctionResponse> {
     try {
-      const { data: result, error } = await supabase.functions.invoke('admin-operations', {
+      const { data: result, error } = await supabase.functions.invoke('smooth-action', {
         body: { action, data }
       });
 
