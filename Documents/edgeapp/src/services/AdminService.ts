@@ -139,11 +139,13 @@ export class AdminService {
         data: {
           employee_id: result.employee?.id,
           message: result.message || 'Employee record created successfully!',
-          note: result.note || 'Database-only creation. User needs to sign up separately.',
           next_steps: {
             can_login_immediately: false,
             signup_required: true,
-            signup_email: secureData.email,
+            login_credentials: {
+              email: secureData.email,
+              password: secureData.password
+            },
             instructions: 'User must sign up using their email address to create their auth account.'
           }
         }
