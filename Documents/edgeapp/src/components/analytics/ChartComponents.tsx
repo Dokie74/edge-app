@@ -100,7 +100,7 @@ interface TrendLineChartProps {
     date: string;
     assessments: number;
     reviews: number;
-    satisfaction: number;
+    satisfaction: number | null;
   }>;
   height?: number;
 }

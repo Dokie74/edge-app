@@ -15,8 +15,8 @@ export interface EmployeeDashboardData {
   departmentInfo: {
     departmentName: string;
     teamSize: number;
-    avgSatisfaction: number;
-    companySatisfaction: number;
+    avgSatisfaction: number | null;
+    companySatisfaction: number | null;
   };
   myTasks: Array<{
     id: string;
@@ -46,7 +46,7 @@ export interface ManagerDashboardData {
     teamSize: number;
     pendingReviews: number;
     completedReviews: number;
-    teamSatisfactionAvg: number;
+    teamSatisfactionAvg: number | null;
     overdueItems: number;
   };
   teamPerformance: Array<{
@@ -73,8 +73,8 @@ export interface ManagerDashboardData {
     departmentName: string;
     totalManagers: number;
     departmentCompletion: number;
-    departmentSatisfaction: number;
-    companySatisfaction: number;
+    departmentSatisfaction: number | null;
+    companySatisfaction: number | null;
   };
 }
 
@@ -89,7 +89,7 @@ export interface AdminDashboardData {
   };
   organizationMetrics: {
     overallCompletion: number;
-    overallSatisfaction: number;
+    overallSatisfaction: number | null;
     totalAssessments: number;
     activeReviewCycles: number;
     pendingReviews: number;
@@ -100,7 +100,7 @@ export interface AdminDashboardData {
     employeeCount: number;
     managerCount: number;
     completionRate: number;
-    satisfactionScore: number;
+    satisfactionScore: number | null;
   }>;
   systemAlerts: Array<{
     id: string;
@@ -114,8 +114,8 @@ export interface AdminDashboardData {
   performanceTrends: Array<{
     period: string;
     completions: number;
-    satisfaction: number;
-    activeUsers: number;
+    satisfaction: number | null;
+    activeUsers: number | null;
   }>;
 }
 
@@ -540,16 +540,14 @@ class RoleBasedAnalyticsService {
       const sizeAdjustment = Math.max(-10, Math.min(10, (10 - data.totalEmployees) * 2));
       const finalCompletionRate = Math.max(50, Math.min(100, baseCompletionRate + sizeAdjustment));
       
-      // Calculate satisfaction based on completion rate - consistent calculation
-      const baseSatisfaction = 3.5 + (finalCompletionRate / 100) * 1.0; // 3.5-4.5 range
-      const satisfactionScore = Math.max(3.0, Math.min(5.0, baseSatisfaction));
+      // No satisfaction data available - return null instead of generating fake data
       
       return {
         name,
         employeeCount: data.employees.length,
         managerCount: data.managers.length,
         completionRate: Math.round(finalCompletionRate),
-        satisfactionScore: Math.round(satisfactionScore * 10) / 10 // Round to 1 decimal
+        satisfactionScore: null // No real satisfaction data available
       };
     });
   }
@@ -588,7 +586,7 @@ class RoleBasedAnalyticsService {
       
       if (error) {
         console.warn('Error fetching assessment trends:', error);
-        return this.getFallbackTrends();
+        return []; // Return empty array instead of mock data
       }
       
       // Get team health data for satisfaction trends
@@ -640,19 +638,19 @@ class RoleBasedAnalyticsService {
       return Array.from(monthData.entries()).map(([period, data]) => {
         const avgSatisfaction = data.responses.length > 0
           ? data.responses.reduce((sum: number, val: number) => sum + val, 0) / data.responses.length
-          : 4.0;
+          : null; // No satisfaction data available
         
         return {
           period,
           completions: data.completions,
-          satisfaction: Math.max(3.0, Math.min(5.0, avgSatisfaction)),
-          activeUsers: Math.max(1, data.activeUsers)
+          satisfaction: avgSatisfaction,
+          activeUsers: data.activeUsers > 0 ? data.activeUsers : null
         };
       });
       
     } catch (error) {
       console.warn('Error generating performance trends:', error);
-      return this.getFallbackTrends();
+      return []; // Return empty array instead of mock data
     }
   }
   

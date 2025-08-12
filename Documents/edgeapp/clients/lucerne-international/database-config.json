@@ -1,0 +1,67 @@
+{
+  "client": {
+    "name": "Lucerne International",
+    "domain": "lucerneintl.com",
+    "tenant_id": "lucerne",
+    "deployment_date": "2025-08-11"
+  },
+  "supabase": {
+    "project_ref": "wvggehrxhnuvlxpaghft",
+    "url": "https://wvggehrxhnuvlxpaghft.supabase.co",
+    "organization": "Lucerne International",
+    "region": "us-east-1",
+    "plan": "Free",
+    "database_password": "[SECURE_PASSWORD_STORED_SEPARATELY]"
+  },
+  "admin_users": [
+    {
+      "email": "dokonoski@lucerneintl.com",
+      "name": "David Okonoski",
+      "role": "admin",
+      "status": "active",
+      "created": "2025-08-11"
+    }
+  ],
+  "authentication": {
+    "site_url": "https://lucerne-edge-app.vercel.app",
+    "redirect_urls": [
+      "https://lucerne-edge-app.vercel.app/auth/callback",
+      "http://localhost:3000/auth/callback"
+    ],
+    "email_confirmation": true,
+    "password_reset": true
+  },
+  "database_status": {
+    "schema_applied": "2025-08-11",
+    "functions_applied": "2025-08-11", 
+    "policies_applied": "2025-08-11",
+    "rls_enabled": true,
+    "admin_linked": true
+  },
+  "schema_files": {
+    "primary_schema": "schema-files/lucerne-schema.sql",
+    "functions": "schema-files/lucerne-functions.sql", 
+    "policies": "schema-files/lucerne-policies.sql",
+    "application_order": [
+      "lucerne-schema.sql",
+      "lucerne-functions.sql", 
+      "lucerne-policies.sql"
+    ]
+  },
+  "known_issues": {
+    "function_api_cache": {
+      "description": "Some functions return 404 via REST API",
+      "impact": "Low - app uses fallback data",
+      "functions_affected": [
+        "get_dashboard_stats_enhanced",
+        "get_company_satisfaction",
+        "get_question_performance_ranking"
+      ]
+    }
+  },
+  "backup_schedule": {
+    "frequency": "weekly",
+    "last_backup": "2025-08-11",
+    "backup_location": "../../backups/lucerne-client/"
+  }
+}

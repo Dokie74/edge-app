@@ -364,17 +364,17 @@ export default function EmployeeDashboard() {
             <div className="grid grid-cols-2 gap-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-400">
-                  {typeof dashboardData.departmentInfo.avgSatisfaction === 'number' 
+                  {typeof dashboardData.departmentInfo.avgSatisfaction === 'number' && dashboardData.departmentInfo.avgSatisfaction !== null
                     ? dashboardData.departmentInfo.avgSatisfaction.toFixed(1) 
-                    : '4.2'}
+                    : 'NA'}
                 </div>
                 <div className="text-xs text-gray-400">Department</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-400">
-                  {typeof dashboardData.departmentInfo.companySatisfaction === 'number' 
+                  {typeof dashboardData.departmentInfo.companySatisfaction === 'number' && dashboardData.departmentInfo.companySatisfaction !== null
                     ? dashboardData.departmentInfo.companySatisfaction.toFixed(1) 
-                    : '4.2'}
+                    : 'NA'}
                 </div>
                 <div className="text-xs text-gray-400">Company</div>
               </div>

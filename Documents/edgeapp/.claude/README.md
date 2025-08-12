@@ -20,23 +20,25 @@ npm start
 # Run type checking and tests  
 npm run type-check && npm test
 
-# Complete backup
-node backups/supabase-backup.js && node backups/frontend-backup.js
+# Dual-system backups
+node backups/create-primary-backup.js && node clients/lucerne-international/create-backup.js
 ```
 
-## 🚨 CRITICAL WORKFLOW REMINDER
+## 🚨 CRITICAL BACKUP & DEPLOYMENT REMINDER
 
-**⚠️ AFTER ANY BACKUP OPERATION:**
-1. ✅ Execute backup script
-2. ✅ Verify backup files created  
-3. ✅ **IMMEDIATELY update `backups/BACKUP_DOCUMENTATION.md`**
-4. ✅ Update "Latest Backup Status" section with:
-   - Current date/time
-   - Files backed up count and size
-   - Any changes or new components
-   - Backup file listings
+**⚠️ CLIENT-CENTERED ORGANIZATION:**
+1. ✅ **Client Folders** - Each client has dedicated folder in `clients/[client-name]/`
+2. ✅ **Lucerne Reference** - Use `clients/lucerne-international/` as template
+3. ✅ **Deployment Guide** - Follow `clients/CLIENT_DEPLOYMENT_GUIDE.md`
+4. ✅ **Template Available** - Copy `clients/CLIENT_TEMPLATE/` for new clients
 
-**❌ NEVER skip updating backup documentation!**
+**⚠️ AFTER SUCCESSFUL CLIENT DEPLOYMENT:**
+1. ✅ Create client folder with all configuration files
+2. ✅ Test admin authentication and basic functionality  
+3. ✅ Update client documentation with any specific issues
+4. ✅ Create/update client backup with working configuration
+
+**❌ NEVER deploy without proper authentication testing!**
 
 ## Structure
 
@@ -56,6 +58,19 @@ node backups/supabase-backup.js && node backups/frontend-backup.js
 │   └── ...                          # Additional specialized agents
 ├── conversations/                    # Future: Conversation logs (when implemented)
 └── documentation/                   # Additional project documentation
+
+# Client Organization (Outside .claude folder)
+clients/
+├── CLIENT_DEPLOYMENT_GUIDE.md       # Complete deployment methodology
+├── CLIENT_TEMPLATE/                 # Template for new client setup
+└── lucerne-international/           # ★ **REFERENCE CLIENT** - Working example
+    ├── DEPLOYMENT_STATUS.md         # Current status and configuration
+    ├── database-config.json         # Supabase project details
+    ├── environment-variables.env    # Production environment setup
+    ├── vercel-config.json           # Frontend deployment settings
+    ├── troubleshooting-log.md       # Issues and solutions log
+    ├── deployment-history.md        # Complete deployment timeline
+    └── schema-files/                # Applied database schema files
 ```
 
 ## Key Files
@@ -93,14 +108,27 @@ Specialized Claude agents for specific domains:
 - Supabase database management
 - Future: Frontend components, security, performance
 
+### 🏢 clients/ Directory (Root Level)
+Client-specific deployments and templates:
+- **CLIENT_DEPLOYMENT_GUIDE.md**: Complete deployment methodology based on real experience
+- **CLIENT_TEMPLATE/**: Copy this for new client setups with placeholder values
+- **lucerne-international/**: ⭐ **Reference implementation** - working client deployment
+  - Use as template for troubleshooting and new deployments
+  - Contains all working configurations and documentation
+  - Complete deployment history and lessons learned
+
 ## Usage Guidelines
 
 1. **New Claude Sessions**: Always reference `DEVELOPERS_GUIDE.md` first
 2. **Technical Work**: Reference `CLAUDE_CONFIGURATION.md` for commands and patterns
-3. **Deployment**: Use guides in `deployment/` folder for production workflows
-4. **Project Communications**: Keep all Claude-related docs in this folder
-5. **Clean Main Directory**: Main project root stays focused on application code
-6. **Version Control**: This folder is part of the repository for team consistency
+3. **Client Deployments**: 
+   - **New Client**: Copy `clients/CLIENT_TEMPLATE/` and follow `clients/CLIENT_DEPLOYMENT_GUIDE.md`
+   - **Client Issues**: Check `clients/[client-name]/` folder first, compare with `clients/lucerne-international/`
+   - **Reference**: Use Lucerne International as working example for troubleshooting
+4. **General Deployment**: Use guides in `deployment/` folder for infrastructure workflows
+5. **Project Communications**: Keep all Claude-related docs in this folder
+6. **Clean Main Directory**: Main project root stays focused on application code
+7. **Version Control**: This folder is part of the repository for team consistency
 
 ## 🧹 Clean Project Organization
 

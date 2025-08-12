@@ -1,0 +1,68 @@
+{
+  "client": {
+    "name": "[CLIENT_NAME]",
+    "domain": "[CLIENT_DOMAIN]",
+    "tenant_id": "[CLIENT_TENANT_ID]",
+    "deployment_date": "[DEPLOYMENT_DATE]"
+  },
+  "supabase": {
+    "project_ref": "[TO_BE_FILLED_DURING_DEPLOYMENT]",
+    "url": "https://[PROJECT_REF].supabase.co",
+    "organization": "[CLIENT_NAME]",
+    "region": "[SUPABASE_REGION]",
+    "plan": "Free",
+    "database_password": "[SECURE_PASSWORD_STORED_SEPARATELY]"
+  },
+  "admin_users": [
+    {
+      "email": "[CLIENT_ADMIN_EMAIL]",
+      "name": "[CLIENT_ADMIN_NAME]",
+      "role": "admin",
+      "status": "pending",
+      "created": "[DEPLOYMENT_DATE]"
+    }
+  ],
+  "authentication": {
+    "site_url": "https://[VERCEL_PROJECT_NAME].vercel.app",
+    "redirect_urls": [
+      "https://[VERCEL_PROJECT_NAME].vercel.app/auth/callback",
+      "http://localhost:3000/auth/callback"
+    ],
+    "email_confirmation": true,
+    "password_reset": true
+  },
+  "database_status": {
+    "schema_applied": "[PENDING]",
+    "functions_applied": "[PENDING]", 
+    "policies_applied": "[PENDING]",
+    "rls_enabled": false,
+    "admin_linked": false
+  },
+  "schema_files": {
+    "primary_schema": "schema-files/[CLIENT_TENANT_ID]-schema.sql",
+    "functions": "schema-files/[CLIENT_TENANT_ID]-functions.sql", 
+    "policies": "schema-files/[CLIENT_TENANT_ID]-policies.sql",
+    "application_order": [
+      "[CLIENT_TENANT_ID]-schema.sql",
+      "[CLIENT_TENANT_ID]-functions.sql", 
+      "[CLIENT_TENANT_ID]-policies.sql"
+    ]
+  },
+  "known_issues": {
+    "function_api_cache": {
+      "description": "Some functions may return 404 via REST API initially",
+      "impact": "Low - app uses fallback data",
+      "functions_affected": [
+        "get_dashboard_stats_enhanced",
+        "get_company_satisfaction",
+        "get_question_performance_ranking"
+      ],
+      "note": "This is expected and non-blocking"
+    }
+  },
+  "backup_schedule": {
+    "frequency": "weekly",
+    "last_backup": "[TO_BE_UPDATED_AFTER_DEPLOYMENT]",
+    "backup_location": "../../backups/[CLIENT_TENANT_ID]-client/"
+  }
+}

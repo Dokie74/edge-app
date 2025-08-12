@@ -52,7 +52,11 @@
       "Bash(vercel:*)",
       "Bash(npx vercel:*)",
       "WebFetch(domain:vercel.com)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git ls-tree:*)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(git remote get-url:*)",
+      "WebFetch(domain:lucerne-edge-app.vercel.app)"
     ],
     "deny": []
   }

@@ -211,15 +211,17 @@ export default function ManagerDashboard() {
         />
         <MetricCard
           title="Team Satisfaction"
-          value={dashboardData.teamStats.teamSatisfactionAvg.toFixed(1)}
+          value={typeof dashboardData.teamStats.teamSatisfactionAvg === 'number' && dashboardData.teamStats.teamSatisfactionAvg !== null
+            ? dashboardData.teamStats.teamSatisfactionAvg.toFixed(1)
+            : 'NA'}
           icon={Award}
           color="purple"
         />
         <MetricCard
           title="Company Satisfaction"
-          value={typeof dashboardData.departmentMetrics.companySatisfaction === 'number' 
+          value={typeof dashboardData.departmentMetrics.companySatisfaction === 'number' && dashboardData.departmentMetrics.companySatisfaction !== null
             ? dashboardData.departmentMetrics.companySatisfaction.toFixed(1) 
-            : '4.2'}
+            : 'NA'}
           icon={TrendingUp}
           color="blue"
         />
@@ -387,9 +389,9 @@ export default function ManagerDashboard() {
                   <span className="text-gray-400 text-sm">Dept Satisfaction</span>
                   <div className="flex items-center space-x-1">
                     <span className="text-yellow-400 font-medium">
-                      {typeof dashboardData.departmentMetrics.departmentSatisfaction === 'number' 
+                      {typeof dashboardData.departmentMetrics.departmentSatisfaction === 'number' && dashboardData.departmentMetrics.departmentSatisfaction !== null
                         ? dashboardData.departmentMetrics.departmentSatisfaction.toFixed(1) 
-                        : '4.2'}
+                        : 'NA'}
                     </span>
                     <span className="text-gray-500 text-xs">/5.0</span>
                   </div>

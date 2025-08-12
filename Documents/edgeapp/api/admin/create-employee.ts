@@ -1,16 +1,7 @@
-// Vercel Serverless Function: /api/admin/create-employee.ts
-// Secure server-side employee creation with auth user linkage
+// Vercel Function: /api/admin/create-employee.ts  
+// Compatible with Create React App deployment
 import { createClient } from '@supabase/supabase-js';
-
-interface VercelRequest {
-  body: string;
-  method: string;
-}
-
-interface VercelResponse {
-  status: (code: number) => VercelResponse;
-  json: (data: any) => void;
-}
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 type RequestBody = {
   email: string;

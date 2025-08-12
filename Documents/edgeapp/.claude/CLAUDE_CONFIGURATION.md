@@ -209,3 +209,43 @@ try {
 - **RLS Policies**: Row Level Security on all sensitive tables
 - **Environment Variables**: Secrets management via environment variables
 - **SQL Injection**: Parameterized queries through Supabase client
+
+## Dual-System Backup Strategy
+
+### Backup Philosophy
+The project maintains **two separate system backups** for effective troubleshooting:
+
+1. **Primary EDGE System** (Gmail login)
+   - Database: `blssdohlfcmyhxtpalcf.supabase.co`
+   - Purpose: Master development reference
+   - Contains: Full feature set, all functions, complete RLS policies
+
+2. **Client Deployments** (Client-specific logins)  
+   - Example: Lucerne `wvggehrxhnuvlxpaghft.supabase.co`
+   - Purpose: Production deployment states
+   - Contains: Working configurations, known issues, troubleshooting guides
+
+### Backup Commands
+```bash
+# Create backup of primary development system
+node backups/create-primary-backup.js
+
+# Create backup of Lucerne client deployment  
+node clients/lucerne-international/create-backup.js
+
+# Create both backups
+node backups/create-primary-backup.js && node clients/lucerne-international/create-backup.js
+```
+
+### Using Backups for Troubleshooting
+**When client deployment has issues:**
+1. Read client backup to understand current state
+2. Read primary backup to see how it should work  
+3. Compare configurations to identify differences
+4. Fix client by making it match primary (with client customizations)
+5. Update client backup after successful resolution
+
+### Backup Documentation  
+- **Complete Guide**: `backups/BACKUP_SYSTEM_GUIDE.md`
+- **Primary System**: `backups/edge-primary/`
+- **Client Systems**: `backups/[client-name]/`

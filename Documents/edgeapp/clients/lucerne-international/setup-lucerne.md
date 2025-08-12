@@ -37,7 +37,9 @@
 3. **Configure Project:**
    - Project Name: `lucerne-edge-app`
    - Framework: React (auto-detected)
-   - Build Command: `npm run build:prod`
+   - Framework Preset: Create React App
+   - Build Command: `npm run build`
+   - Output Directory: `build`
 4. **Add Environment Variables:**
    ```
    REACT_APP_SUPABASE_URL=https://YOUR-PROJECT-REF.supabase.co

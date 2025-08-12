@@ -1,7 +1,4 @@
 {
-  "buildCommand": "echo 'VERCEL.JSON IS WORKING' && npm install && npm run build",
-  "outputDirectory": "build",
-  "installCommand": "echo 'INSTALL COMMAND FROM VERCEL.JSON' && npm install",
   "rewrites": [
     {
       "source": "/(.*)",

@@ -405,9 +405,9 @@ export default function AdminDashboard() {
         />
         <MetricCard
           title="Satisfaction"
-          value={typeof dashboardData.organizationMetrics.overallSatisfaction === 'number' 
+          value={typeof dashboardData.organizationMetrics.overallSatisfaction === 'number' && dashboardData.organizationMetrics.overallSatisfaction !== null
             ? dashboardData.organizationMetrics.overallSatisfaction.toFixed(1) 
-            : '4.2'}
+            : 'NA'}
           icon={Award}
           color="yellow"
         />
@@ -539,15 +539,25 @@ export default function AdminDashboard() {
               Performance Trends
             </h2>
           </div>
-          <TrendLineChart 
-            data={dashboardData.performanceTrends.map(trend => ({
-              date: trend.period,
-              assessments: trend.completions,
-              reviews: trend.completions, // Use actual completions, not estimated 80%
-              satisfaction: Math.round(trend.satisfaction * 20) // Scale 5-point to percentage (already a real value)
-            }))} 
-            height={280} 
-          />
+          {dashboardData.performanceTrends.length > 0 ? (
+            <TrendLineChart 
+              data={dashboardData.performanceTrends.map(trend => ({
+                date: trend.period,
+                assessments: trend.completions,
+                reviews: trend.completions,
+                satisfaction: trend.satisfaction !== null ? Math.round(trend.satisfaction * 20) : null
+              }))} 
+              height={280} 
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[280px] text-gray-400">
+              <div className="text-center">
+                <BarChart3 className="mx-auto h-12 w-12 mb-4 opacity-50" />
+                <p>No performance trend data available</p>
+                <p className="text-sm">Data will appear once assessments are completed</p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Employee Distribution */}
@@ -602,9 +612,9 @@ export default function AdminDashboard() {
                     </span>
                   </td>
                   <td className="py-3 px-4 text-center">
-                    {typeof dept.satisfactionScore === 'number' 
-                      ? dept.satisfactionScore.toFixed(1) 
-                      : '4.2'}/5.0
+                    {typeof dept.satisfactionScore === 'number' && dept.satisfactionScore !== null
+                      ? dept.satisfactionScore.toFixed(1) + '/5.0'
+                      : 'NA'}
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`w-2 h-2 rounded-full inline-block ${

@@ -20,14 +20,14 @@ In Vercel Project → Settings → Environment Variables, ensure you have:
 ```
 REACT_APP_SUPABASE_URL = https://your-project-ref.supabase.co
 REACT_APP_SUPABASE_ANON_KEY = your-anon-key
-NEXT_PUBLIC_TENANT_ID = lucerne
-NEXT_PUBLIC_CLIENT_NAME = Lucerne International
-NEXT_PUBLIC_CLIENT_DOMAIN = lucerneintl.com
-NEXT_PUBLIC_ADMIN_EMAIL = dokonoski@lucerneintl.com
-NEXT_PUBLIC_GOD_MODE_EMAIL = dokonoski@lucerneintl.com
-GOD_MODE_ENABLED = true
-MULTI_TENANT_ENABLED = true
+REACT_APP_TENANT_ID = lucerne
+REACT_APP_CLIENT_NAME = Lucerne International
+REACT_APP_CLIENT_DOMAIN = lucerneintl.com
+REACT_APP_ADMIN_EMAIL = dokonoski@lucerneintl.com
+REACT_APP_ENV = production
 ```
+
+**NOTE:** This is a Create React App, so use `REACT_APP_*` prefix, NOT `NEXT_PUBLIC_*`
 
 #### B. Build Settings
 In Project Settings → General:

@@ -159,7 +159,7 @@ export class TeamHealthService {
   }
 
   // Calculate team satisfaction average
-  static calculateTeamSatisfaction(departmentName?: string): number {
+  static calculateTeamSatisfaction(departmentName?: string): number | null {
     const responses = this.getAllResponses();
     
     // Filter for satisfaction-related questions
@@ -170,7 +170,7 @@ export class TeamHealthService {
     );
 
     if (satisfactionResponses.length === 0) {
-      return 4.2; // Default fallback
+      return null; // No data available
     }
 
     const average = satisfactionResponses.reduce((sum, response) => 
@@ -180,7 +180,7 @@ export class TeamHealthService {
   }
 
   // Calculate satisfaction for recent period (last 7 days)
-  static calculateRecentSatisfaction(): number {
+  static calculateRecentSatisfaction(): number | null {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
@@ -201,7 +201,7 @@ export class TeamHealthService {
   }
 
   // Calculate department satisfaction score 
-  static async calculateDepartmentSatisfaction(department: string): Promise<number> {
+  static async calculateDepartmentSatisfaction(department: string): Promise<number | null> {
     try {
       // Try to get from Supabase database first
       const { data: dbResults } = await supabase
@@ -239,7 +239,7 @@ export class TeamHealthService {
   }
 
   // Calculate company-wide satisfaction score
-  static async calculateCompanySatisfaction(): Promise<number> {
+  static async calculateCompanySatisfaction(): Promise<number | null> {
     try {
       // Try to get from Supabase database first
       const { data: dbResults } = await supabase
@@ -262,7 +262,7 @@ export class TeamHealthService {
     );
 
     if (satisfactionResponses.length === 0) {
-      return 4.2; // Default fallback
+      return null; // No data available
     }
 
     const average = satisfactionResponses.reduce((sum, response) => 
