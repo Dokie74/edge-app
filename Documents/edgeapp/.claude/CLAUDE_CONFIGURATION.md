@@ -167,6 +167,35 @@ cypress/e2e/
 - **Routing**: SPA routing via vercel.json rewrites
 - **Static Assets**: Automatic optimization and CDN
 
+### ⚠️ CRITICAL: Always Check Deployment Status
+**MANDATORY**: After every git push to Vercel, IMMEDIATELY check deployment status before continuing any debugging or testing.
+
+**Commands to check deployment:**
+```bash
+# Check Vercel deployment status
+vercel --prod
+
+# Or check the Vercel dashboard at vercel.com
+```
+
+**Deployment failure indicators:**
+- Build errors in Vercel logs
+- Runtime configuration errors  
+- Function runtime version mismatches
+- Missing environment variables
+
+**If deployment fails:**
+1. ❌ **STOP ALL DEBUGGING** - Code changes won't help if deployment is broken
+2. 🔍 **Read Vercel build logs** - Identify the specific error
+3. 🔧 **Fix deployment issue first** - Runtime configs, dependencies, etc.
+4. ✅ **Verify successful deployment** - Only then test functionality
+
+**Common deployment fixes:**
+- Fix vercel.json runtime configurations
+- Update package.json dependencies
+- Resolve environment variable issues
+- Fix TypeScript compilation errors
+
 ### Production Considerations
 - **Source Maps**: Disabled in production builds (`GENERATE_SOURCEMAP=false`)
 - **Environment**: Production environment detection via `REACT_APP_ENV`

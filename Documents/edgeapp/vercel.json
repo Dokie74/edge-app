@@ -1,13 +1,13 @@
 {
   "functions": {
     "api/**/*.ts": {
-      "runtime": "@vercel/node@20"
+      "runtime": "nodejs20.x"
     },
     "api/**/*.js": {
-      "runtime": "@vercel/node@20"
+      "runtime": "nodejs20.x"
     },
     "api/**/*.mjs": {
-      "runtime": "@vercel/node@20"
+      "runtime": "nodejs20.x"
     }
   },
   "rewrites": [
