@@ -1,9 +1,9 @@
 // Simple JavaScript version of create-employee to isolate TypeScript issues
-const { createClient } = require('@supabase/supabase-js');
+import { createClient } from '@supabase/supabase-js';
 
 const TENANT_ID = 'lucerne';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
