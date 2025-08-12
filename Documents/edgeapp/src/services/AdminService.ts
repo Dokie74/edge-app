@@ -30,8 +30,24 @@ export class AdminService {
   // Call secure edge function with proper authentication
   static async callAdminFunction(action: string, data: any): Promise<AdminFunctionResponse> {
     try {
+      // Get current session to ensure auth headers are included
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      console.log('🔐 Auth session check:', {
+        hasSession: !!session,
+        hasAccessToken: !!session?.access_token,
+        userEmail: session?.user?.email
+      });
+      
+      if (!session?.access_token) {
+        throw new Error('User not authenticated - cannot call admin Edge Function');
+      }
+      
       const { data: result, error } = await supabase.functions.invoke('admin-operations', {
-        body: { action, data }
+        body: { action, data },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (error) {
