@@ -96,7 +96,7 @@ export class AdminService {
     }
   }
 
-  // Create new employee with security validation - NOW USES SECURE EDGE FUNCTION
+  // Create new employee with security validation - TEMPORARY DATABASE-ONLY VERSION
   static async createEmployee(employeeData: EmployeeFormData): Promise<ApiResponse> {
     try {
       // Input validation and sanitization
@@ -111,35 +111,40 @@ export class AdminService {
       // Log security event
       logger.logUserAction('create_employee_attempt', null, { role: secureData.role });
 
-      // Call secure Edge Function instead of using exposed service role key
-      const result = await this.callAdminFunction('create_user', {
-        email: secureData.email,
-        name: secureData.name,
-        role: secureData.role,
-        job_title: secureData.jobTitle,
-        manager_id: secureData.managerId || null,
-        department: secureData.department,
-        temp_password: secureData.password
+      // TEMPORARY: Use direct database function instead of Edge Function
+      const { data: result, error: rpcError } = await supabase.rpc('create_employee_direct', {
+        p_name: secureData.name,
+        p_email: secureData.email,
+        p_role: secureData.role,
+        p_job_title: secureData.jobTitle,
+        p_department: secureData.department,
+        p_manager_id: secureData.managerId || null,
+        p_temp_password: secureData.password
       });
+
+      if (rpcError) throw rpcError;
+
+      if (!result?.success) {
+        throw new Error(result?.error || 'Database function failed');
+      }
 
       logger.logUserAction('create_employee_success', null, { 
         employee_id: result.employee?.id,
-        auth_user_id: result.user?.id,
-        role: secureData.role
+        role: secureData.role,
+        note: 'database_only_creation'
       });
       
       return {
         success: true,
         data: {
           employee_id: result.employee?.id,
-          auth_user_id: result.user?.id,
-          message: 'Employee and auth account created successfully! User can login immediately.',
+          message: result.message || 'Employee record created successfully!',
+          note: result.note || 'Database-only creation. User needs to sign up separately.',
           next_steps: {
-            can_login_immediately: true,
-            login_credentials: {
-              email: secureData.email,
-              password: secureData.password
-            }
+            can_login_immediately: false,
+            signup_required: true,
+            signup_email: secureData.email,
+            instructions: 'User must sign up using their email address to create their auth account.'
           }
         }
       };
