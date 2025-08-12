@@ -1,300 +1,191 @@
-// Secure Admin Operations Edge Function - PRODUCTION VERSION  
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'npm:@supabase/supabase-js@2.43.0';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('NODE_ENV') === 'production' ? 'https://edgeapp.vercel.app' : '*',
+  'Access-Control-Allow-Origin': 'https://lucerne-edge-app.vercel.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+};
 
-serve(async (req) => {
-  const requestId = crypto.randomUUID();
-  
-  // Handle CORS preflight requests
+Deno.serve(async (req: Request) => {
+  // CORS preflight handling
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    console.log(JSON.stringify({ level: 'info', requestId, event: 'admin-op:start' }));
-    
-    // Get environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const serviceRoleKey = Deno.env.get('EDGE_SERVICE_ROLE_KEY')
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
-    
-    if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-      throw new Error('Missing required environment variables')
-    }
+    // Create Supabase client with service role for elevated permissions
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-    // Create clients - admin for privileged operations, user for auth validation
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey)
-    const supabaseUser = createClient(supabaseUrl, anonKey)
+    // Parse the request body - YOUR APP USES { action, data } format
+    const { action, data } = await req.json();
 
-    // Verify the request is from an authenticated admin user
-    const authHeader = req.headers.get('Authorization')
+    // Get user from Authorization header
+    const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.log(JSON.stringify({ level: 'warn', requestId, msg: 'missing auth header' }));
-      throw new Error('No authorization header')
+      return new Response(JSON.stringify({ error: 'No authorization header' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Extract and verify JWT token using user client
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser(token)
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !user) {
-      console.log(JSON.stringify({ level: 'warn', requestId, msg: 'invalid token', error: userError?.message }));
-      throw new Error('Invalid user token')
+      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Verify user has admin role in employees table
-    const { data: employee, error: empError } = await supabaseAdmin
+    // Verify user is admin in employees table for Lucerne tenant
+    const { data: employee, error: empError } = await supabase
       .from('employees')
       .select('role, is_active')
       .eq('email', user.email)
-      .single()
+      .eq('tenant_id', 'lucerne')
+      .single();
 
     if (empError || !employee || employee.role !== 'admin' || !employee.is_active) {
-      throw new Error('Admin access required')
+      return new Response(JSON.stringify({ 
+        error: 'Admin access required',
+        debug: {
+          user_email: user.email,
+          employee_found: !!employee,
+          employee_role: employee?.role,
+          employee_active: employee?.is_active,
+          emp_error: empError?.message
+        }
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
-    // Parse request body
-    const { action, data } = await req.json()
-
-    // Handle different admin operations
+    // Admin operations router - MATCHING YOUR APP'S EXPECTED ACTIONS
     let result;
     switch (action) {
-      case 'create_user':
-        // Create new user account in Supabase Auth
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+      case 'create_user': {
+        console.log('🔨 Starting user creation process...');
+        
+        // Create new user account - WITH DETAILED LOGGING
+        console.log('📧 Creating auth user for:', data.email);
+        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
           email: data.email,
           password: data.temp_password || 'TempPass123!',
           email_confirm: true,
           user_metadata: {
             name: data.name
           }
-        })
+        });
 
-        if (createError) throw createError
+        console.log('🎯 Auth user creation result:');
+        console.log('  - Success:', !!newUser);
+        console.log('  - Error:', createError?.message);
+        console.log('  - User ID:', newUser?.user?.id);
+
+        if (createError) {
+          console.log('💥 Auth user creation FAILED:', createError);
+          throw createError;
+        }
+
+        if (!newUser?.user) {
+          console.log('💥 No user returned from auth creation');
+          throw new Error('No user returned from auth.admin.createUser');
+        }
+
+        console.log('✅ Auth user created successfully:', newUser.user.id);
 
         // Create corresponding employee record
-        const { data: newEmployee, error: empError } = await supabaseAdmin
+        console.log('🏢 Creating employee record...');
+        const { data: newEmployee, error: empError } = await supabase
           .from('employees')
           .insert({
             user_id: newUser.user.id,
             email: data.email,
             name: data.name,
+            first_name: data.name.split(' ')[0],
+            last_name: data.name.split(' ').slice(1).join(' ') || '',
             role: data.role || 'employee',
             job_title: data.job_title,
-            manager_id: data.manager_id,
             department: data.department,
-            is_active: true
+            manager_id: data.manager_id || null,
+            is_active: true,
+            tenant_id: 'lucerne'
           })
           .select()
-          .single()
+          .single();
+
+        console.log('🎯 Employee creation result:');
+        console.log('  - Success:', !!newEmployee);
+        console.log('  - Error:', empError?.message);
 
         if (empError) {
+          console.log('💥 Employee creation FAILED, cleaning up auth user...');
           // Cleanup user if employee creation fails
-          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-          throw empError
+          await supabase.auth.admin.deleteUser(newUser.user.id);
+          console.log('🗑️ Auth user cleaned up');
+          throw empError;
         }
 
-        result = { success: true, user: newUser.user, employee: newEmployee }
-        break
+        console.log('✅ Employee record created successfully:', newEmployee.id);
 
-      case 'update_employee':
-        const { data: updatedEmployee, error: updateError } = await supabaseAdmin
+        result = { 
+          success: true, 
+          user: newUser.user, 
+          employee: newEmployee,
+          debug: {
+            auth_user_id: newUser.user.id,
+            employee_id: newEmployee.id
+          }
+        };
+        break;
+      }
+
+      case 'update_employee': {
+        const { data: updatedEmployee, error: updateError } = await supabase
           .from('employees')
           .update(data.updates)
           .eq('id', data.employee_id)
           .select()
-          .single()
+          .single();
 
-        if (updateError) throw updateError
-        result = { success: true, employee: updatedEmployee }
-        break
+        if (updateError) throw updateError;
+        result = { success: true, employee: updatedEmployee };
+        break;
+      }
 
-      case 'delete_employee':
-        // Soft delete - mark as inactive instead of hard delete
-        const { error: deleteError } = await supabaseAdmin
+      case 'delete_employee': {
+        // Soft delete - mark as inactive
+        const { error: deleteError } = await supabase
           .from('employees')
           .update({ is_active: false })
-          .eq('id', data.employee_id)
+          .eq('id', data.employee_id);
 
-        if (deleteError) throw deleteError
-        result = { success: true }
-        break
-
-      case 'reset_password':
-        const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'recovery',
-          email: data.email
-        })
-
-        if (resetError) throw resetError
-        result = { success: true, reset_link: resetData.properties?.action_link }
-        break
-
-      case 'cleanup_test_users':
-        // Cleanup test users while preserving admin@lucerne.com
-        const testUsersToCleanup = data.test_emails || [
-          'employee1@lucerne.com',
-          'manager1@lucerne.com'
-        ]
-        
-        // Safety check - never allow admin deletion
-        const safeEmails = testUsersToCleanup.filter(email => email !== 'admin@lucerne.com')
-        
-        if (safeEmails.length === 0) {
-          result = { success: true, message: 'No test users to cleanup', cleaned: [] }
-          break
-        }
-
-        const cleanupResults = []
-        
-        for (const email of safeEmails) {
-          try {
-            // Get employee record
-            const { data: empToDelete, error: empFindError } = await supabaseAdmin
-              .from('employees')
-              .select('id, user_id, name, email, role')
-              .eq('email', email)
-              .single()
-
-            if (empFindError || !empToDelete) {
-              cleanupResults.push({ email, status: 'not_found', message: 'Employee record not found' })
-              continue
-            }
-
-            // Clean up related data first (foreign key constraints)
-            
-            // Clean notifications
-            await supabaseAdmin
-              .from('notifications')
-              .delete()
-              .eq('recipient_id', empToDelete.id)
-
-            // Clean development plans
-            await supabaseAdmin
-              .from('development_plans')
-              .delete()
-              .eq('employee_id', empToDelete.id)
-
-            // Clean assessments
-            await supabaseAdmin
-              .from('assessments')
-              .delete()
-              .eq('employee_id', empToDelete.id)
-
-            // Clean pulse responses
-            await supabaseAdmin
-              .from('team_health_pulse_responses')
-              .delete()
-              .eq('employee_id', empToDelete.id)
-
-            // Clean kudos (both given and received)
-            await supabaseAdmin
-              .from('kudos')
-              .delete()
-              .eq('given_by', empToDelete.id)
-
-            await supabaseAdmin
-              .from('kudos')
-              .delete()
-              .eq('employee_id', empToDelete.id)
-
-            // Clean feedback (both given and received)
-            await supabaseAdmin
-              .from('feedback')
-              .delete()
-              .eq('giver_id', empToDelete.id)
-
-            await supabaseAdmin
-              .from('feedback')
-              .delete()
-              .eq('receiver_id', empToDelete.id)
-
-            // Delete employee record
-            const { error: empDeleteError } = await supabaseAdmin
-              .from('employees')
-              .delete()
-              .eq('id', empToDelete.id)
-
-            if (empDeleteError) throw empDeleteError
-
-            // Delete auth user if user_id exists
-            if (empToDelete.user_id) {
-              const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(
-                empToDelete.user_id
-              )
-              
-              if (authDeleteError) {
-                console.warn(`Warning: Could not delete auth user for ${email}:`, authDeleteError)
-              }
-            }
-
-            cleanupResults.push({
-              email,
-              status: 'success',
-              message: `Cleaned up ${empToDelete.name} (${empToDelete.role})`,
-              employee_id: empToDelete.id,
-              user_id: empToDelete.user_id
-            })
-
-          } catch (cleanupError) {
-            console.error(`Error cleaning up ${email}:`, cleanupError)
-            cleanupResults.push({
-              email,
-              status: 'error',
-              message: cleanupError.message || 'Unknown error during cleanup'
-            })
-          }
-        }
-
-        // Final verification - ensure admin still exists
-        const { data: adminCheck, error: adminCheckError } = await supabaseAdmin
-          .from('employees')
-          .select('id, email, role, is_active')
-          .eq('email', 'admin@lucerne.com')
-          .single()
-
-        if (adminCheckError || !adminCheck || !adminCheck.is_active) {
-          throw new Error('CRITICAL: Admin user verification failed after cleanup')
-        }
-
-        result = {
-          success: true,
-          message: `Cleanup completed. Processed ${safeEmails.length} users.`,
-          admin_preserved: true,
-          admin_email: adminCheck.email,
-          cleanup_results: cleanupResults,
-          summary: {
-            total_processed: safeEmails.length,
-            successful: cleanupResults.filter(r => r.status === 'success').length,
-            failed: cleanupResults.filter(r => r.status === 'error').length,
-            not_found: cleanupResults.filter(r => r.status === 'not_found').length
-          }
-        }
-        break
+        if (deleteError) throw deleteError;
+        result = { success: true };
+        break;
+      }
 
       default:
-        throw new Error(`Unknown action: ${action}`)
+        return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
     }
 
-    console.log(JSON.stringify({ level: 'info', requestId, event: 'admin-op:success' }));
-    return new Response(
-      JSON.stringify({ ...result, requestId }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
 
   } catch (error) {
-    console.error(JSON.stringify({ level: 'error', requestId, error: String(error) }));
-    return new Response(
-      JSON.stringify({ error: error.message, requestId }),
-      { 
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    console.error('Admin operation error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
-})
+});

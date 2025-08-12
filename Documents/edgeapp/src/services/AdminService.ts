@@ -22,6 +22,11 @@ interface AdminFunctionResponse {
 }
 
 export class AdminService {
+  // VERSION CHECK - Updated August 12, 2025 11:00 AM for Auth User Fix
+  static getVersion() {
+    console.log('🔍 AdminService Version: AUTH_USER_FIX_v1.1 - August 12, 2025 11:00 AM');
+    return 'AUTH_USER_FIX_v1.1';
+  }
   // Call secure edge function with proper authentication
   static async callAdminFunction(action: string, data: any): Promise<AdminFunctionResponse> {
     try {
@@ -96,8 +101,14 @@ export class AdminService {
     }
   }
 
-  // Create new employee with security validation - TEMPORARY DATABASE-ONLY VERSION
+  // Create new employee with security validation - DUAL APPROACH WITH FORCED DEBUGGING
   static async createEmployee(employeeData: EmployeeFormData): Promise<ApiResponse> {
+    // FORCED VERSION CHECK - This MUST appear in console if updated code is running
+    AdminService.getVersion();
+    console.log('🔥 AdminService.createEmployee called with:', employeeData);
+    console.log('🔥 CRITICAL: This is the ENHANCED version with auth user validation');
+    console.log('🔥 Current timestamp:', new Date().toISOString());
+    
     try {
       // Input validation and sanitization
       const validation: ValidationResult = validateEmployeeForm(employeeData);
@@ -111,42 +122,116 @@ export class AdminService {
       // Log security event
       logger.logUserAction('create_employee_attempt', null, { role: secureData.role });
 
-      // TEMPORARY: Use direct database function instead of Edge Function
-      const { data: result, error: rpcError } = await supabase.rpc('create_employee_direct', {
-        p_name: secureData.name,
-        p_email: secureData.email,
-        p_role: secureData.role,
-        p_job_title: secureData.jobTitle,
-        p_department: secureData.department,
-        p_manager_id: secureData.managerId || null,
-        p_temp_password: secureData.password
-      });
+      // APPROACH 1: Try server-side API route first (recommended)
+      try {
+        console.log('🚀 TRYING SERVER-SIDE API ROUTE APPROACH FIRST');
+        
+        const response = await fetch('/api/admin/create-employee', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: secureData.email,
+            password: secureData.password || 'TempPass123!',
+            full_name: secureData.name,
+            role: secureData.role,
+            job_title: secureData.jobTitle,
+            department: secureData.department,
+            manager_id: secureData.managerId || null,
+          }),
+        });
 
-      if (rpcError) throw rpcError;
-
-      if (!result?.success) {
-        throw new Error(result?.error || 'Database function failed');
+        if (response.ok) {
+          const apiResult = await response.json();
+          console.log('📡 Server-side API route response:', apiResult);
+          
+          // CRITICAL: Verify that auth user was actually created
+          if (!apiResult.user_id) {
+            console.error('💥 CRITICAL: API route succeeded but no user_id returned');
+            console.error('💥 This means auth user was NOT created');
+            throw new Error('API route failed: No auth user created (user_id is null)');
+          }
+          
+          console.log('✅ Server-side API route succeeded with auth user:', apiResult.user_id);
+          
+          logger.logUserAction('create_employee_success', null, { 
+            user_id: apiResult.user_id,
+            employee_id: apiResult.employee_id,
+            role: secureData.role,
+            approach: 'server_api_route'
+          });
+          
+          return {
+            success: true,
+            data: {
+              user_id: apiResult.user_id,
+              employee_id: apiResult.employee_id,
+              message: 'Employee created successfully with login account!',
+              next_steps: {
+                can_login_immediately: true,
+                signup_required: false,
+                login_credentials: apiResult.login_instructions,
+                instructions: `User can log in immediately with email: ${secureData.email} and the provided temporary password.`
+              }
+            }
+          };
+        } else {
+          const errorResult = await response.json();
+          console.error('💥 Server-side API route failed:', errorResult);
+          throw new Error(`API route failed: ${errorResult.error} (${errorResult.detail || 'no details'})`);
+        }
+      } catch (apiError: any) {
+        console.error('💥 Server-side API route FAILED - detailed error:', apiError);
+        console.log('⚠️ Server-side API route not available, falling back to Edge Function:', apiError.message);
       }
 
+      // APPROACH 2: Fallback to Edge Function (existing working implementation)
+      console.log('🚀 FALLBACK: USING EDGE FUNCTION APPROACH - calling admin-operations');
+      const result = await this.callAdminFunction('create_user', {
+        name: secureData.name,
+        email: secureData.email,
+        role: secureData.role,
+        job_title: secureData.jobTitle,
+        department: secureData.department,
+        manager_id: secureData.managerId || null,
+        temp_password: secureData.password || 'TempPass123!'
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Edge Function failed');
+      }
+
+      // CRITICAL: Verify that auth user was actually created
+      if (!result.user?.id) {
+        console.error('💥 CRITICAL: Edge Function succeeded but no user_id returned');
+        console.error('💥 This means auth user was NOT created');
+        throw new Error('Edge Function failed: No auth user created (user_id is null)');
+      }
+
+      console.log('✅ Edge Function fallback succeeded with auth user:', result.user.id);
+
       logger.logUserAction('create_employee_success', null, { 
+        user_id: result.user?.id,
         employee_id: result.employee?.id,
         role: secureData.role,
-        note: 'database_only_creation'
+        approach: 'edge_function_fallback'
       });
       
       return {
         success: true,
         data: {
+          user_id: result.user?.id,
           employee_id: result.employee?.id,
-          message: result.message || 'Employee record created successfully!',
+          message: 'Employee created successfully with login account!',
           next_steps: {
-            can_login_immediately: false,
-            signup_required: true,
+            can_login_immediately: true,
+            signup_required: false,
             login_credentials: {
               email: secureData.email,
-              password: secureData.password
+              password: secureData.password || 'TempPass123!'
             },
-            instructions: 'User must sign up using their email address to create their auth account.'
+            instructions: `User can log in immediately with email: ${secureData.email} and the provided temporary password.`
           }
         }
       };
