@@ -1,7 +1,6 @@
 // Vercel Function: /api/admin/create-employee.ts  
-// Compatible with Create React App deployment
-import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// Compatible with Create React App deployment - CommonJS format
+const { createClient } = require('@supabase/supabase-js');
 
 type RequestBody = {
   email: string;
@@ -17,7 +16,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const TENANT_ID = 'lucerne';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+module.exports = async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
