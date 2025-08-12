@@ -22,10 +22,10 @@ interface AdminFunctionResponse {
 }
 
 export class AdminService {
-  // VERSION CHECK - Updated August 12, 2025 4:35 PM - Simplified single API route approach
+  // VERSION CHECK - Updated August 12, 2025 4:56 PM - Edge Function Only approach
   static getVersion() {
-    console.log('🔍 AdminService Version: SIMPLIFIED_API_v1.2 - August 12, 2025 4:35 PM');
-    return 'SIMPLIFIED_API_v1.2';
+    console.log('🔍 AdminService Version: EDGE_FUNCTION_ONLY_v1.3 - August 12, 2025 4:56 PM');
+    return 'EDGE_FUNCTION_ONLY_v1.3';
   }
   // Call secure edge function with proper authentication
   static async callAdminFunction(action: string, data: any): Promise<AdminFunctionResponse> {
@@ -117,12 +117,12 @@ export class AdminService {
     }
   }
 
-  // Create new employee with auth user - Simplified single approach
+  // Create new employee with auth user - Edge Function Only approach
   static async createEmployee(employeeData: EmployeeFormData): Promise<ApiResponse> {
     // VERSION CHECK
     AdminService.getVersion();
     console.log('🔥 AdminService.createEmployee called with:', employeeData);
-    console.log('🔥 SIMPLIFIED version - single API route approach');
+    console.log('🔥 EDGE FUNCTION ONLY version - bypassing broken API routes');
     console.log('🔥 Current timestamp:', new Date().toISOString());
     
     try {
@@ -138,76 +138,76 @@ export class AdminService {
       // Log security event
       logger.logUserAction('create_employee_attempt', null, { role: secureData.role });
 
-      console.log('🚀 Calling server-side API route: /api/admin/create-employee');
+      console.log('🚀 CALLING EDGE FUNCTION DIRECTLY - bypassing broken API routes');
       
-      const response = await fetch('/api/admin/create-employee', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      // Get current session for auth headers
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Admin not authenticated - cannot create users');
+      }
+
+      console.log('👤 Admin session found:', session.user.email);
+
+      // Call Edge Function directly with proper auth
+      console.log('📡 Invoking admin-operations Edge Function...');
+      const { data: result, error } = await supabase.functions.invoke('admin-operations', {
+        body: { 
+          action: 'create_user',
+          data: {
+            name: secureData.name,
+            email: secureData.email,
+            role: secureData.role,
+            job_title: secureData.jobTitle || 'Staff',
+            department: secureData.department,
+            manager_id: secureData.managerId || null,
+            temp_password: secureData.password || 'TempPass123!'
+          }
         },
-        body: JSON.stringify({
-          email: secureData.email,
-          password: secureData.password || 'TempPass123!',
-          full_name: secureData.name,
-          role: secureData.role,
-          job_title: secureData.jobTitle,
-          department: secureData.department,
-          manager_id: secureData.managerId || null,
-        }),
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
-      if (!response.ok) {
-        let errorDetail = 'Unknown error';
-        try {
-          const errorResult = await response.json();
-          errorDetail = errorResult.error || errorResult.detail || 'Server error';
-          
-          // Specific error handling for environment issues
-          if (response.status === 500 && errorResult.debug) {
-            console.error('💥 Environment Configuration Error:', errorResult.debug);
-            throw new Error('Server configuration error: Please ensure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in Vercel environment variables');
-          }
-        } catch (parseError) {
-          // If we can't parse JSON, it might be HTML error page
-          const textError = await response.text();
-          if (textError.includes('FUNCTION_INVOCATION_FAILED')) {
-            throw new Error('Server configuration error: Environment variables missing. Please set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel dashboard');
-          }
-          errorDetail = `HTTP ${response.status}: ${response.statusText}`;
-        }
-        
-        throw new Error(`API route failed: ${errorDetail}`);
+      if (error) {
+        console.error('💥 Edge Function error:', error);
+        throw error;
       }
 
-      const apiResult = await response.json();
-      console.log('📡 Server-side API route response:', apiResult);
-      
-      // CRITICAL: Verify that auth user was actually created
-      if (!apiResult.user_id) {
-        console.error('💥 CRITICAL: API route succeeded but no user_id returned');
-        console.error('💥 This means auth user was NOT created');
-        throw new Error('API route failed: No auth user created (user_id is null)');
+      if (result?.error) {
+        console.error('💥 Edge Function result error:', result);
+        throw new Error(result.error + (result.debug ? ` | Debug: ${JSON.stringify(result.debug)}` : ''));
       }
-      
-      console.log('✅ Server-side API route succeeded with auth user:', apiResult.user_id);
+
+      // CRITICAL: Verify auth user was created
+      if (!result.user?.id) {
+        console.error('💥 CRITICAL: Edge Function succeeded but no user_id returned');
+        console.error('💥 Full result:', result);
+        throw new Error('Edge Function failed: No auth user created');
+      }
+
+      console.log('✅ Edge Function succeeded with auth user:', result.user.id);
+      console.log('✅ Employee created:', result.employee?.id);
       
       logger.logUserAction('create_employee_success', null, { 
-        user_id: apiResult.user_id,
-        employee_id: apiResult.employee_id,
+        user_id: result.user.id,
+        employee_id: result.employee?.id,
         role: secureData.role,
-        approach: 'server_api_route'
+        approach: 'edge_function_only'
       });
       
       return {
         success: true,
         data: {
-          user_id: apiResult.user_id,
-          employee_id: apiResult.employee_id,
+          user_id: result.user.id,
+          employee_id: result.employee?.id,
           message: 'Employee created successfully with login account!',
           next_steps: {
             can_login_immediately: true,
             signup_required: false,
-            login_credentials: apiResult.login_instructions,
+            login_credentials: {
+              email: secureData.email,
+              password: secureData.password || 'TempPass123!'
+            },
             instructions: `User can log in immediately with email: ${secureData.email} and the provided temporary password.`
           }
         }
