@@ -5,6 +5,9 @@
     },
     "api/**/*.js": {
       "runtime": "@vercel/node@20"
+    },
+    "api/**/*.mjs": {
+      "runtime": "@vercel/node@20"
     }
   },
   "rewrites": [
