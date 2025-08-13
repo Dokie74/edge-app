@@ -16,23 +16,37 @@ Deno.serve(async (req: Request) => {
     // Debug environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
     
     console.log('🔍 Environment check:', {
       url_exists: !!supabaseUrl,
       url_length: supabaseUrl?.length || 0,
-      key_exists: !!serviceKey,
-      key_length: serviceKey?.length || 0
+      service_key_exists: !!serviceKey,
+      service_key_length: serviceKey?.length || 0,
+      anon_key_exists: !!anonKey,
+      anon_key_length: anonKey?.length || 0
     });
     
-    if (!supabaseUrl || !serviceKey) {
-      throw new Error(`Missing environment variables: URL=${!!supabaseUrl}, KEY=${!!serviceKey}`);
+    if (!supabaseUrl || !serviceKey || !anonKey) {
+      throw new Error(`Missing environment variables: URL=${!!supabaseUrl}, SERVICE_KEY=${!!serviceKey}, ANON_KEY=${!!anonKey}`);
     }
     
     // Create Supabase client with service role for elevated permissions
-    const supabase = createClient(supabaseUrl, serviceKey);
+    const supabaseAdmin = createClient(supabaseUrl, serviceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+    
+    // For token validation, we need anon key client
+    const supabaseAnon = createClient(supabaseUrl, anonKey);
 
     // Parse the request body - YOUR APP USES { action, data } format
-    const { action, data } = await req.json();
+    const body = await req.json();
+    console.log('📦 Raw request body:', body);
+    
+    const { action, data } = body;
 
     // Get user from Authorization header
     const authHeader = req.headers.get('Authorization');
@@ -44,17 +58,28 @@ Deno.serve(async (req: Request) => {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    console.log('🔐 Auth token length:', token.length);
+    
+    const { data: { user }, error: userError } = await supabaseAnon.auth.getUser(token);
 
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Invalid token' }), {
+      console.error('❌ Token validation failed:', userError);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid token',
+        debug: {
+          token_length: token.length,
+          error: userError?.message
+        }
+      }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    console.log('✅ Token validated for user:', user.email);
+
     // Verify user is admin in employees table for Lucerne tenant
-    const { data: employee, error: empError } = await supabase
+    const { data: employee, error: empError } = await supabaseAdmin
       .from('employees')
       .select('role, is_active')
       .eq('email', user.email)
@@ -85,12 +110,13 @@ Deno.serve(async (req: Request) => {
         
         // Create new user account - WITH DETAILED LOGGING
         console.log('📧 Creating auth user for:', data.email);
-        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
           email: data.email,
           password: data.temp_password || 'TempPass123!',
           email_confirm: true,
           user_metadata: {
-            name: data.name
+            name: data.name,
+            source: 'admin-create'
           }
         });
 
@@ -110,7 +136,7 @@ Deno.serve(async (req: Request) => {
           // Check if user already exists
           if (createError.message?.includes('already registered') || createError.status === 422) {
             console.log('👤 User already exists, trying to fetch existing user...');
-            const { data: existingUser, error: getUserError } = await supabase.auth.admin.getUserByEmail(data.email);
+            const { data: existingUser, error: getUserError } = await supabaseAdmin.auth.admin.getUserByEmail(data.email);
             
             if (getUserError || !existingUser?.user) {
               return new Response(JSON.stringify({
@@ -161,7 +187,7 @@ Deno.serve(async (req: Request) => {
         let departmentId = null;
         if (data.department) {
           // First try to find department by name
-          const { data: dept } = await supabase
+          const { data: dept } = await supabaseAdmin
             .from('departments')
             .select('id')
             .eq('name', data.department)
@@ -176,7 +202,7 @@ Deno.serve(async (req: Request) => {
           }
         }
 
-        const { data: newEmployee, error: empError } = await supabase
+        const { data: newEmployee, error: empError } = await supabaseAdmin
           .from('employees')
           .insert({
             user_id: newUser.user.id,
@@ -208,7 +234,7 @@ Deno.serve(async (req: Request) => {
           });
           
           // Cleanup user if employee creation fails
-          await supabase.auth.admin.deleteUser(newUser.user.id);
+          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
           console.log('🗑️ Auth user cleaned up');
           
           // Return structured error instead of throwing
@@ -241,7 +267,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'update_employee': {
-        const { data: updatedEmployee, error: updateError } = await supabase
+        const { data: updatedEmployee, error: updateError } = await supabaseAdmin
           .from('employees')
           .update(data.updates)
           .eq('id', data.employee_id)
@@ -255,7 +281,7 @@ Deno.serve(async (req: Request) => {
 
       case 'delete_employee': {
         // Soft delete - mark as inactive
-        const { error: deleteError } = await supabase
+        const { error: deleteError } = await supabaseAdmin
           .from('employees')
           .update({ is_active: false })
           .eq('id', data.employee_id);
