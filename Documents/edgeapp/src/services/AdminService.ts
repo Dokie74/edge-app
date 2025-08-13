@@ -1,6 +1,4 @@
-// AdminService.ts - FINAL EDGE FUNCTION ONLY VERSION
-// This version combines all fixes from Gemini, ChatGPT, and Claude analyses
-// Date: August 12, 2025 - GUARANTEED TO WORK
+// AdminService.ts - Administrative operations service
 
 import { supabase } from './supabaseClient';
 import { validateEmployeeForm, validateReviewCycleForm } from '../utils/validation';
@@ -25,25 +23,9 @@ interface AdminFunctionResponse {
 }
 
 export class AdminService {
-  // VERSION CHECK - This MUST appear in console
-  static getVersion() {
-    const version = 'v2.3 - FUCK THIS DEPLOYMENT ISSUE - Edge Function Not Deploying';
-    console.log('=====================================');
-    console.log('🚀 AdminService Version:', version);
-    console.log('❌ Edge Function deployment is BROKEN');
-    console.log('❌ Multiple deployment attempts failed');
-    console.log('❌ Still getting 500 errors from old function');
-    console.log('🔧 Need manual deployment intervention');
-    console.log('=====================================');
-    return version;
-  }
 
-  // Create new employee - EDGE FUNCTION ONLY with proper auth
+  // Create new employee via Edge Function
   static async createEmployee(employeeData: EmployeeFormData): Promise<ApiResponse> {
-    // Always show version on every call
-    AdminService.getVersion();
-    console.log('📋 Creating employee:', employeeData.name);
-    console.log('⏰ Timestamp:', new Date().toISOString());
     
     try {
       // Step 1: Validate input
@@ -53,27 +35,17 @@ export class AdminService {
       }
       const secureData = validation.data as EmployeeFormData;
       
-      // Step 2: Log attempt
+      // Log attempt
       logger.logUserAction('create_employee_attempt', null, { role: secureData.role });
 
-      // Step 3: Get fresh session (CRITICAL - this was missing in v1.1)
-      console.log('🔐 Getting authentication session...');
+      // Get authentication session
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       
-      if (sessionError) {
-        console.error('❌ Session error:', sessionError);
-        throw new Error('Authentication failed - please log in again');
-      }
-      
-      if (!session?.access_token) {
-        console.error('❌ No access token found');
-        throw new Error('Not authenticated - please log in again');
+      if (sessionError || !session?.access_token) {
+        throw new Error('Authentication required - please log in again');
       }
 
-      console.log('✅ Session found for:', session.user.email);
-      console.log('✅ Access token length:', session.access_token.length);
-
-      // Step 4: Prepare request
+      // Prepare request
       const requestBody = {
         action: 'create_user',
         data: {
@@ -87,11 +59,7 @@ export class AdminService {
         }
       };
 
-      console.log('📡 TESTING: Calling admin-operations after manual deployment...');
-      console.log('📦 With data:', requestBody);
-
-      // Step 5: Call Edge Function (testing if deployment worked)
-      console.log('🧪 TESTING: Trying admin-operations after manual deployment');
+      // Call Edge Function
       const { data: result, error: edgeError } = await supabase.functions.invoke(
         'admin-operations',
         {
@@ -103,37 +71,25 @@ export class AdminService {
         }
       );
 
-      // Step 6: Handle errors
+      // Handle errors
       if (edgeError) {
-        console.error('❌ Edge Function error:', edgeError);
         throw new Error(`Edge Function failed: ${edgeError.message}`);
       }
 
       if (result?.error) {
-        console.error('❌ Edge Function returned error:', result);
         const debugInfo = result.debug ? ` (${JSON.stringify(result.debug)})` : '';
         throw new Error(`${result.error}${debugInfo}`);
       }
 
-      // Step 7: Validate response
+      // Validate response
       if (!result?.user?.id) {
-        console.error('❌ No auth user created in response:', result);
         throw new Error('Failed to create login account - no user ID returned');
       }
-
-      if (!result?.employee?.id) {
-        console.warn('⚠️ Auth user created but employee record may be missing');
-      }
-
-      // Step 8: Success!
-      console.log('🎉 SUCCESS - Auth user created:', result.user.id);
-      console.log('🎉 SUCCESS - Employee created:', result.employee?.id);
       
       logger.logUserAction('create_employee_success', null, { 
         user_id: result.user.id,
         employee_id: result.employee?.id,
-        role: secureData.role,
-        version: 'FINAL_v2.0'
+        role: secureData.role
       });
       
       return {
@@ -141,7 +97,7 @@ export class AdminService {
         data: {
           user_id: result.user.id,
           employee_id: result.employee?.id,
-          message: '✅ Employee created successfully with login account!',
+          message: 'Employee created successfully with login account!',
           loginInfo: {
             email: secureData.email,
             tempPassword: secureData.password || 'TempPass123!',
@@ -151,11 +107,9 @@ export class AdminService {
       };
       
     } catch (error: any) {
-      console.error('💥 FINAL ERROR:', error);
       logger.logError(error, { 
         action: 'create_employee', 
-        data: employeeData,
-        version: 'FINAL_v2.0'
+        data: employeeData
       });
       
       // Provide helpful error message

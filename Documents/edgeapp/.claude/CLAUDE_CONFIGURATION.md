@@ -150,11 +150,11 @@ Local Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1
 ### Modal Management Pattern
 ```javascript
 // Opening modals
-openModal('createEmployee', { onComplete: refreshData });
+openModal('modalName', { onComplete: refreshData });
 
 // Modal rendering in App.js
-{modal.isOpen && modal.name === 'createEmployee' && (
-  <CreateEmployeeModal closeModal={closeModal} modalProps={modal.props} />
+{modal.isOpen && modal.name === 'modalName' && (
+  <ModalComponent closeModal={closeModal} modalProps={modal.props} />
 )}
 ```
 
