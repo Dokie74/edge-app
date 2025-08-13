@@ -1,2 +1,0 @@
-// Check Authentication Status - Single line for browser console
-supabase.auth.getUser().then(({ data: { user } }) => { console.log('Current user:', user?.email || 'Not logged in'); console.log('User ID:', user?.id); console.log('Authenticated:', !!user); if (!user) { console.log('❌ Need to login first for Edge Function'); } else { console.log('✅ User is authenticated, Edge Function should work'); } });

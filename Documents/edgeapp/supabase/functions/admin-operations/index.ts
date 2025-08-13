@@ -13,11 +13,23 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // Debug environment variables
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    console.log('🔍 Environment check:', {
+      url_exists: !!supabaseUrl,
+      url_length: supabaseUrl?.length || 0,
+      key_exists: !!serviceKey,
+      key_length: serviceKey?.length || 0
+    });
+    
+    if (!supabaseUrl || !serviceKey) {
+      throw new Error(`Missing environment variables: URL=${!!supabaseUrl}, KEY=${!!serviceKey}`);
+    }
+    
     // Create Supabase client with service role for elevated permissions
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabase = createClient(supabaseUrl, serviceKey);
 
     // Parse the request body - YOUR APP USES { action, data } format
     const { action, data } = await req.json();
@@ -106,7 +118,7 @@ Deno.serve(async (req: Request) => {
           .insert({
             user_id: newUser.user.id,
             email: data.email,
-            name: data.name,
+            // name is a generated column - don't include it
             first_name: data.name.split(' ')[0],
             last_name: data.name.split(' ').slice(1).join(' ') || '',
             role: data.role || 'employee',
@@ -182,8 +194,22 @@ Deno.serve(async (req: Request) => {
     });
 
   } catch (error) {
-    console.error('Admin operation error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('💥 Admin operation error:', error);
+    console.error('💥 Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause
+    });
+    
+    return new Response(JSON.stringify({ 
+      error: error.message,
+      debug: {
+        error_name: error.name,
+        error_stack: error.stack?.substring(0, 500), // First 500 chars
+        timestamp: new Date().toISOString()
+      }
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
