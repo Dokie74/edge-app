@@ -27,12 +27,13 @@ interface AdminFunctionResponse {
 export class AdminService {
   // VERSION CHECK - This MUST appear in console
   static getVersion() {
-    const version = 'FINAL_EDGE_ONLY_v2.0 - Combined Fix';
+    const version = 'FINAL_EDGE_ONLY_v2.0 - Combined Fix - Force Deploy';
     console.log('=====================================');
     console.log('🚀 AdminService Version:', version);
     console.log('✅ Edge Function ONLY - No API routes');
     console.log('✅ Proper auth token handling included');
     console.log('✅ This is the FINAL WORKING version');
+    console.log('✅ CACHE BUSTED - Fresh deployment');
     console.log('=====================================');
     return version;
   }
