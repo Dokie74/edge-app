@@ -57,7 +57,13 @@
       "WebFetch(domain:api.github.com)",
       "Bash(git remote get-url:*)",
       "WebFetch(domain:lucerne-edge-app.vercel.app)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(where claude)",
+      "Bash(claude config set --model opus-4.1)",
+      "Bash(claude config set model opus-4.1)",
+      "Bash(claude config set --global model opus-4.1)",
+      "Bash(claude --model opus-4.1)",
+      "Bash(deno run:*)"
     ],
     "deny": []
   }

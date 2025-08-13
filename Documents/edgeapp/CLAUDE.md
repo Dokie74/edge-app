@@ -15,6 +15,8 @@
 npm start                    # Start development
 npm run type-check && npm test   # Type check + tests
 node backups/supabase-backup.js && node backups/frontend-backup.js   # Full backup
+npx supabase start           # Start local Supabase stack
+npx supabase status          # Check local services status
 ```
 
 ---

@@ -49,7 +49,26 @@ Before starting, ensure you have:
 
 ### Step 2: Set Up Database Schema
 
-**Option A: Agent Assistance Available**
+**Option A: Local Development with Supabase CLI (Recommended)**
+
+1. **Start Local Supabase Stack**
+   ```bash
+   npx supabase start
+   ```
+
+2. **Apply Schema to Local Environment**
+   ```bash
+   npx supabase db reset  # Reset to latest migration
+   npx supabase db diff   # Generate migration from schema changes
+   ```
+
+3. **Deploy to Client Project**
+   ```bash
+   npx supabase link --project-ref [client-project-id]
+   npx supabase db push  # Deploy local changes to client project
+   ```
+
+**Option B: Agent Assistance Available**
 > *Note: You can ask Claude Code agent to perform this step by providing the Supabase credentials*
 
 1. **Upload Database Schema**
@@ -57,7 +76,7 @@ Before starting, ensure you have:
    - Copy contents from `EDGE-App-Supabase-Backup.sql`
    - Execute the SQL to create all tables, functions, and policies
 
-**Option B: Manual Setup**
+**Option C: Manual Setup**
 
 1. **Apply Database Migration**
    ```bash
@@ -244,19 +263,27 @@ Track each client deployment:
 
 **Tasks That Can Be Automated with Claude Code Agent:**
 
-1. **Database Schema Setup**
-   - "Apply the database schema to new Supabase project [project-id]"
-   - Agent can execute SQL scripts automatically
+1. **Local Development Setup**
+   - "Start local Supabase stack and prepare development environment"
+   - Agent can run `npx supabase start` and verify services
 
-2. **Environment Configuration** 
+2. **Database Schema Setup**
+   - "Apply the database schema to new Supabase project [project-id] using local CLI"
+   - Agent can execute local development workflow and deploy to client project
+
+3. **Edge Functions Development**
+   - "Create and test Edge Function [name] locally before deploying"
+   - Agent can use `npx supabase functions new [name]` and local testing
+
+4. **Environment Configuration** 
    - "Create environment file for client [name] with Supabase project [id]"
    - Agent can generate proper .env files
 
-3. **Verification Scripts**
-   - "Test data isolation for client deployment [url]"
-   - Agent can run automated tests
+5. **Verification Scripts**
+   - "Test data isolation for client deployment [url] using local tools"
+   - Agent can run automated tests against local and remote environments
 
-4. **Client Admin Creation**
+6. **Client Admin Creation**
    - "Create admin user for client [name] in Supabase project [id]"
    - Agent can execute the user creation process
 

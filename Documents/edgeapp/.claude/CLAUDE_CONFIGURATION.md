@@ -30,6 +30,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run lint` - Currently outputs placeholder message (no linter configured)
 - `npm run vercel-build` - Special Vercel build command with legacy peer deps
 
+### Supabase CLI Commands (Local Development)
+- `npx supabase start` - Start local Supabase stack (Postgres, Auth, Storage, Studio)
+- `npx supabase stop` - Stop local Supabase services
+- `npx supabase status` - Check status of local services
+- `npx supabase functions new [name]` - Create new Edge Function
+- `npx supabase functions serve` - Serve Edge Functions locally
+- `npx supabase functions deploy [name]` - Deploy function to cloud
+- `npx supabase db reset` - Reset local database to latest migration
+- `npx supabase migration new [name]` - Create new database migration
+- `npx supabase db diff` - Generate migration from schema changes
+
 ## Environment Setup
 
 ### Required Environment Variables (.env file)
@@ -39,6 +50,21 @@ REACT_APP_SUPABASE_ANON_KEY=your_supabase_anon_key
 REACT_APP_SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 REACT_APP_ENV=production
 ```
+
+### Local Development Environment (Supabase CLI)
+```
+Local API URL: http://127.0.0.1:54321
+Local DB URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+Studio URL: http://127.0.0.1:54323
+Local Anon Key: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+```
+
+**Local Development Workflow:**
+- Start with `npx supabase start` to spin up full local stack
+- Use local anon key for testing Edge Functions and API calls
+- Access Studio at http://127.0.0.1:54323 for database management
+- Functions directory: `supabase/functions/`
+- All services run offline with full Supabase feature set
 
 ### Node.js Requirements
 - Node.js version >=22.0.0 (enforced in package.json engines)
