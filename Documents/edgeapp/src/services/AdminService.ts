@@ -27,13 +27,13 @@ interface AdminFunctionResponse {
 export class AdminService {
   // VERSION CHECK - This MUST appear in console
   static getVersion() {
-    const version = 'FINAL_EDGE_ONLY_v2.0 - Combined Fix - Force Deploy';
+    const version = 'v2.3 - FUCK THIS DEPLOYMENT ISSUE - Edge Function Not Deploying';
     console.log('=====================================');
     console.log('🚀 AdminService Version:', version);
-    console.log('✅ Edge Function ONLY - No API routes');
-    console.log('✅ Proper auth token handling included');
-    console.log('✅ This is the FINAL WORKING version');
-    console.log('✅ CACHE BUSTED - Fresh deployment');
+    console.log('❌ Edge Function deployment is BROKEN');
+    console.log('❌ Multiple deployment attempts failed');
+    console.log('❌ Still getting 500 errors from old function');
+    console.log('🔧 Need manual deployment intervention');
     console.log('=====================================');
     return version;
   }
@@ -87,16 +87,17 @@ export class AdminService {
         }
       };
 
-      console.log('📡 Calling Edge Function admin-operations...');
+      console.log('📡 Calling NEW Edge Function admin-ops-new (bypassing broken admin-operations)...');
       console.log('📦 With data:', requestBody);
 
-      // Step 5: Call Edge Function with PROPER HEADERS (this fixes the 403)
+      // Step 5: Call NEW Edge Function (bypassing broken admin-operations)
+      console.log('🚨 USING NEW FUNCTION: admin-ops-new instead of broken admin-operations');
       const { data: result, error: edgeError } = await supabase.functions.invoke(
-        'admin-operations',
+        'admin-ops-new',
         {
           body: requestBody,
           headers: {
-            'Authorization': `Bearer ${session.access_token}`, // CRITICAL - was missing
+            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json'
           }
         }
