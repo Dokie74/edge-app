@@ -255,26 +255,26 @@ export class AdminService {
 
       if (updates.email !== undefined) {
         const emailValidation = validateEmployeeForm({ email: updates.email });
-        if (!emailValidation.isValid && nameValidation.errors.email) {
-          throw new Error(`Email validation failed: ${nameValidation.errors.email}`);
+        if (!emailValidation.isValid && emailValidation.errors.email) {
+          throw new Error(`Email validation failed: ${emailValidation.errors.email}`);
         }
-        validatedUpdates.email = (nameValidation.data as any)?.email || updates.email;
+        validatedUpdates.email = (emailValidation.data as any)?.email || updates.email;
       }
 
       if (updates.jobTitle !== undefined) {
         const jobTitleValidation = validateEmployeeForm({ jobTitle: updates.jobTitle });
-        if (!jobTitleValidation.isValid && nameValidation.errors.jobTitle) {
-          throw new Error(`Job title validation failed: ${nameValidation.errors.jobTitle}`);
+        if (!jobTitleValidation.isValid && jobTitleValidation.errors.jobTitle) {
+          throw new Error(`Job title validation failed: ${jobTitleValidation.errors.jobTitle}`);
         }
-        validatedUpdates.jobTitle = (nameValidation.data as any)?.jobTitle || updates.jobTitle;
+        validatedUpdates.jobTitle = (jobTitleValidation.data as any)?.jobTitle || updates.jobTitle;
       }
 
       if (updates.role !== undefined) {
         const roleValidation = validateEmployeeForm({ role: updates.role });
-        if (!roleValidation.isValid && nameValidation.errors.role) {
-          throw new Error(`Role validation failed: ${nameValidation.errors.role}`);
+        if (!roleValidation.isValid && roleValidation.errors.role) {
+          throw new Error(`Role validation failed: ${roleValidation.errors.role}`);
         }
-        validatedUpdates.role = (nameValidation.data as any)?.role || updates.role;
+        validatedUpdates.role = (roleValidation.data as any)?.role || updates.role;
       }
 
       if (updates.managerId !== undefined) {
