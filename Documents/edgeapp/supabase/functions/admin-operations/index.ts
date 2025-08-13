@@ -1,5 +1,8 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.43.0';
 
+// FORCED REDEPLOY - August 13, 2025 - Version 2.2
+// This ensures the function is completely rebuilt and redeployed
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://lucerne-edge-app.vercel.app',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -7,11 +10,24 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req: Request) => {
-  console.log('🚀 Edge Function called - Version 2.1 - Aug 13, 2025');
+  const timestamp = new Date().toISOString();
+  console.log(`🚀 EDGE FUNCTION ADMIN-OPERATIONS - VERSION 2.2 - FORCED DEPLOY - ${timestamp}`);
   
   // CORS preflight handling
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
+  }
+
+  // Health check endpoint
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({ 
+      status: 'healthy', 
+      version: '2.2',
+      timestamp: timestamp,
+      message: 'Admin Operations Edge Function - FORCED REDEPLOY'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   try {
@@ -19,11 +35,12 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('EDGE_SERVICE_ROLE_KEY');
     
-    console.log('🔍 Environment check:', {
+    console.log('🔍 Environment check - FORCED REDEPLOY V2.2:', {
       url_exists: !!supabaseUrl,
       url_length: supabaseUrl?.length || 0,
       service_key_exists: !!serviceKey,
       service_key_length: serviceKey?.length || 0,
+      deployment_timestamp: timestamp,
       env_vars: Object.keys(Deno.env.toObject()).filter(k => k.includes('SUPABASE') || k.includes('EDGE'))
     });
     
