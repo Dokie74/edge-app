@@ -1,4 +1,4 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.43.0';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 
 // FORCED REDEPLOY - August 13, 2025 - Version 2.2
 // This ensures the function is completely rebuilt and redeployed
