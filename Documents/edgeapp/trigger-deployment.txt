@@ -1,3 +1,0 @@
-FORCE DEPLOYMENT - August 13, 2025 - 1:08 PM
-Edge Function admin-operations version 2.2 deployment trigger
-This file change should force a complete redeploy of all Edge Functions

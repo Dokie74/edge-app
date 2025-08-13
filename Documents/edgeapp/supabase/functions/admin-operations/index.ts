@@ -20,13 +20,18 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
-  // Health check endpoint
+  // Health check endpoint - NO AUTH REQUIRED
   if (req.method === 'GET') {
     return new Response(JSON.stringify({ 
       status: 'healthy', 
-      version: '2.2',
+      version: '2.2-FINAL',
       timestamp: timestamp,
-      message: 'Admin Operations Edge Function - FORCED REDEPLOY'
+      deployment_check: 'SUCCESS',
+      message: 'Admin Operations Edge Function - DEPLOYMENT VERIFIED',
+      env_check: {
+        supabase_url_exists: !!Deno.env.get('SUPABASE_URL'),
+        service_key_exists: !!(Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('EDGE_SERVICE_ROLE_KEY'))
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
