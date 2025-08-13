@@ -87,13 +87,13 @@ export class AdminService {
         }
       };
 
-      console.log('📡 Calling NEW Edge Function admin-ops-new (bypassing broken admin-operations)...');
+      console.log('📡 TESTING: Calling admin-operations after manual deployment...');
       console.log('📦 With data:', requestBody);
 
-      // Step 5: Call NEW Edge Function (bypassing broken admin-operations)
-      console.log('🚨 USING NEW FUNCTION: admin-ops-new instead of broken admin-operations');
+      // Step 5: Call Edge Function (testing if deployment worked)
+      console.log('🧪 TESTING: Trying admin-operations after manual deployment');
       const { data: result, error: edgeError } = await supabase.functions.invoke(
-        'admin-ops-new',
+        'admin-operations',
         {
           body: requestBody,
           headers: {
