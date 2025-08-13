@@ -157,17 +157,36 @@ Deno.serve(async (req: Request) => {
         
         console.log('👤 Name parsing:', { firstName, lastName, originalName: data.name });
         
+        // Handle department - check if it's a string name that needs to be converted to ID
+        let departmentId = null;
+        if (data.department) {
+          // First try to find department by name
+          const { data: dept } = await supabase
+            .from('departments')
+            .select('id')
+            .eq('name', data.department)
+            .eq('tenant_id', 'lucerne')
+            .single();
+          
+          if (dept) {
+            departmentId = dept.id;
+            console.log('📁 Found department ID:', departmentId, 'for name:', data.department);
+          } else {
+            console.log('⚠️ Department not found, using null:', data.department);
+          }
+        }
+
         const { data: newEmployee, error: empError } = await supabase
           .from('employees')
           .insert({
             user_id: newUser.user.id,
             email: data.email,
-            // name is a generated column - don't include it in insert
+            // DON'T include 'name' field - it's generated from first_name + last_name
             first_name: firstName,
             last_name: lastName,
             role: data.role || 'employee',
             job_title: data.job_title || 'Staff',
-            department: data.department || null, // Allow null departments
+            department_id: departmentId, // Use department_id instead of department
             manager_id: data.manager_id || null,
             is_active: true,
             tenant_id: 'lucerne'
