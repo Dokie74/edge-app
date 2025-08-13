@@ -1,0 +1,41 @@
+{
+  "timestamp": "2025-08-13T01:58:37.010Z",
+  "system": "Lucerne International Client",
+  "client_folder": "C:\\Users\\DavidOkonoski\\Documents\\edgeapp\\clients\\lucerne-international",
+  "database": {
+    "project_ref": "wvggehrxhnuvlxpaghft",
+    "url": "https://wvggehrxhnuvlxpaghft.supabase.co",
+    "organization": "Lucerne International",
+    "region": "us-east-1",
+    "plan": "Free",
+    "database_password": "[SECURE_PASSWORD_STORED_SEPARATELY]"
+  },
+  "frontend": {
+    "deployment_url": "https://lucerne-edge-app.vercel.app",
+    "vercel_project": "lucerne-edge-app",
+    "framework": "Create React App",
+    "description": "Production client deployment"
+  },
+  "client_documentation": {
+    "deployment_status": "DEPLOYMENT_STATUS.md",
+    "database_config": "database-config.json",
+    "environment_vars": "environment-variables.env",
+    "vercel_config": "vercel-config.json",
+    "troubleshooting": "troubleshooting-log.md",
+    "deployment_history": "deployment-history.md",
+    "case_study": "LUCERNE_DEPLOYMENT_CASE_STUDY.md",
+    "schema_files": "schema-files/"
+  },
+  "deployment_status": {
+    "overall_status": "Production Ready",
+    "authentication": "Unknown",
+    "dashboard": "Unknown",
+    "last_updated": "2025-08-13T01:58:37.011Z"
+  },
+  "backup_purpose": "Client-specific deployment state and troubleshooting reference",
+  "usage_instructions": [
+    "Use this backup to understand Lucerne client configuration",
+    "Compare with primary system backup for troubleshooting",
+    "Reference for setting up similar client deployments"
+  ]
+}
