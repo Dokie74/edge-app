@@ -101,7 +101,43 @@ Deno.serve(async (req: Request) => {
 
         if (createError) {
           console.log('💥 Auth user creation FAILED:', createError);
-          throw createError;
+          console.log('💥 Auth error details:', {
+            message: createError.message,
+            status: createError.status,
+            details: createError
+          });
+          
+          // Check if user already exists
+          if (createError.message?.includes('already registered') || createError.status === 422) {
+            console.log('👤 User already exists, trying to fetch existing user...');
+            const { data: existingUser, error: getUserError } = await supabase.auth.admin.getUserByEmail(data.email);
+            
+            if (getUserError || !existingUser?.user) {
+              return new Response(JSON.stringify({
+                error: 'user_exists_but_not_retrievable',
+                auth_error: createError.message
+              }), {
+                status: 409,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+              });
+            }
+            
+            console.log('✅ Found existing user:', existingUser.user.id);
+            // Continue with existing user
+            newUser = { user: existingUser.user };
+          } else {
+            // Different auth error
+            return new Response(JSON.stringify({
+              error: 'auth_create_failed',
+              auth_error: {
+                message: createError.message,
+                status: createError.status
+              }
+            }), {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
         }
 
         if (!newUser?.user) {
@@ -113,17 +149,25 @@ Deno.serve(async (req: Request) => {
 
         // Create corresponding employee record
         console.log('🏢 Creating employee record...');
+        
+        // Handle name splitting more safely
+        const nameParts = (data.name || '').trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        console.log('👤 Name parsing:', { firstName, lastName, originalName: data.name });
+        
         const { data: newEmployee, error: empError } = await supabase
           .from('employees')
           .insert({
             user_id: newUser.user.id,
             email: data.email,
-            // name is a generated column - don't include it
-            first_name: data.name.split(' ')[0],
-            last_name: data.name.split(' ').slice(1).join(' ') || '',
+            // name is a generated column - don't include it in insert
+            first_name: firstName,
+            last_name: lastName,
             role: data.role || 'employee',
-            job_title: data.job_title,
-            department: data.department,
+            job_title: data.job_title || 'Staff',
+            department: data.department || null, // Allow null departments
             manager_id: data.manager_id || null,
             is_active: true,
             tenant_id: 'lucerne'
@@ -137,10 +181,30 @@ Deno.serve(async (req: Request) => {
 
         if (empError) {
           console.log('💥 Employee creation FAILED, cleaning up auth user...');
+          console.log('💥 Exact error details:', {
+            message: empError.message,
+            code: empError.code,
+            details: empError.details,
+            hint: empError.hint
+          });
+          
           // Cleanup user if employee creation fails
           await supabase.auth.admin.deleteUser(newUser.user.id);
           console.log('🗑️ Auth user cleaned up');
-          throw empError;
+          
+          // Return structured error instead of throwing
+          return new Response(JSON.stringify({
+            error: 'employee_insert_failed',
+            postgres_error: {
+              message: empError.message,
+              code: empError.code,
+              details: empError.details,
+              hint: empError.hint
+            }
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
         }
 
         console.log('✅ Employee record created successfully:', newEmployee.id);
