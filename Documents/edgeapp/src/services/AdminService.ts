@@ -59,17 +59,40 @@ export class AdminService {
         }
       };
 
-      // Use Supabase's built-in functions.invoke() method for better reliability
-      const { data: result, error: functionError } = await supabase.functions.invoke('admin-operations', {
-        body: requestBody,
+      // Use direct fetch() because supabase.functions.invoke() sends empty request body
+      const supabaseUrl = 'https://wvggehrxhnuvlxpaghft.supabase.co'; // Hardcoded to avoid env var issues
+      const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind2Z2dlaHJ4aG51dmx4cGFnaGZ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3ODMwMTYsImV4cCI6MjA3MDM1OTAxNn0.64TJpM2_6XZyUlOaVFrPSXqwvKn6QrTDukheC8EbVxo';
+      
+      const functionUrl = `${supabaseUrl}/functions/v1/admin-operations`;
+      console.log('🔗 Calling Edge Function:', functionUrl);
+      console.log('📤 Request body:', requestBody);
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
-        }
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey
+        },
+        body: JSON.stringify(requestBody)
       });
 
-      if (functionError) {
-        throw new Error(`Edge Function failed: ${functionError.message}`);
+      console.log('📥 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Edge Function error response:', errorText);
+        let errorDetails;
+        try {
+          errorDetails = JSON.parse(errorText);
+        } catch {
+          errorDetails = { error: errorText };
+        }
+        throw new Error(`Edge Function failed (${response.status}): ${errorDetails.error || errorText}`);
       }
+
+      const result = await response.json();
+      console.log('✅ Edge Function success:', result);
 
       if (result?.error) {
         const debugInfo = result.debug_info ? ` (${JSON.stringify(result.debug_info)})` : '';
