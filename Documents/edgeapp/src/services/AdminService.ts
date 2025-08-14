@@ -59,25 +59,34 @@ export class AdminService {
         }
       };
 
-      // Call Edge Function
-      const { data: result, error: edgeError } = await supabase.functions.invoke(
-        'admin-operations',
-        {
-          body: requestBody,
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Call Edge Function with direct fetch (supabase.functions.invoke has body serialization issues)
+      const functionUrl = `${process.env.REACT_APP_SUPABASE_URL!}/functions/v1/admin-operations`;
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': process.env.REACT_APP_SUPABASE_ANON_KEY!
+        },
+        body: JSON.stringify(requestBody)
+      });
 
-      // Handle errors
-      if (edgeError) {
-        throw new Error(`Edge Function failed: ${edgeError.message}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorDetails;
+        try {
+          errorDetails = JSON.parse(errorText);
+        } catch {
+          errorDetails = { error: errorText };
+        }
+        throw new Error(`Edge Function failed (${response.status}): ${errorDetails.error || errorText}`);
       }
 
+      const result = await response.json();
+
       if (result?.error) {
-        const debugInfo = result.debug ? ` (${JSON.stringify(result.debug)})` : '';
+        const debugInfo = result.debug_info ? ` (${JSON.stringify(result.debug_info)})` : '';
         throw new Error(`${result.error}${debugInfo}`);
       }
 
