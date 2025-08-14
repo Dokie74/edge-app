@@ -20,6 +20,8 @@ console.log('🔍 Supabase configuration:');
 console.log('- URL:', supabaseUrl);
 console.log('- Anon Key:', supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING');
 console.log('- Service Key:', supabaseServiceKey ? `${supabaseServiceKey.substring(0, 20)}...` : 'MISSING');
+console.log('- Environment:', process.env.NODE_ENV);
+console.log('- REACT_APP_SUPABASE_URL available:', !!process.env.REACT_APP_SUPABASE_URL);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
