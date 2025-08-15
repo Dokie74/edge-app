@@ -3,15 +3,14 @@ import { Database } from '../types/database';
 import { getCurrentTenantId } from '../utils/tenant';
 
 // Supabase Configuration - Lucerne International
+// SECURITY: All credentials must come from environment variables
 const supabaseUrl: string = 
   process.env.NEXT_PUBLIC_SUPABASE_URL || 
-  process.env.REACT_APP_SUPABASE_URL || 
-  'https://ejfcrdmgfrtzbhmkkoiu.supabase.co';
+  process.env.REACT_APP_SUPABASE_URL!;
 
 const supabaseAnonKey: string = 
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-  process.env.REACT_APP_SUPABASE_ANON_KEY || 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVqZmNyZG1nZnJ0emJobWtrb2l1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTUyNjc3ODMsImV4cCI6MjA3MDg0Mzc4M30.sxm3AQWPXA1PqgT8i6yS8FUd4fiUUT00WqfsdiLlaOA';
+  process.env.REACT_APP_SUPABASE_ANON_KEY!;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');

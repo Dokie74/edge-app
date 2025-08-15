@@ -35,29 +35,14 @@ export class AuthService {
         };
       }
 
-      console.log('⚠️ User not found in employees table, using fallback logic');
+      console.log('⚠️ User not found in employees table');
       
-      // Fallback to hardcoded logic for existing test users
-      if (userEmail === 'admin@lucerne.com') {
-        return { role: 'admin', name: 'Admin' };
-      } else if (userEmail === 'manager@lucerne.com') {
-        return { role: 'manager', name: 'Manager' };
-      } else if (userEmail === 'employee1@lucerne.com') {
-        return { role: 'employee', name: 'Employee 1' };
-      }
-      
-      // Default fallback
-      return {
-        role: 'employee',
-        name: userEmail.split('@')[0]
-      };
+      // No role assignment without database record for security
+      throw new Error('User not found in employees table. Please contact your administrator.');
     } catch (err) {
       console.error('❌ Error fetching user role:', err);
-      // Fallback on error
-      return {
-        role: 'employee',
-        name: userEmail.split('@')[0]
-      };
+      // Re-throw error instead of fallback for security
+      throw err;
     }
   }
 }
