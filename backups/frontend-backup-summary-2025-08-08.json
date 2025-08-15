@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-08-08T14:04:36.521Z",
+  "backupType": "frontend-app-code",
+  "appName": "EDGE App - Performance Review System",
+  "backupFiles": [
+    "frontend-app-backup-2025-08-08.json",
+    "package-info-backup-2025-08-08.json",
+    "environment-template-2025-08-08.json"
+  ],
+  "backupLocation": "C:\\Users\\DavidOkonoski\\Documents\\edgeapp\\backups",
+  "restoreInstructions": [
+    "1. Extract source code from frontend-app-backup-*.json",
+    "2. Run npm install to restore dependencies",
+    "3. Configure environment variables from environment-template-*.json",
+    "4. Run npm run type-check to verify TypeScript compilation",
+    "5. Run npm test to verify functionality",
+    "6. Run npm run build to test production build"
+  ],
+  "includedComponents": [
+    "React application source code (src/)",
+    "TypeScript configuration and types",
+    "Tailwind CSS styles and configuration",
+    "Cypress E2E test suites",
+    "Public assets and manifest files",
+    "Package dependencies and lock file",
+    "Project documentation and guides"
+  ],
+  "excludedComponents": [
+    "node_modules (restore via npm install)",
+    "Build artifacts (regenerate via npm run build)",
+    "Environment secrets (template provided)",
+    "Development cache files",
+    "Git history and IDE settings"
+  ]
+}

@@ -1,0 +1,475 @@
+/* Help Pages Shared Styles */
+
+.help-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: #1f2937;
+  color: #f9fafb;
+  min-height: 100vh;
+}
+
+.help-header {
+  text-align: center;
+  margin-bottom: 40px;
+  padding: 30px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  color: white;
+}
+
+.admin-help .help-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  text-align: center;
+  margin: -20px -20px 40px -20px;
+  padding: 40px 20px;
+  border-radius: 8px 8px 0 0;
+}
+
+.help-header h1 {
+  margin-bottom: 10px;
+  font-size: 2.5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.help-header p {
+  font-size: 1.1rem;
+  opacity: 0.9;
+  color: #e5e7eb;
+}
+
+.help-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 40px;
+}
+
+.help-sidebar {
+  background: #374151;
+  padding: 20px;
+  border-radius: 8px;
+  height: fit-content;
+  position: sticky;
+  top: 20px;
+}
+
+.help-sidebar h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #f9fafb;
+  font-size: 1.2rem;
+  border-bottom: 2px solid #4b5563;
+  padding-bottom: 10px;
+}
+
+.help-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.help-menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 5px;
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 14px;
+  color: #d1d5db;
+}
+
+.help-menu-item:hover {
+  background-color: #4b5563;
+}
+
+.help-menu-item.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.admin-help .help-menu-item.active {
+  background-color: #667eea;
+  color: white;
+}
+
+.help-icon {
+  margin-right: 8px;
+  font-size: 16px;
+}
+
+.quick-links {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid #4b5563;
+}
+
+.quick-links h4 {
+  margin-bottom: 15px;
+  color: #f9fafb;
+  font-size: 14px;
+}
+
+.quick-links ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.quick-links li {
+  margin-bottom: 8px;
+}
+
+.quick-links a {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  display: block;
+  transition: background-color 0.2s;
+}
+
+.quick-links a:hover {
+  background-color: #4b5563;
+}
+
+.quick-links .link-button {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  display: block;
+  transition: background-color 0.2s;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.quick-links .link-button:hover {
+  background-color: #4b5563;
+}
+
+.help-main {
+  background: #374151;
+  padding: 30px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.help-content h2 {
+  color: #f9fafb;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #4b5563;
+}
+
+.help-content h3 {
+  color: #e5e7eb;
+  margin-top: 30px;
+  margin-bottom: 15px;
+}
+
+.help-content h4 {
+  color: #d1d5db;
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.help-content ul, .help-content ol {
+  margin-bottom: 20px;
+  line-height: 1.6;
+  color: #d1d5db;
+}
+
+.help-content li {
+  margin-bottom: 8px;
+}
+
+.help-content p {
+  color: #d1d5db;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.help-tip {
+  background: #1e3a8a;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 20px 0;
+  color: #dbeafe;
+}
+
+.help-warning {
+  background: #92400e;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 20px 0;
+  color: #fef3c7;
+}
+
+.help-example {
+  background: #064e3b;
+  border: 1px solid #10b981;
+  border-radius: 6px;
+  padding: 15px;
+  margin: 20px 0;
+  color: #d1fae5;
+}
+
+.example-box {
+  background: #374151;
+  padding: 15px;
+  border-radius: 4px;
+  margin-top: 10px;
+  color: #d1d5db;
+}
+
+.troubleshooting-item {
+  background: #374151;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 15px;
+  border: 1px solid #4b5563;
+}
+
+.help-contact {
+  background: #374151;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 30px;
+  border: 1px solid #4b5563;
+}
+
+/* Technical Documentation Styles */
+.tech-docs-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background: #1f2937;
+  color: #f9fafb;
+  min-height: 100vh;
+}
+
+.tech-docs-layout {
+  display: grid;
+  grid-template-columns: 350px 1fr;
+  gap: 30px;
+  height: calc(100vh - 200px);
+}
+
+.tech-docs-sidebar {
+  background: #374151;
+  padding: 25px;
+  border-radius: 12px;
+  height: fit-content;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.tech-docs-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tech-docs-menu-item {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: none;
+  border: none;
+  text-align: left;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #d1d5db;
+  border: 1px solid transparent;
+}
+
+.tech-docs-menu-item:hover {
+  background-color: #4b5563;
+  border-color: #6b7280;
+}
+
+.tech-docs-menu-item.active {
+  background-color: #667eea;
+  border-color: #8b5cf6;
+  color: white;
+}
+
+.doc-icon {
+  margin-right: 12px;
+  font-size: 20px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.doc-info {
+  flex: 1;
+}
+
+.doc-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.doc-description {
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.3;
+}
+
+.tech-docs-main {
+  background: #374151;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tech-docs-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 25px;
+  border-bottom: 1px solid #4b5563;
+  background: #2d3748;
+  border-radius: 12px 12px 0 0;
+}
+
+.tech-docs-toolbar h2 {
+  margin: 0;
+  color: #f9fafb;
+  font-size: 1.3rem;
+}
+
+.download-btn {
+  background: #10b981;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.download-btn:hover:not(:disabled) {
+  background: #059669;
+}
+
+.download-btn:disabled {
+  background: #6b7280;
+  cursor: not-allowed;
+}
+
+.tech-docs-content {
+  flex: 1;
+  padding: 25px;
+  overflow-y: auto;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: #9ca3af;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #4b5563;
+  border-top: 3px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 15px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error-state {
+  text-align: center;
+  color: #f87171;
+  padding: 40px;
+}
+
+.error-state button {
+  background: #dc2626;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 15px;
+}
+
+.markdown-content {
+  color: #e5e7eb;
+  line-height: 1.6;
+}
+
+.markdown-content pre {
+  background: #1f2937;
+  padding: 20px;
+  border-radius: 8px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  border: 1px solid #4b5563;
+  overflow-x: auto;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .tech-docs-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .tech-docs-sidebar {
+    height: auto;
+    max-height: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .help-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .help-sidebar {
+    position: static;
+  }
+
+  .help-main {
+    padding: 20px;
+  }
+}

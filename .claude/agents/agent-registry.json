@@ -1,0 +1,70 @@
+{
+  "edgeapp_subagents": {
+    "version": "1.0",
+    "created": "2025-01-07",
+    "application": "EDGE - Employee Development & Growth Engine",
+    "agents": [
+      {
+        "id": "supabase-backend-manager",
+        "name": "Supabase Backend Manager",
+        "emoji": "🔵",
+        "color": "#3B82F6",
+        "specialty": "Database operations and backend infrastructure management",
+        "config_file": "supabase-backend-manager.md",
+        "capabilities": [
+          "Database Schema Management",
+          "PostgreSQL Function Management", 
+          "SQL Execution and Debugging",
+          "Test Data Creation and Management",
+          "Performance Optimization",
+          "Data Cleanup and Maintenance"
+        ],
+        "use_cases": [
+          "Database maintenance and cleanup",
+          "Test data generation",
+          "Schema analysis and optimization",
+          "Performance tuning",
+          "Data integrity checks"
+        ],
+        "status": "active"
+      },
+      {
+        "id": "cypress-testing-expert",
+        "name": "Cypress Testing Expert",
+        "emoji": "🟢", 
+        "color": "#22C55E",
+        "specialty": "E2E testing, test debugging, and test automation",
+        "config_file": "cypress-testing-expert.md",
+        "capabilities": [
+          "Test Debugging and Troubleshooting",
+          "Test Execution (GUI and Headless)",
+          "Cypress Configuration Management",
+          "Test Development and Creation",
+          "CI/CD Test Optimization",
+          "Authentication Flow Testing"
+        ],
+        "use_cases": [
+          "Debug failing E2E tests",
+          "Create comprehensive test suites", 
+          "Optimize test performance",
+          "Fix authentication issues",
+          "Setup CI/CD test automation"
+        ],
+        "status": "active"
+      }
+    ],
+    "usage_instructions": {
+      "invocation_method": "Task tool through Claude Code",
+      "example_request": "Have the [agent name] [specific task]",
+      "configuration_location": ".claude/agents/",
+      "documentation": ".claude/agents/README.md"
+    },
+    "technical_context": {
+      "application_stack": ["React 18", "TypeScript", "Supabase", "Tailwind CSS"],
+      "testing_framework": "Cypress 14.5.3",
+      "database": "PostgreSQL via Supabase",
+      "authentication": "Supabase Auth",
+      "deployment": "Vercel"
+    }
+  }
+}

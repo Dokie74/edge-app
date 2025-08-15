@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-08-08T14:04:36.521Z",
+  "note": "Environment template with sanitized values - fill in actual values when restoring",
+  "variables": {
+    "_comment_0": "# Supabase Configuration",
+    "REACT_APP_SUPABASE_URL": "https://blssdohlfcmyhxtpalcf.supabase.co",
+    "REACT_APP_SUPABASE_ANON_KEY": "YOUR_VALUE_HERE",
+    "_comment_3": "# Service Role Key (⚠️ NEVER expose this in production client-side code)",
+    "_comment_4": "# SECURITY: Service role key moved to Supabase Edge Function secrets",
+    "_comment_5": "# No longer exposed to frontend - see admin-operations Edge Function",
+    "_comment_6": "# Environment",
+    "REACT_APP_ENV": "development"
+  }
+}

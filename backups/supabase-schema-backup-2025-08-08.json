@@ -1,0 +1,75 @@
+{
+  "timestamp": "2025-08-08T14:04:31.960Z",
+  "tables": {},
+  "columns": {},
+  "constraints": {},
+  "knownSchema": {
+    "employees": {
+      "columns": [
+        "id",
+        "email",
+        "first_name",
+        "last_name",
+        "role",
+        "department",
+        "manager_id",
+        "hire_date",
+        "created_at",
+        "updated_at"
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (manager_id) REFERENCES employees(id)"
+      ]
+    },
+    "review_cycles": {
+      "columns": [
+        "id",
+        "name",
+        "start_date",
+        "end_date",
+        "is_active",
+        "created_at",
+        "updated_at"
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)"
+      ]
+    },
+    "assessments": {
+      "columns": [
+        "id",
+        "employee_id",
+        "review_cycle_id",
+        "type",
+        "status",
+        "responses",
+        "created_at",
+        "updated_at"
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (employee_id) REFERENCES employees(id)",
+        "FOREIGN KEY (review_cycle_id) REFERENCES review_cycles(id)"
+      ]
+    },
+    "development_plans": {
+      "columns": [
+        "id",
+        "employee_id",
+        "review_cycle_id",
+        "goals",
+        "status",
+        "manager_approved",
+        "created_at",
+        "updated_at"
+      ],
+      "constraints": [
+        "PRIMARY KEY (id)",
+        "FOREIGN KEY (employee_id) REFERENCES employees(id)",
+        "FOREIGN KEY (review_cycle_id) REFERENCES review_cycles(id)"
+      ]
+    }
+  },
+  "note": "This is a basic schema backup. For complete schema with DDL, use pg_dump with database access."
+}

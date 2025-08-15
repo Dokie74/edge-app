@@ -1,0 +1,12 @@
+export { supabase } from './supabaseClient';
+export { AuthService } from './authService';
+export { SecureAuthService } from './SecureAuthService';
+export { AssessmentService } from './assessmentService';
+export { KudosService } from './kudosService';
+export { AdminService } from './AdminService';
+export { TeamService } from './teamService';
+export { FeedbackService } from './feedbackService';
+export { NotificationService } from './NotificationService';
+export { ManagerPlaybookService } from './ManagerPlaybookService';
+export { AdminApprovalService } from './adminApprovalService';
+export { default as DepartmentService } from './DepartmentService';
