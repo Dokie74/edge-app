@@ -1,6 +1,7 @@
 // src/components/pages/AdminDashboard.tsx - System-wide admin dashboard
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import '../../utils/diagnostics'; // Import to make diagnostics globally available
 import { 
   Shield,
   Users,

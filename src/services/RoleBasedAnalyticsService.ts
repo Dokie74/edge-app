@@ -548,8 +548,13 @@ class RoleBasedAnalyticsService {
       
       // Get real satisfaction score from team health responses
       // Use secure RPC function to bypass RLS policies for admin access
-      const { data: satisfactionData } = await supabase
+      const { data: satisfactionData, error: satisfactionError } = await supabase
         .rpc('get_team_health_analytics');
+      
+      if (satisfactionError) {
+        console.warn('Team health analytics RPC failed (migration may not be applied yet):', satisfactionError);
+        // Function will be available after applying the database migration
+      }
       
       let satisfactionScore = null;
       if (satisfactionData && satisfactionData.length > 0) {

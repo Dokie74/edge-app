@@ -199,8 +199,8 @@ class AnalyticsService {
         .rpc('get_team_health_analytics');
       
       if (pulseError) {
-        console.warn('Pulse responses query failed:', pulseError);
-        // Continue without pulse data
+        console.warn('Team health analytics RPC failed (migration may not be applied yet):', pulseError);
+        // Continue without pulse data - function will be available after migration
       }
       
       // Group by month and calculate real trends
@@ -310,7 +310,8 @@ class AnalyticsService {
         .rpc('get_team_health_analytics');
       
       if (satisfactionError) {
-        console.warn('Satisfaction data query failed:', satisfactionError);
+        console.warn('Team health analytics RPC failed (migration may not be applied yet):', satisfactionError);
+        // Function will be available after applying the database migration
       }
       
       let averageSatisfaction = null;
