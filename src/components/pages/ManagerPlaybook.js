@@ -33,7 +33,14 @@ const ManagerPlaybook = () => {
 
   useEffect(() => {
     if (selectedEmployee) {
-      fetchEmployeeNotes(selectedEmployee.employee_id);
+      const employeeId = selectedEmployee.id || selectedEmployee.employee_id;
+      console.log('🔍 Selected employee for notes:', selectedEmployee);
+      console.log('🔍 Using employee ID:', employeeId);
+      if (employeeId) {
+        fetchEmployeeNotes(employeeId);
+      } else {
+        console.error('❌ No valid employee ID found:', selectedEmployee);
+      }
     }
   }, [selectedEmployee]);
 
@@ -71,8 +78,9 @@ const ManagerPlaybook = () => {
         return;
       }
 
+      const employeeId = selectedEmployee.id || selectedEmployee.employee_id;
       const noteData = {
-        employee_id: selectedEmployee.employee_id,
+        employee_id: employeeId,
         title: newNote.title,
         content: newNote.content,
         category: newNote.category,
@@ -82,7 +90,7 @@ const ManagerPlaybook = () => {
       await ManagerPlaybookService.saveManagerNote(noteData);
       
       // Refresh notes list
-      await fetchEmployeeNotes(selectedEmployee.employee_id);
+      await fetchEmployeeNotes(employeeId);
       
       setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
       setShowAddNote(false);
@@ -115,7 +123,8 @@ const ManagerPlaybook = () => {
       await ManagerPlaybookService.updateManagerNote(editingNote.id, noteData);
       
       // Refresh notes list
-      await fetchEmployeeNotes(selectedEmployee.employee_id);
+      const employeeId = selectedEmployee.id || selectedEmployee.employee_id;
+      await fetchEmployeeNotes(employeeId);
       
       setEditingNote(null);
       setNewNote({ title: '', content: '', category: 'general', priority: 'medium' });
@@ -142,7 +151,8 @@ const ManagerPlaybook = () => {
       
       // Refresh notes after successful deletion
       if (selectedEmployee) {
-        await fetchEmployeeNotes(selectedEmployee.employee_id);
+        const employeeId = selectedEmployee.id || selectedEmployee.employee_id;
+        await fetchEmployeeNotes(employeeId);
       }
       
       alert('Note deleted successfully!');
