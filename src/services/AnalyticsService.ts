@@ -194,14 +194,9 @@ class AnalyticsService {
         .from('assessments')
         .select('created_at, self_assessment_status, manager_review_status');
       
+      // Use secure RPC function to bypass RLS policies for admin access
       const { data: pulseResponses, error: pulseError } = await supabase
-        .from('team_health_pulse_responses')
-        .select(`
-          submitted_at, 
-          response_value,
-          pulse_questions!team_health_pulse_responses_question_id_fkey(category)
-        `)
-        .eq('pulse_questions.category', 'satisfaction');
+        .rpc('get_team_health_analytics');
       
       if (pulseError) {
         console.warn('Pulse responses query failed:', pulseError);
@@ -231,13 +226,16 @@ class AnalyticsService {
       
       // Process satisfaction scores
       pulseResponses?.forEach(response => {
-        const month = months[new Date(response.submitted_at).getMonth()];
-        const data = monthlyData.get(month);
-        if (data) {
-          // Handle response_value which is JSONB
-          const responseValue = typeof response.response_value === 'object' ? response.response_value.value : response.response_value;
-          if (typeof responseValue === 'number') {
-            data.satisfaction.push(responseValue);
+        // Filter for satisfaction category only
+        if (response.category === 'satisfaction') {
+          const month = months[new Date(response.submitted_at).getMonth()];
+          const data = monthlyData.get(month);
+          if (data) {
+            // Handle response_value which is JSONB
+            const responseValue = typeof response.response_value === 'object' ? response.response_value.value : response.response_value;
+            if (typeof responseValue === 'number') {
+              data.satisfaction.push(responseValue);
+            }
           }
         }
       });
@@ -307,13 +305,9 @@ class AnalyticsService {
   private static async getKPIs(userRole: string, basicStats: DashboardStats) {
     try {
       // Get actual satisfaction data
+      // Use secure RPC function to bypass RLS policies for admin access
       const { data: satisfactionData, error: satisfactionError } = await supabase
-        .from('team_health_pulse_responses')
-        .select(`
-          response_value,
-          pulse_questions!team_health_pulse_responses_question_id_fkey(category)
-        `)
-        .eq('pulse_questions.category', 'satisfaction');
+        .rpc('get_team_health_analytics');
       
       if (satisfactionError) {
         console.warn('Satisfaction data query failed:', satisfactionError);
@@ -321,11 +315,18 @@ class AnalyticsService {
       
       let averageSatisfaction = null;
       if (satisfactionData && satisfactionData.length > 0) {
-        averageSatisfaction = satisfactionData.reduce((sum, item) => {
-          // Handle response_value which is JSONB
-          const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
-          return sum + (typeof response === 'number' ? response : 0);
-        }, 0) / satisfactionData.length;
+        // Filter for satisfaction category only
+        const satisfactionResponses = satisfactionData.filter(item => 
+          item.category === 'satisfaction'
+        );
+        
+        if (satisfactionResponses.length > 0) {
+          averageSatisfaction = satisfactionResponses.reduce((sum, item) => {
+            // Handle response_value which is JSONB
+            const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
+            return sum + (typeof response === 'number' ? response : 0);
+          }, 0) / satisfactionResponses.length;
+        }
       }
       
       // Get overdue tasks count

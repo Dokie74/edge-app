@@ -547,23 +547,26 @@ class RoleBasedAnalyticsService {
       const completionRate = totalAssessments > 0 ? Math.round((completedAssessments / totalAssessments) * 100) : 0;
       
       // Get real satisfaction score from team health responses
+      // Use secure RPC function to bypass RLS policies for admin access
       const { data: satisfactionData } = await supabase
-        .from('team_health_pulse_responses')
-        .select(`
-          response_value,
-          pulse_questions!team_health_pulse_responses_question_id_fkey(category)
-        `)
-        .in('employee_id', departmentEmployeeIds)
-        .eq('pulse_questions.category', 'satisfaction');
+        .rpc('get_team_health_analytics');
       
       let satisfactionScore = null;
       if (satisfactionData && satisfactionData.length > 0) {
-        const average = satisfactionData.reduce((sum, item) => {
-          // Handle response_value which is JSONB
-          const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
-          return sum + (typeof response === 'number' ? response : 0);
-        }, 0) / satisfactionData.length;
-        satisfactionScore = Math.round(average * 10) / 10;
+        // Filter for satisfaction category and department employees only
+        const satisfactionResponses = satisfactionData.filter(item => 
+          item.category === 'satisfaction' && 
+          departmentEmployeeIds.includes(item.employee_id)
+        );
+        
+        if (satisfactionResponses.length > 0) {
+          const average = satisfactionResponses.reduce((sum, item) => {
+            // Handle response_value which is JSONB
+            const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
+            return sum + (typeof response === 'number' ? response : 0);
+          }, 0) / satisfactionResponses.length;
+          satisfactionScore = Math.round(average * 10) / 10;
+        }
       }
       
       results.push({
