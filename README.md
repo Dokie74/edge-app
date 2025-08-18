@@ -254,18 +254,20 @@ vercel deploy --prod
 
 ## 📚 Documentation
 
-Comprehensive guides available in `/docs/`:
-- **User Guide - Employee**: Complete employee feature walkthrough
-- **User Guide - Manager**: Manager-specific tools and workflows
-- **User Guide - Admin**: Full administrator capabilities and system management
-- **API Documentation**: Technical integration and development guide
-- **Deployment Guide**: Production deployment and CI/CD strategies
-- **Developer Setup**: Local development environment configuration
+All development guides consolidated in `.claude/PRD/guides/`:
+- **[User Guides](/.claude/PRD/guides/)**: Employee, Manager, and Admin feature walkthroughs
+- **[API Documentation](/.claude/PRD/guides/API_DOCUMENTATION.md)**: Technical integration and development guide
+- **[Deployment Guide](/.claude/PRD/guides/PRODUCTION_DEPLOYMENT_GUIDE.md)**: Production deployment procedures
+- **[Developer Setup](/.claude/PRD/guides/DEVELOPER_SETUP_GUIDE.md)**: Local development environment configuration
+- **[Architecture Guides](/.claude/PRD/guides/)**: Backend and Frontend technical architecture
+- **[Testing Documentation](/.claude/PRD/guides/)**: Test strategy and implementation guides
+
+📖 **Quick Start**: See [CLAUDE.md](CLAUDE.md) for development setup instructions
 
 ## 📞 Support
 
 - **Issues**: Report bugs via GitHub Issues
-- **Documentation**: Comprehensive guides in `/docs` folder
+- **Documentation**: Comprehensive guides in `.claude/PRD/guides/` folder
 - **Technical Support**: Built-in error handling with detailed troubleshooting
 
 ---
