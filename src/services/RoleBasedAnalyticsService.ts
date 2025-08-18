@@ -302,10 +302,11 @@ class RoleBasedAnalyticsService {
     try {
       console.log('📊 Fetching admin dashboard');
       
-      // Get all employees with roles
+      // Get all active employees with roles
       const { data: allEmployees, error: empError } = await supabase
         .from('employees')
-        .select('*');
+        .select('*')
+        .eq('is_active', true);
       
       if (empError) throw empError;
       
@@ -575,7 +576,7 @@ class RoleBasedAnalyticsService {
       
       results.push({
         name,
-        employeeCount: data.employees.length,
+        employeeCount: data.totalEmployees, // Include both employees and managers
         managerCount: data.managers.length,
         completionRate,
         satisfactionScore: satisfactionScore || 0
