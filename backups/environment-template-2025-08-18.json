@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-08-18T14:23:46.179Z",
+  "timestamp": "2025-08-18T15:24:43.294Z",
   "note": "Environment template with sanitized values - fill in actual values when restoring",
   "variables": {
     "_comment_0": "# Supabase Configuration - Lucerne International",
