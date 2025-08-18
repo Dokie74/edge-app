@@ -103,6 +103,7 @@ serve(async (req) => {
         
         try {
           // Create new user account in Supabase Auth
+          // IMPORTANT: Using admin client prevents session hijacking
           console.log(JSON.stringify({ level: 'info', requestId, msg: 'creating auth user' }));
           const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: data.email,

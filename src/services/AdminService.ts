@@ -107,7 +107,8 @@ export class AdminService {
       // Log security event
       logger.logUserAction('create_employee_attempt', null, { role: secureData.role });
 
-      // Call secure Edge Function instead of using exposed service role key
+      // Call secure Edge Function - this should NOT affect current user session
+      console.log('🔐 Creating employee via edge function (should not affect current session)');
       const result = await this.callAdminFunction('create_user', {
         email: secureData.email,
         name: secureData.name,
@@ -117,6 +118,10 @@ export class AdminService {
         department: secureData.department,
         temp_password: secureData.password
       });
+      
+      // Verify current session wasn't affected
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      console.log('🔍 Current user after employee creation:', currentUser?.email);
 
       logger.logUserAction('create_employee_success', null, { 
         employee_id: result.employee?.id,
