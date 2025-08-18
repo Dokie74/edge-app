@@ -225,7 +225,7 @@ class AnalyticsService {
       });
       
       // Process satisfaction scores
-      pulseResponses?.forEach(response => {
+      pulseResponses?.forEach((response: any) => {
         // Filter for satisfaction category only
         if (response.category === 'satisfaction') {
           const month = months[new Date(response.submitted_at).getMonth()];
@@ -316,12 +316,12 @@ class AnalyticsService {
       let averageSatisfaction = null;
       if (satisfactionData && satisfactionData.length > 0) {
         // Filter for satisfaction category only
-        const satisfactionResponses = satisfactionData.filter(item => 
+        const satisfactionResponses = satisfactionData.filter((item: any) => 
           item.category === 'satisfaction'
         );
         
         if (satisfactionResponses.length > 0) {
-          averageSatisfaction = satisfactionResponses.reduce((sum, item) => {
+          averageSatisfaction = satisfactionResponses.reduce((sum: number, item: any) => {
             // Handle response_value which is JSONB
             const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
             return sum + (typeof response === 'number' ? response : 0);

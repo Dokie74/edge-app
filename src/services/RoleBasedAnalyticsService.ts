@@ -554,13 +554,13 @@ class RoleBasedAnalyticsService {
       let satisfactionScore = null;
       if (satisfactionData && satisfactionData.length > 0) {
         // Filter for satisfaction category and department employees only
-        const satisfactionResponses = satisfactionData.filter(item => 
+        const satisfactionResponses = satisfactionData.filter((item: any) => 
           item.category === 'satisfaction' && 
           departmentEmployeeIds.includes(item.employee_id)
         );
         
         if (satisfactionResponses.length > 0) {
-          const average = satisfactionResponses.reduce((sum, item) => {
+          const average = satisfactionResponses.reduce((sum: number, item: any) => {
             // Handle response_value which is JSONB
             const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
             return sum + (typeof response === 'number' ? response : 0);
