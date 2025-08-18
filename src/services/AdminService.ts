@@ -451,9 +451,10 @@ You've been added to the EDGE (Employee Development & Growth Engine) system as a
 
 To get started:
 1. Go to: ${appUrl}
-2. Click "Sign Up" 
-3. Use this email: ${employeeData.email}
-4. Create your password (minimum 6 characters)
+2. Click "Sign In"
+3. Use these credentials:
+   - Email: ${employeeData.email}
+   - Password: ${credentials.login_credentials?.password || '[Contact admin for password]'}
 
 Your role: ${employeeData.role.charAt(0).toUpperCase() + employeeData.role.slice(1)}
 ${employeeData.managerId ? `Your manager will be available in the system once you log in.` : ''}
