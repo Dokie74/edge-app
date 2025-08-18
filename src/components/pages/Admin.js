@@ -361,6 +361,13 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
   });
   const [recentReviews, setRecentReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [assessmentsByCategory, setAssessmentsByCategory] = useState({
+    total: [],
+    pending_employee: [],
+    pending_manager: [],
+    completed: [],
+    overdue: []
+  });
 
   useEffect(() => {
     fetchReviewOversight();
@@ -436,21 +443,27 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
     
     console.log('🎯 Filtered to active assessments:', activeAssessments.length, 'of', assessmentsData?.length || 0);
     
-    const total = activeAssessments.length;
-    const pending_employee = activeAssessments.filter(a => 
+    // Filter assessments by category
+    const pendingEmployeeAssessments = activeAssessments.filter(a => 
       a.self_assessment_status === 'not_started' || a.self_assessment_status === 'in_progress'
-    ).length;
-    const pending_manager = activeAssessments.filter(a => 
+    );
+    const pendingManagerAssessments = activeAssessments.filter(a => 
       a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
-    ).length;
-    const completed = activeAssessments.filter(a => 
+    );
+    const completedAssessments = activeAssessments.filter(a => 
       a.manager_review_status === 'completed'
-    ).length;
-    const overdue = activeAssessments.filter(a => {
+    );
+    const overdueAssessments = activeAssessments.filter(a => {
       const dueDate = new Date(a.due_date);
       const now = new Date();
       return dueDate < now && (a.self_assessment_status !== 'employee_complete' || a.manager_review_status !== 'completed');
-    }).length;
+    });
+
+    const total = activeAssessments.length;
+    const pending_employee = pendingEmployeeAssessments.length;
+    const pending_manager = pendingManagerAssessments.length;
+    const completed = completedAssessments.length;
+    const overdue = overdueAssessments.length;
     
     console.log('📈 Calculated stats (active cycles only):', {
       total,
@@ -469,7 +482,16 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
       }))
     });
     
-    return { total, pending_employee, pending_manager, completed, overdue };
+    return { 
+      stats: { total, pending_employee, pending_manager, completed, overdue },
+      assessments: {
+        total: activeAssessments,
+        pending_employee: pendingEmployeeAssessments,
+        pending_manager: pendingManagerAssessments,
+        completed: completedAssessments,
+        overdue: overdueAssessments
+      }
+    };
   };
 
   const fetchReviewOversight = async () => {
@@ -532,9 +554,10 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
       }
       
       // Calculate stats from whichever data we got, filtered by active cycles
-      const stats = calculateReviewStats(assessmentsData, cyclesData);
+      const result = calculateReviewStats(assessmentsData, cyclesData);
       
-      setReviewStats(stats);
+      setReviewStats(result.stats);
+      setAssessmentsByCategory(result.assessments);
       
       // Get recent assessment activity (last 10 assessments with recent updates)
       const recentActivity = assessmentsData?.filter(a => 
@@ -569,6 +592,33 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
     navigate(`/assessment/${assessmentId}`);
   };
 
+  const handleShowAssessmentList = (category, assessments) => {
+    if (assessments.length === 0) {
+      alert(`No ${category.replace('_', ' ')} assessments found.`);
+      return;
+    }
+
+    const categoryTitles = {
+      total: 'All Reviews',
+      pending_employee: 'Employee Pending Reviews',
+      pending_manager: 'Manager Pending Reviews',
+      completed: 'Completed Reviews',
+      overdue: 'Overdue Reviews'
+    };
+
+    const title = categoryTitles[category];
+    const listItems = assessments.map(a => 
+      `• ${a.employee?.name || 'Employee ' + a.employee_id} - ${a.cycle?.name || 'Cycle ' + a.cycle_id} ${a.due_date ? `(Due: ${new Date(a.due_date).toLocaleDateString()})` : ''}`
+    ).join('\n');
+    
+    const message = `${title} (${assessments.length})\n\n${listItems}\n\nClick OK to view the first assessment, or Cancel to close.`;
+    
+    if (window.confirm(message)) {
+      // Navigate to the first assessment
+      handleViewAssessment(assessments[0].id);
+    }
+  };
+
   if (loading) {
     return (
       <div className={`${compact ? 'bg-gray-800/90 backdrop-blur-sm border border-gray-700' : 'mt-8 bg-gray-800'} rounded-lg p-${compact ? '4' : '6'}`}>
@@ -598,36 +648,60 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
 
         {/* Compact Stats Grid */}
         <div className="grid grid-cols-5 gap-2">
-          <div className="bg-gray-700/50 rounded p-2 text-center">
+          <button 
+            className="bg-gray-700/50 rounded p-2 text-center hover:bg-gray-600/50 transition-colors cursor-pointer"
+            onClick={() => handleShowAssessmentList('total', assessmentsByCategory.total)}
+            title="Click to view all reviews"
+          >
             <div className="text-lg font-bold text-white">{reviewStats.total}</div>
             <div className="text-xs text-gray-400">Total</div>
-          </div>
-          <div className="bg-yellow-900/30 rounded p-2 text-center border border-yellow-700/50">
+          </button>
+          <button 
+            className="bg-yellow-900/30 rounded p-2 text-center border border-yellow-700/50 hover:bg-yellow-800/40 transition-colors cursor-pointer"
+            onClick={() => handleShowAssessmentList('pending_employee', assessmentsByCategory.pending_employee)}
+            title="Click to view employee pending reviews"
+          >
             <div className="text-lg font-bold text-yellow-400">{reviewStats.pending_employee}</div>
             <div className="text-xs text-yellow-300">Employee</div>
-          </div>
-          <div className="bg-orange-900/30 rounded p-2 text-center border border-orange-700/50">
+          </button>
+          <button 
+            className="bg-orange-900/30 rounded p-2 text-center border border-orange-700/50 hover:bg-orange-800/40 transition-colors cursor-pointer"
+            onClick={() => handleShowAssessmentList('pending_manager', assessmentsByCategory.pending_manager)}
+            title="Click to view manager pending reviews"
+          >
             <div className="text-lg font-bold text-orange-400">{reviewStats.pending_manager}</div>
             <div className="text-xs text-orange-300">Manager</div>
-          </div>
-          <div className="bg-green-900/30 rounded p-2 text-center border border-green-700/50">
+          </button>
+          <button 
+            className="bg-green-900/30 rounded p-2 text-center border border-green-700/50 hover:bg-green-800/40 transition-colors cursor-pointer"
+            onClick={() => handleShowAssessmentList('completed', assessmentsByCategory.completed)}
+            title="Click to view completed reviews"
+          >
             <div className="text-lg font-bold text-green-400">{reviewStats.completed}</div>
             <div className="text-xs text-green-300">Done</div>
-          </div>
-          <div className="bg-red-900/30 rounded p-2 text-center border border-red-700/50">
+          </button>
+          <button 
+            className="bg-red-900/30 rounded p-2 text-center border border-red-700/50 hover:bg-red-800/40 transition-colors cursor-pointer"
+            onClick={() => handleShowAssessmentList('overdue', assessmentsByCategory.overdue)}
+            title="Click to view overdue reviews - immediate attention needed!"
+          >
             <div className="text-lg font-bold text-red-400">{reviewStats.overdue}</div>
             <div className="text-xs text-red-300">Overdue</div>
-          </div>
+          </button>
         </div>
         
         {/* Alert for overdue items */}
         {reviewStats.overdue > 0 && (
-          <div className="mt-3 bg-red-900/20 border border-red-700/50 rounded p-2 flex items-center">
+          <button 
+            className="mt-3 w-full bg-red-900/20 border border-red-700/50 rounded p-2 flex items-center hover:bg-red-800/30 transition-colors"
+            onClick={() => handleShowAssessmentList('overdue', assessmentsByCategory.overdue)}
+            title="Click to view and take action on overdue reviews"
+          >
             <AlertTriangle size={14} className="text-red-400 mr-2" />
             <span className="text-red-300 text-xs">
               {reviewStats.overdue} review{reviewStats.overdue > 1 ? 's' : ''} overdue - immediate attention needed
             </span>
-          </div>
+          </button>
         )}
       </div>
     );
@@ -650,26 +724,46 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-gray-700 rounded-lg p-4 text-center">
+        <button 
+          className="bg-gray-700 rounded-lg p-4 text-center hover:bg-gray-600 transition-colors cursor-pointer"
+          onClick={() => handleShowAssessmentList('total', assessmentsByCategory.total)}
+          title="Click to view all reviews"
+        >
           <div className="text-2xl font-bold text-white">{reviewStats.total}</div>
           <div className="text-sm text-gray-400">Total Reviews</div>
-        </div>
-        <div className="bg-yellow-900 bg-opacity-50 rounded-lg p-4 text-center border border-yellow-700">
+        </button>
+        <button 
+          className="bg-yellow-900 bg-opacity-50 rounded-lg p-4 text-center border border-yellow-700 hover:bg-yellow-800 hover:bg-opacity-60 transition-colors cursor-pointer"
+          onClick={() => handleShowAssessmentList('pending_employee', assessmentsByCategory.pending_employee)}
+          title="Click to view employee pending reviews"
+        >
           <div className="text-2xl font-bold text-yellow-400">{reviewStats.pending_employee}</div>
           <div className="text-sm text-yellow-300">Employee Pending</div>
-        </div>
-        <div className="bg-orange-900 bg-opacity-50 rounded-lg p-4 text-center border border-orange-700">
+        </button>
+        <button 
+          className="bg-orange-900 bg-opacity-50 rounded-lg p-4 text-center border border-orange-700 hover:bg-orange-800 hover:bg-opacity-60 transition-colors cursor-pointer"
+          onClick={() => handleShowAssessmentList('pending_manager', assessmentsByCategory.pending_manager)}
+          title="Click to view manager pending reviews"
+        >
           <div className="text-2xl font-bold text-orange-400">{reviewStats.pending_manager}</div>
           <div className="text-sm text-orange-300">Manager Pending</div>
-        </div>
-        <div className="bg-green-900 bg-opacity-50 rounded-lg p-4 text-center border border-green-700">
+        </button>
+        <button 
+          className="bg-green-900 bg-opacity-50 rounded-lg p-4 text-center border border-green-700 hover:bg-green-800 hover:bg-opacity-60 transition-colors cursor-pointer"
+          onClick={() => handleShowAssessmentList('completed', assessmentsByCategory.completed)}
+          title="Click to view completed reviews"
+        >
           <div className="text-2xl font-bold text-green-400">{reviewStats.completed}</div>
           <div className="text-sm text-green-300">Completed</div>
-        </div>
-        <div className="bg-red-900 bg-opacity-50 rounded-lg p-4 text-center border border-red-700">
+        </button>
+        <button 
+          className="bg-red-900 bg-opacity-50 rounded-lg p-4 text-center border border-red-700 hover:bg-red-800 hover:bg-opacity-60 transition-colors cursor-pointer"
+          onClick={() => handleShowAssessmentList('overdue', assessmentsByCategory.overdue)}
+          title="Click to view overdue reviews - take immediate action!"
+        >
           <div className="text-2xl font-bold text-red-400">{reviewStats.overdue}</div>
           <div className="text-sm text-red-300">Overdue</div>
-        </div>
+        </button>
       </div>
 
       {/* Recent Activity */}

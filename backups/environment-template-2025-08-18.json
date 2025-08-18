@@ -1,0 +1,18 @@
+{
+  "timestamp": "2025-08-18T14:23:46.179Z",
+  "note": "Environment template with sanitized values - fill in actual values when restoring",
+  "variables": {
+    "_comment_0": "# Supabase Configuration - Lucerne International",
+    "REACT_APP_SUPABASE_URL": "https://ejfcrdmgfrtzbhmkkoiu.supabase.co",
+    "REACT_APP_SUPABASE_ANON_KEY": "YOUR_VALUE_HERE",
+    "_comment_3": "# SECURITY: Service role keys should NEVER be used in client applications",
+    "_comment_4": "# All admin operations should use proper RLS policies and server-side functions",
+    "_comment_5": "# Environment",
+    "REACT_APP_ENV": "development",
+    "_comment_7": "# Client Configuration - Lucerne International",
+    "REACT_APP_TENANT_ID": "lucerne-intl",
+    "REACT_APP_CLIENT_NAME": "Lucerne International",
+    "_comment_10": "# Local Development Port",
+    "PORT": "3001"
+  }
+}

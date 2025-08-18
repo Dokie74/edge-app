@@ -4,9 +4,9 @@ import { Calendar, Clock, CheckCircle, Award, User } from 'lucide-react';
 export const getStatusDisplay = (assessment) => {
   // Use self_assessment_status if available, otherwise fall back to status
   const selfAssessmentStatus = assessment.self_assessment_status || assessment.status;
-  const cycleStatus = assessment.review_cycle_status;
+  const cycleStatus = assessment.cycle_status || assessment.cycle?.status || assessment.review_cycle_status;
   const managerReviewStatus = assessment.manager_review_status;
-  const employeeAcknowledgedAt = assessment.employee_acknowledged_at;
+  const employeeAcknowledgedAt = assessment.employee_acknowledged_at || assessment.employee_acknowledgment;
   
   // If the review cycle is closed, none of the assessments should be considered "active"
   const isCycleClosed = cycleStatus === 'closed';
@@ -24,20 +24,8 @@ export const getStatusDisplay = (assessment) => {
     };
   }
   
-  // Handle manager review completion and employee acknowledgment workflow
-  if (managerReviewStatus === 'completed' && !employeeAcknowledgedAt) {
-    return {
-      label: 'Manager Review Complete - Acknowledge Required', 
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-600',
-      actionLabel: 'Review & Acknowledge',
-      description: 'Your manager has completed their review. Please review and acknowledge.',
-      icon: Award,
-      isActive: cycleStatus === 'active'
-    };
-  }
 
-  // Handle acknowledged reviews
+  // Handle acknowledged reviews - these are always considered complete regardless of cycle status
   if (employeeAcknowledgedAt) {
     return {
       label: 'Review Process Complete', 
@@ -47,6 +35,19 @@ export const getStatusDisplay = (assessment) => {
       description: 'You have acknowledged your manager\'s review. The review process is complete.',
       icon: CheckCircle,
       isActive: false
+    };
+  }
+  
+  // Handle completed assessments without acknowledgment - these are also complete
+  if (selfAssessmentStatus === 'employee_complete' && managerReviewStatus === 'completed') {
+    return {
+      label: 'Manager Review Complete - Acknowledge Required', 
+      color: 'text-blue-400',
+      bgColor: 'bg-blue-600',
+      actionLabel: 'Review & Acknowledge',
+      description: 'Your manager has completed their review. Please review and acknowledge.',
+      icon: Award,
+      isActive: cycleStatus === 'active'
     };
   }
   
@@ -107,12 +108,15 @@ export const getStatusDisplay = (assessment) => {
     }
   };
   
-  return statusMap[selfAssessmentStatus] || { 
+  // Default handling for missing or null status
+  const finalStatus = selfAssessmentStatus || 'not_started';
+  
+  return statusMap[finalStatus] || { 
     label: 'Unknown Status', 
     color: 'text-gray-400',
     bgColor: 'bg-gray-600',
     actionLabel: 'View',
-    description: 'Status unclear',
+    description: `Status unclear: ${finalStatus}`,
     icon: Calendar,
     isActive: false
   };
@@ -209,7 +213,7 @@ export const getAssessmentTrends = (assessments) => {
         (typeof assessment.manager_overall_rating === 'string' ? 
           parseInt(assessment.manager_overall_rating) : 
           assessment.manager_overall_rating) : null,
-      isComplete: assessment.employee_acknowledged_at !== null
+      isComplete: assessment.employee_acknowledged_at !== null || assessment.employee_acknowledgment === true
     }))
     .filter(trend => trend.selfScore !== null || trend.managerScore !== null)
     .sort((a, b) => new Date(a.cycleEndDate) - new Date(b.cycleEndDate));

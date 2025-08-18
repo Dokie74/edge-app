@@ -6,7 +6,8 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
   const [formData, setFormData] = useState({
     name: '',
     startDate: '',
-    endDate: ''
+    endDate: '',
+    dueDate: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,8 +30,16 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
       setError('End date is required');
       return false;
     }
+    if (!formData.dueDate) {
+      setError('Due date is required');
+      return false;
+    }
     if (new Date(formData.startDate) >= new Date(formData.endDate)) {
       setError('End date must be after start date');
+      return false;
+    }
+    if (new Date(formData.dueDate) < new Date(formData.startDate) || new Date(formData.dueDate) > new Date(formData.endDate)) {
+      setError('Due date must be between start date and end date');
       return false;
     }
     return true;
@@ -74,7 +83,23 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
             console.error('Activation error:', activateData.error);
             alert(`Review cycle created but failed to activate: ${activateData.error}`);
           } else {
-            alert(`Review cycle activated successfully! Created ${activateData.assessments_created} assessments for all employees.`);
+            // Set due dates for all assessments in this cycle
+            try {
+              const { error: dueDateError } = await supabase
+                .from('assessments')
+                .update({ due_date: formData.dueDate })
+                .eq('review_cycle_id', cycleId);
+                
+              if (dueDateError) {
+                console.error('Error setting due dates:', dueDateError);
+                alert(`Review cycle activated successfully but failed to set due dates: ${dueDateError.message}`);
+              } else {
+                alert(`Review cycle activated successfully! Created ${activateData.assessments_created} assessments with due date ${formData.dueDate}.`);
+              }
+            } catch (dueDateErr) {
+              console.error('Error setting due dates:', dueDateErr);
+              alert(`Review cycle activated successfully but failed to set due dates: ${dueDateErr.message}`);
+            }
           }
         } catch (err) {
           console.error('Error activating review cycle:', err);
@@ -122,10 +147,16 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
     const startDate = new Date(currentYear, startMonth, 1).toISOString().split('T')[0];
     const endDate = new Date(currentYear, endMonth + 1, 0).toISOString().split('T')[0];
     
+    // Default due date to 2 weeks before end date
+    const dueDate = new Date(currentYear, endMonth + 1, 0);
+    dueDate.setDate(dueDate.getDate() - 14);
+    const dueDateString = dueDate.toISOString().split('T')[0];
+    
     setFormData(prev => ({
       ...prev,
       startDate: prev.startDate || startDate,
-      endDate: prev.endDate || endDate
+      endDate: prev.endDate || endDate,
+      dueDate: prev.dueDate || dueDateString
     }));
   }, []);
 
@@ -200,6 +231,23 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
             />
           </div>
 
+          {/* Due Date */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-300">
+              Assessment Due Date *
+            </label>
+            <input
+              type="date"
+              value={formData.dueDate}
+              onChange={(e) => handleInputChange('dueDate', e.target.value)}
+              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-md text-white focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-400">
+              Date when employees must complete their self-assessments
+            </p>
+          </div>
+
           {/* Info Box */}
           <div className="bg-blue-900 bg-opacity-50 rounded-lg p-4 border border-blue-700">
             <h4 className="text-blue-200 font-medium mb-2">Review Cycle Info:</h4>
@@ -224,7 +272,7 @@ const CreateReviewCycleModal = ({ supabase, closeModal, modalProps }) => {
             <Button
               type="submit"
               variant="primary"
-              disabled={loading || !formData.name.trim() || !formData.startDate || !formData.endDate}
+              disabled={loading || !formData.name.trim() || !formData.startDate || !formData.endDate || !formData.dueDate}
             >
               {loading ? (
                 <>

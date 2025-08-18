@@ -1,13 +1,13 @@
 {
-  "timestamp": "2025-08-08T14:04:36.521Z",
+  "timestamp": "2025-08-18T14:23:46.179Z",
   "backupType": "frontend-app-code",
   "appName": "EDGE App - Performance Review System",
   "backupFiles": [
-    "frontend-app-backup-2025-08-08.json",
-    "package-info-backup-2025-08-08.json",
-    "environment-template-2025-08-08.json"
+    "frontend-app-backup-2025-08-18.json",
+    "package-info-backup-2025-08-18.json",
+    "environment-template-2025-08-18.json"
   ],
-  "backupLocation": "C:\\Users\\DavidOkonoski\\Documents\\edgeapp\\backups",
+  "backupLocation": "C:\\Users\\DavidOkonoski\\Documents\\edgelucerneinternational\\backups",
   "restoreInstructions": [
     "1. Extract source code from frontend-app-backup-*.json",
     "2. Run npm install to restore dependencies",

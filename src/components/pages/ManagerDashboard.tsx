@@ -219,7 +219,7 @@ export default function ManagerDashboard() {
           title="Company Satisfaction"
           value={typeof dashboardData.departmentMetrics.companySatisfaction === 'number' 
             ? dashboardData.departmentMetrics.companySatisfaction.toFixed(1) 
-            : '4.2'}
+            : 'N/A'}
           icon={TrendingUp}
           color="blue"
         />
@@ -389,7 +389,7 @@ export default function ManagerDashboard() {
                     <span className="text-yellow-400 font-medium">
                       {typeof dashboardData.departmentMetrics.departmentSatisfaction === 'number' 
                         ? dashboardData.departmentMetrics.departmentSatisfaction.toFixed(1) 
-                        : '4.2'}
+                        : 'N/A'}
                     </span>
                     <span className="text-gray-500 text-xs">/5.0</span>
                   </div>

@@ -82,7 +82,7 @@ class AnalyticsService {
       // Fetch basic dashboard stats first
       const basicStats = await this.getBasicDashboardStats(userRole);
       
-      // Generate mock analytics data (in production, this would come from your database)
+      // Generate real analytics data from database
       const analytics: AnalyticsData = {
         performanceOverview: await this.getPerformanceOverview(userRole),
         trendData: await this.getTrendAnalysis(),
@@ -138,29 +138,110 @@ class AnalyticsService {
   
   // Performance overview by department/team
   private static async getPerformanceOverview(userRole: string) {
-    // In production, this would query actual database
-    const mockData = [
-      { name: 'Engineering', completed: 28, pending: 5, overdue: 2 },
-      { name: 'Sales', completed: 22, pending: 8, overdue: 1 },
-      { name: 'Marketing', completed: 18, pending: 6, overdue: 3 },
-      { name: 'HR', completed: 15, pending: 3, overdue: 0 },
-      { name: 'Finance', completed: 12, pending: 4, overdue: 1 }
-    ];
-    
-    return mockData;
+    try {
+      // Get actual department performance from database
+      const { data: assessments, error } = await supabase
+        .from('assessments')
+        .select(`
+          employee_id,
+          self_assessment_status,
+          manager_review_status,
+          due_date,
+          employees:employee_id(department)
+        `);
+      
+      if (error) {
+        console.warn('Performance overview error:', error);
+        return [];
+      }
+      
+      // Group by department and calculate actual stats
+      const deptStats = new Map();
+      assessments?.forEach(assessment => {
+        const dept = (assessment.employees as any)?.department || 'General';
+        if (!deptStats.has(dept)) {
+          deptStats.set(dept, { completed: 0, pending: 0, overdue: 0 });
+        }
+        
+        const stats = deptStats.get(dept);
+        const isOverdue = new Date(assessment.due_date) < new Date();
+        
+        if (assessment.self_assessment_status === 'submitted' && assessment.manager_review_status === 'completed') {
+          stats.completed++;
+        } else if (isOverdue) {
+          stats.overdue++;
+        } else {
+          stats.pending++;
+        }
+      });
+      
+      return Array.from(deptStats.entries()).map(([name, stats]) => ({
+        name,
+        ...stats
+      }));
+      
+    } catch (error) {
+      console.warn('Performance overview error:', error);
+      return [];
+    }
   }
   
   // Trend analysis over time
   private static async getTrendAnalysis() {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-    const mockData = months.map((month, index) => ({
-      date: month,
-      assessments: 15 + Math.floor(Math.random() * 10) + index * 2,
-      reviews: 12 + Math.floor(Math.random() * 8) + index * 1.5,
-      satisfaction: 75 + Math.floor(Math.random() * 15) + index * 2
-    }));
-    
-    return mockData;
+    try {
+      // Get actual trend data from database by month
+      const { data: assessments } = await supabase
+        .from('assessments')
+        .select('created_at, self_assessment_status, manager_review_status');
+      
+      const { data: pulseResponses } = await supabase
+        .from('team_health_pulse_responses')
+        .select('submitted_at, response')
+        .eq('question_type', 'satisfaction');
+      
+      // Group by month and calculate real trends
+      const monthlyData = new Map();
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      // Initialize months
+      months.forEach(month => {
+        monthlyData.set(month, { assessments: 0, reviews: 0, satisfaction: [] });
+      });
+      
+      // Process assessments
+      assessments?.forEach(assessment => {
+        const month = months[new Date(assessment.created_at).getMonth()];
+        const data = monthlyData.get(month);
+        if (data) {
+          data.assessments++;
+          if (assessment.manager_review_status === 'completed') {
+            data.reviews++;
+          }
+        }
+      });
+      
+      // Process satisfaction scores
+      pulseResponses?.forEach(response => {
+        const month = months[new Date(response.submitted_at).getMonth()];
+        const data = monthlyData.get(month);
+        if (data) {
+          data.satisfaction.push(response.response);
+        }
+      });
+      
+      return Array.from(monthlyData.entries()).map(([date, data]) => ({
+        date,
+        assessments: data.assessments,
+        reviews: data.reviews,
+        satisfaction: data.satisfaction.length > 0 
+          ? Math.round(data.satisfaction.reduce((a: number, b: number) => a + b, 0) / data.satisfaction.length * 20) // Convert 1-5 to 0-100
+          : 0
+      })).filter(item => item.assessments > 0 || item.reviews > 0); // Only show months with data
+      
+    } catch (error) {
+      console.warn('Trend analysis error:', error);
+      return [];
+    }
   }
   
   // Department distribution
@@ -211,14 +292,44 @@ class AnalyticsService {
   
   // Key Performance Indicators
   private static async getKPIs(userRole: string, basicStats: DashboardStats) {
-    return {
-      totalEmployees: basicStats.employees?.total || 25,
-      activeReviewCycles: basicStats.review_cycles?.active || 1,
-      completionRate: basicStats.assessments?.completion_rate || 85,
-      averageSatisfaction: 4.2,
-      overdueTasks: 8,
-      engagementScore: 87
-    };
+    try {
+      // Get actual satisfaction data
+      const { data: satisfactionData } = await supabase
+        .from('team_health_pulse_responses')
+        .select('response')
+        .eq('question_type', 'satisfaction');
+      
+      let averageSatisfaction = null;
+      if (satisfactionData && satisfactionData.length > 0) {
+        averageSatisfaction = satisfactionData.reduce((sum, item) => sum + item.response, 0) / satisfactionData.length;
+      }
+      
+      // Get overdue tasks count
+      const { data: overdueTasks } = await supabase
+        .from('assessments')
+        .select('id')
+        .lt('due_date', new Date().toISOString())
+        .neq('self_assessment_status', 'submitted');
+      
+      return {
+        totalEmployees: basicStats.employees?.total || 0,
+        activeReviewCycles: basicStats.review_cycles?.active || 0,
+        completionRate: basicStats.assessments?.completion_rate || 0,
+        averageSatisfaction: averageSatisfaction || 0,
+        overdueTasks: overdueTasks?.length || 0,
+        engagementScore: 0 // TODO: Implement actual engagement tracking
+      };
+    } catch (error) {
+      console.warn('KPIs calculation error:', error);
+      return {
+        totalEmployees: basicStats.employees?.total || 0,
+        activeReviewCycles: basicStats.review_cycles?.active || 0,
+        completionRate: basicStats.assessments?.completion_rate || 0,
+        averageSatisfaction: 0,
+        overdueTasks: 0,
+        engagementScore: 0
+      };
+    }
   }
   
   // Recent activity feed

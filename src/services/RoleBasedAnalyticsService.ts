@@ -367,7 +367,7 @@ class RoleBasedAnalyticsService {
           pendingReviews,
           overdueItems
         },
-        departmentBreakdown: this.generateDepartmentBreakdown(allEmployees || []),
+        departmentBreakdown: await this.generateDepartmentBreakdown(allEmployees || []),
         systemAlerts: await this.generateSystemAlerts(),
         performanceTrends: await this.generatePerformanceTrends()
       };
@@ -509,7 +509,7 @@ class RoleBasedAnalyticsService {
     return actions.slice(0, 8); // Limit to most urgent actions
   }
   
-  private static generateDepartmentBreakdown(employees: any[]) {
+  private static async generateDepartmentBreakdown(employees: any[]) {
     const deptMap = new Map();
     
     employees.forEach(emp => {
@@ -526,32 +526,49 @@ class RoleBasedAnalyticsService {
       deptMap.get(dept).totalEmployees++;
     });
     
-    return Array.from(deptMap.entries()).map(([name, data]) => {
-      // Calculate a reasonable completion rate based on department size and type
-      let baseCompletionRate = 75; // Default baseline
+    const results = [];
+    
+    for (const [name, data] of Array.from(deptMap.entries())) {
+      // Get actual completion rate from database
+      const departmentEmployeeIds = [...data.employees, ...data.managers].map(emp => emp.id);
       
-      // Adjust based on department characteristics
-      if (name === 'Executive') baseCompletionRate = 90;
-      else if (name === 'Engineering' || name === 'Quality') baseCompletionRate = 85;
-      else if (name === 'Accounting' || name === 'Program Management') baseCompletionRate = 80;
-      else if (name === 'Production' || name === 'Machining') baseCompletionRate = 70;
+      // Calculate real completion rate from assessments
+      const { data: assessments } = await supabase
+        .from('assessments')
+        .select('employee_id, self_assessment_status, manager_review_status')
+        .in('employee_id', departmentEmployeeIds);
       
-      // Add some variation based on team size (smaller teams tend to have higher completion rates)
-      const sizeAdjustment = Math.max(-10, Math.min(10, (10 - data.totalEmployees) * 2));
-      const finalCompletionRate = Math.max(50, Math.min(100, baseCompletionRate + sizeAdjustment));
+      const completedAssessments = assessments?.filter(a => 
+        a.self_assessment_status === 'submitted' && 
+        a.manager_review_status === 'completed'
+      ).length || 0;
       
-      // Calculate satisfaction based on completion rate - consistent calculation
-      const baseSatisfaction = 3.5 + (finalCompletionRate / 100) * 1.0; // 3.5-4.5 range
-      const satisfactionScore = Math.max(3.0, Math.min(5.0, baseSatisfaction));
+      const totalAssessments = assessments?.length || 1;
+      const completionRate = totalAssessments > 0 ? Math.round((completedAssessments / totalAssessments) * 100) : 0;
       
-      return {
+      // Get real satisfaction score from team health responses
+      const { data: satisfactionData } = await supabase
+        .from('team_health_pulse_responses')
+        .select('response')
+        .in('employee_id', departmentEmployeeIds)
+        .eq('question_type', 'satisfaction');
+      
+      let satisfactionScore = null;
+      if (satisfactionData && satisfactionData.length > 0) {
+        const average = satisfactionData.reduce((sum, item) => sum + item.response, 0) / satisfactionData.length;
+        satisfactionScore = Math.round(average * 10) / 10;
+      }
+      
+      results.push({
         name,
         employeeCount: data.employees.length,
         managerCount: data.managers.length,
-        completionRate: Math.round(finalCompletionRate),
-        satisfactionScore: Math.round(satisfactionScore * 10) / 10 // Round to 1 decimal
-      };
-    });
+        completionRate,
+        satisfactionScore: satisfactionScore || 0
+      });
+    }
+    
+    return results;
   }
   
   private static async generateSystemAlerts(): Promise<SystemAlert[]> {

@@ -1,0 +1,12 @@
+{
+  "timestamp": "2025-08-18T14:23:47.583Z",
+  "backupFiles": [
+    "supabase-tables-backup-2025-08-18.json",
+    "supabase-schema-backup-2025-08-18.json",
+    "supabase-functions-backup-2025-08-18.json",
+    "supabase-migrations-backup-2025-08-18.json"
+  ],
+  "supabaseUrl": "https://ejfcrdmgfrtzbhmkkoiu.supabase.co",
+  "backupLocation": "C:\\Users\\DavidOkonoski\\Documents\\edgelucerneinternational\\backups",
+  "note": "Complete Supabase backup including tables, schema, functions, and migrations"
+}

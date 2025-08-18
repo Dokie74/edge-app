@@ -1,5 +1,6 @@
 // src/components/ui/EnhancedNotificationCenter.tsx - Enhanced notification system
 import React, { useState, useEffect, useRef } from 'react';
+import { supabase } from '../../services/supabaseClient';
 import { 
   Bell, 
   X, 
@@ -34,59 +35,41 @@ const EnhancedNotificationCenter: React.FC<NotificationCenterProps> = ({ classNa
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Mock notifications - in production this would come from your backend
+  // Load real notifications from database
   useEffect(() => {
-    const mockNotifications: Notification[] = [
-      {
-        id: '1',
-        type: 'warning',
-        title: 'Review Cycle Deadline',
-        message: 'Q2 2024 review cycle ends in 3 days. 5 team members haven\'t completed their assessments.',
-        timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-        read: false,
-        priority: 'high',
-        actionUrl: '/reviews'
-      },
-      {
-        id: '2',
-        type: 'success',
-        title: 'Goal Achievement',
-        message: 'Mike Davis has achieved his quarterly sales target of $250K.',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
-        read: false,
-        priority: 'medium'
-      },
-      {
-        id: '3',
-        type: 'info',
-        title: 'New Feature Available',
-        message: 'Enhanced dashboard analytics with real-time metrics are now live.',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
-        read: true,
-        priority: 'low'
-      },
-      {
-        id: '4',
-        type: 'error',
-        title: 'System Alert',
-        message: 'Failed to sync data for 3 employees. Please check your connection.',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-        read: false,
-        priority: 'high'
-      },
-      {
-        id: '5',
-        type: 'info',
-        title: 'Feedback Received',
-        message: 'Sarah Johnson left positive feedback for your leadership skills.',
-        timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-        read: true,
-        priority: 'medium',
-        actionUrl: '/feedback'
+    const loadNotifications = async () => {
+      try {
+        const { data: notificationsData, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        if (error) {
+          console.warn('Failed to load notifications:', error);
+          setNotifications([]);
+          return;
+        }
+        
+        const mappedNotifications: Notification[] = (notificationsData || []).map(notif => ({
+          id: notif.id,
+          type: notif.type === 'urgent' ? 'warning' : notif.type === 'success' ? 'success' : 'info',
+          title: notif.title,
+          message: notif.message,
+          timestamp: notif.created_at,
+          read: !!notif.read_at,
+          priority: notif.type === 'urgent' ? 'high' : 'medium',
+          actionUrl: notif.data?.actionUrl || null
+        }));
+        
+        setNotifications(mappedNotifications);
+      } catch (error) {
+        console.warn('Error loading notifications:', error);
+        setNotifications([]);
       }
-    ];
+    };
     
-    setNotifications(mockNotifications);
+    loadNotifications();
   }, []);
 
   // Close dropdown when clicking outside

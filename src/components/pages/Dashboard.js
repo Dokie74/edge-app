@@ -133,7 +133,7 @@ const Dashboard = () => {
                                     <div key={assessment.assessment_id} className="bg-gray-700 p-4 rounded-lg">
                                         <div className="flex justify-between items-start mb-3">
                                             <div>
-                                                <h3 className="text-lg font-semibold text-white">{assessment.cycle_name}</h3>
+                                                <h3 className="text-lg font-semibold text-white">{assessment.cycle?.name || assessment.cycle_name || 'Unnamed Cycle'}</h3>
                                                 <div className="flex items-center mt-1">
                                                     <StatusBadge status={assessment.self_assessment_status || assessment.status} />
                                                 </div>

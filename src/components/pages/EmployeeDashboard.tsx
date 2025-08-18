@@ -366,7 +366,7 @@ export default function EmployeeDashboard() {
                 <div className="text-2xl font-bold text-green-400">
                   {typeof dashboardData.departmentInfo.avgSatisfaction === 'number' 
                     ? dashboardData.departmentInfo.avgSatisfaction.toFixed(1) 
-                    : '4.2'}
+                    : 'N/A'}
                 </div>
                 <div className="text-xs text-gray-400">Department</div>
               </div>
@@ -374,7 +374,7 @@ export default function EmployeeDashboard() {
                 <div className="text-2xl font-bold text-blue-400">
                   {typeof dashboardData.departmentInfo.companySatisfaction === 'number' 
                     ? dashboardData.departmentInfo.companySatisfaction.toFixed(1) 
-                    : '4.2'}
+                    : 'N/A'}
                 </div>
                 <div className="text-xs text-gray-400">Company</div>
               </div>

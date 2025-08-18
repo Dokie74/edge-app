@@ -170,7 +170,7 @@ export class TeamHealthService {
     );
 
     if (satisfactionResponses.length === 0) {
-      return 4.2; // Default fallback
+      return 0; // No data available
     }
 
     const average = satisfactionResponses.reduce((sum, response) => 
@@ -262,7 +262,7 @@ export class TeamHealthService {
     );
 
     if (satisfactionResponses.length === 0) {
-      return 4.2; // Default fallback
+      return 0; // No data available
     }
 
     const average = satisfactionResponses.reduce((sum, response) => 

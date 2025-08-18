@@ -407,7 +407,7 @@ export default function AdminDashboard() {
           title="Satisfaction"
           value={typeof dashboardData.organizationMetrics.overallSatisfaction === 'number' 
             ? dashboardData.organizationMetrics.overallSatisfaction.toFixed(1) 
-            : '4.2'}
+            : 'N/A'}
           icon={Award}
           color="yellow"
         />
@@ -604,7 +604,7 @@ export default function AdminDashboard() {
                   <td className="py-3 px-4 text-center">
                     {typeof dept.satisfactionScore === 'number' 
                       ? dept.satisfactionScore.toFixed(1) 
-                      : '4.2'}/5.0
+                      : 'N/A'}/5.0
                   </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`w-2 h-2 rounded-full inline-block ${
@@ -637,6 +637,7 @@ export default function AdminDashboard() {
           <Button 
             className="flex flex-col items-center space-y-2 h-16" 
             variant="secondary"
+            onClick={() => navigate('/admin')}
           >
             <Users size={20} />
             <span className="text-sm">User Mgmt</span>
@@ -644,6 +645,9 @@ export default function AdminDashboard() {
           <Button 
             className="flex flex-col items-center space-y-2 h-16" 
             variant="secondary"
+            onClick={() => {
+              alert('Reports feature is coming soon! This will provide comprehensive analytics and export capabilities.');
+            }}
           >
             <FileText size={20} />
             <span className="text-sm">Reports</span>
@@ -651,6 +655,11 @@ export default function AdminDashboard() {
           <Button 
             className="flex flex-col items-center space-y-2 h-16" 
             variant="secondary"
+            onClick={() => {
+              if (window.confirm('Open Supabase database dashboard?\n\nThis will open the external database management interface.')) {
+                window.open('https://supabase.com/dashboard/project', '_blank');
+              }
+            }}
           >
             <Database size={20} />
             <span className="text-sm">Database</span>
@@ -658,6 +667,9 @@ export default function AdminDashboard() {
           <Button 
             className="flex flex-col items-center space-y-2 h-16" 
             variant="secondary"
+            onClick={() => {
+              alert('System monitoring tools are integrated above in the real-time metrics panel. Enhanced monitoring dashboard coming soon!');
+            }}
           >
             <Activity size={20} />
             <span className="text-sm">Monitoring</span>

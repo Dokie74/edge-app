@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('NODE_ENV') === 'production' ? 'https://edgeapp.vercel.app' : '*',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -18,13 +18,34 @@ serve(async (req) => {
   try {
     console.log(JSON.stringify({ level: 'info', requestId, event: 'admin-op:start' }));
     
-    // Get environment variables
+    // Get environment variables with fallback
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const serviceRoleKey = Deno.env.get('EDGE_SERVICE_ROLE_KEY')
+    const serviceRoleKey = Deno.env.get('EDGE_SERVICE_ROLE_KEY') || Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')
     
+    console.log(JSON.stringify({ 
+      level: 'debug', 
+      requestId, 
+      env_check: {
+        supabase_url_exists: !!supabaseUrl,
+        service_role_key_exists: !!serviceRoleKey,
+        anon_key_exists: !!anonKey,
+        using_edge_key: !!Deno.env.get('EDGE_SERVICE_ROLE_KEY'),
+        using_supabase_key: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      }
+    }));
+    
     if (!supabaseUrl || !serviceRoleKey || !anonKey) {
-      throw new Error('Missing required environment variables')
+      console.error(JSON.stringify({ 
+        level: 'error', 
+        requestId, 
+        missing_vars: {
+          supabase_url: !supabaseUrl,
+          service_role_key: !serviceRoleKey,
+          anon_key: !anonKey
+        }
+      }));
+      throw new Error(`Missing required environment variables: URL=${!!supabaseUrl}, ServiceRole=${!!serviceRoleKey}, Anon=${!!anonKey}`)
     }
 
     // Create clients - admin for privileged operations, user for auth validation
@@ -54,8 +75,16 @@ serve(async (req) => {
       .eq('email', user.email)
       .single()
 
-    if (empError || !employee || employee.role !== 'admin' || !employee.is_active) {
-      throw new Error('Admin access required')
+    if (empError || !employee || !['admin', 'super_admin'].includes(employee.role) || !employee.is_active) {
+      console.log(JSON.stringify({ 
+        level: 'warn', 
+        requestId, 
+        msg: 'admin access denied', 
+        employee: employee,
+        empError: empError?.message,
+        user_email: user.email
+      }));
+      throw new Error(`Admin access required. Current role: ${employee?.role || 'none'}, Active: ${employee?.is_active || false}`)
     }
 
     // Parse request body
@@ -65,22 +94,36 @@ serve(async (req) => {
     let result;
     switch (action) {
       case 'create_user':
-        // Create new user account in Supabase Auth
-        const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-          email: data.email,
-          password: data.temp_password || 'TempPass123!',
-          email_confirm: true,
-          user_metadata: {
-            name: data.name
+        console.log(JSON.stringify({ level: 'info', requestId, msg: 'starting user creation', data }));
+        
+        // Validate required fields
+        if (!data.email || !data.name) {
+          throw new Error('Email and name are required');
+        }
+        
+        try {
+          // Create new user account in Supabase Auth
+          console.log(JSON.stringify({ level: 'info', requestId, msg: 'creating auth user' }));
+          const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+            email: data.email,
+            password: data.temp_password || 'TempPass123!',
+            email_confirm: true,
+            user_metadata: {
+              name: data.name,
+              role: data.role || 'employee'
+            }
+          })
+
+          if (createError) {
+            console.error(JSON.stringify({ level: 'error', requestId, msg: 'auth user creation failed', error: createError }));
+            throw new Error(`Auth user creation failed: ${createError.message}`);
           }
-        })
+          
+          console.log(JSON.stringify({ level: 'info', requestId, msg: 'auth user created', user_id: newUser.user.id }));
 
-        if (createError) throw createError
-
-        // Create corresponding employee record
-        const { data: newEmployee, error: empError } = await supabaseAdmin
-          .from('employees')
-          .insert({
+          // Create corresponding employee record
+          console.log(JSON.stringify({ level: 'info', requestId, msg: 'creating employee record' }));
+          const employeeData = {
             user_id: newUser.user.id,
             email: data.email,
             name: data.name,
@@ -89,17 +132,28 @@ serve(async (req) => {
             manager_id: data.manager_id,
             department: data.department,
             is_active: true
-          })
-          .select()
-          .single()
+          };
+          
+          const { data: newEmployee, error: empError } = await supabaseAdmin
+            .from('employees')
+            .insert(employeeData)
+            .select()
+            .single()
 
-        if (empError) {
-          // Cleanup user if employee creation fails
-          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
-          throw empError
+          if (empError) {
+            console.error(JSON.stringify({ level: 'error', requestId, msg: 'employee creation failed', error: empError }));
+            // Cleanup user if employee creation fails
+            await supabaseAdmin.auth.admin.deleteUser(newUser.user.id)
+            throw new Error(`Employee creation failed: ${empError.message}`);
+          }
+          
+          console.log(JSON.stringify({ level: 'info', requestId, msg: 'employee created', employee_id: newEmployee.id }));
+
+          result = { success: true, user: newUser.user, employee: newEmployee }
+        } catch (error) {
+          console.error(JSON.stringify({ level: 'error', requestId, msg: 'create_user error', error: error.message }));
+          throw error;
         }
-
-        result = { success: true, user: newUser.user, employee: newEmployee }
         break
 
       case 'update_employee':
@@ -133,6 +187,13 @@ serve(async (req) => {
 
         if (resetError) throw resetError
         result = { success: true, reset_link: resetData.properties?.action_link }
+        break
+
+      case 'setup_database':
+        // Setup EDGEMASTER database structure
+        const { data: setupResult, error: setupError } = await supabaseAdmin.rpc('setup_edgemaster_tables')
+        if (setupError) throw setupError
+        result = { success: true, setup: setupResult }
         break
 
       case 'cleanup_test_users':
