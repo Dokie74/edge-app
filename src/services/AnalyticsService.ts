@@ -231,10 +231,9 @@ class AnalyticsService {
           const month = months[new Date(response.created_at).getMonth()];
           const data = monthlyData.get(month);
           if (data) {
-            // Handle response_value which is JSONB
-            const responseValue = typeof response.response_value === 'object' ? response.response_value.value : response.response_value;
-            if (typeof responseValue === 'number') {
-              data.satisfaction.push(responseValue);
+            // Handle response_value which is integer (1-5 scale)
+            if (typeof response.response_value === 'number') {
+              data.satisfaction.push(response.response_value);
             }
           }
         }
@@ -323,9 +322,8 @@ class AnalyticsService {
         
         if (satisfactionResponses.length > 0) {
           averageSatisfaction = satisfactionResponses.reduce((sum: number, item: any) => {
-            // Handle response_value which is JSONB
-            const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
-            return sum + (typeof response === 'number' ? response : 0);
+            // Handle response_value which is integer (1-5 scale)
+            return sum + (typeof item.response_value === 'number' ? item.response_value : 0);
           }, 0) / satisfactionResponses.length;
         }
       }

@@ -566,9 +566,8 @@ class RoleBasedAnalyticsService {
         
         if (satisfactionResponses.length > 0) {
           const average = satisfactionResponses.reduce((sum: number, item: any) => {
-            // Handle response_value which is JSONB
-            const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
-            return sum + (typeof response === 'number' ? response : 0);
+            // Handle response_value which is integer (1-5 scale)
+            return sum + (typeof item.response_value === 'number' ? item.response_value : 0);
           }, 0) / satisfactionResponses.length;
           satisfactionScore = Math.round(average * 10) / 10;
         }
