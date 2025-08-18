@@ -23,7 +23,7 @@ export class AuthService {
       // First try to get role from employees table
       const { data: employee, error } = await supabase
         .from('employees')
-        .select('role, name')
+        .select('role, name, must_change_password')
         .eq('email', userEmail.toLowerCase())
         .single();
 
@@ -31,7 +31,8 @@ export class AuthService {
         console.log('✅ Found user in employees table:', employee);
         return {
           role: employee.role,
-          name: employee.name
+          name: employee.name,
+          must_change_password: employee.must_change_password
         };
       }
 

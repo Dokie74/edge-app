@@ -1,13 +1,15 @@
 // src/components/routing/AuthenticatedApp.tsx - Authentication wrapper with router
-import React from 'react';
+import React, { useState } from 'react';
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
 import { supabase } from '../../services';
 import { useApp } from '../../contexts';
 import AppRouter from './AppRouter';
+import ChangePasswordModal from '../modals/ChangePasswordModal';
 
 const AuthenticatedApp: React.FC = () => {
-  const { user, userDataLoading } = useApp();
+  const { user, userDataLoading, mustChangePassword } = useApp();
+  const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false);
 
   // Show loading screen while checking authentication
   if (userDataLoading && user) {
@@ -69,8 +71,31 @@ const AuthenticatedApp: React.FC = () => {
     console.log('🏠 Authenticated app loaded - User authenticated:', !!user);
   }
 
-  // Show the main app with routing
-  return <AppRouter />;
+  // Handle forced password change for new employees
+  const handlePasswordChangeSuccess = () => {
+    setShowPasswordChangeModal(false);
+    // Context will automatically refresh and mustChangePassword will be false
+    window.location.reload(); // Refresh to get updated context
+  };
+
+  // Show password change modal if required
+  if (mustChangePassword && !showPasswordChangeModal) {
+    setShowPasswordChangeModal(true);
+  }
+
+  // Show the main app with routing and password change modal if needed
+  return (
+    <>
+      <AppRouter />
+      {(mustChangePassword || showPasswordChangeModal) && (
+        <ChangePasswordModal
+          isRequired={true}
+          onSuccess={handlePasswordChangeSuccess}
+          // No onCancel because it's required
+        />
+      )}
+    </>
+  );
 };
 
 export default AuthenticatedApp;

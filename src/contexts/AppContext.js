@@ -17,6 +17,7 @@ const initialState = {
   user: null,
   userRole: null,
   userName: '',
+  mustChangePassword: false,
   userDataLoading: true,
   activePage: { name: 'Dashboard', props: {} },
   modal: { isOpen: false, name: null, props: {} }
@@ -32,7 +33,8 @@ const appReducer = (state, action) => {
       return { 
         ...state, 
         userRole: action.payload.role, 
-        userName: action.payload.name 
+        userName: action.payload.name,
+        mustChangePassword: action.payload.must_change_password || false
       };
     
     case APP_ACTIONS.SET_USER_DATA_LOADING:
@@ -92,12 +94,12 @@ export const AppProvider = ({ children }) => {
         console.log('🔄 Fetching user data for authenticated user');
       }
       
-      const { role, name } = await AuthService.getUserRole(user.email);
+      const { role, name, must_change_password } = await AuthService.getUserRole(user.email);
 
       if (process.env.NODE_ENV === 'development') {
         console.log('✅ User data loaded successfully');
       }
-      dispatch({ type: APP_ACTIONS.SET_USER_DATA, payload: { role, name } });
+      dispatch({ type: APP_ACTIONS.SET_USER_DATA, payload: { role, name, must_change_password } });
 
     } catch (error) {
       console.error('💥 Error in fetchUserData:', error);

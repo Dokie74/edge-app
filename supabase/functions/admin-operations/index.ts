@@ -131,6 +131,8 @@ serve(async (req) => {
             job_title: data.job_title,
             manager_id: data.manager_id,
             department: data.department,
+            temp_password: data.temp_password,
+            must_change_password: true,  // Force password change on first login
             is_active: true
           };
           
