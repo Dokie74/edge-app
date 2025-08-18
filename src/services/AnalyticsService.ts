@@ -194,10 +194,19 @@ class AnalyticsService {
         .from('assessments')
         .select('created_at, self_assessment_status, manager_review_status');
       
-      const { data: pulseResponses } = await supabase
+      const { data: pulseResponses, error: pulseError } = await supabase
         .from('team_health_pulse_responses')
-        .select('submitted_at, response')
-        .eq('question_type', 'satisfaction');
+        .select(`
+          submitted_at, 
+          response_value,
+          pulse_questions!team_health_pulse_responses_question_id_fkey(category)
+        `)
+        .eq('pulse_questions.category', 'satisfaction');
+      
+      if (pulseError) {
+        console.warn('Pulse responses query failed:', pulseError);
+        // Continue without pulse data
+      }
       
       // Group by month and calculate real trends
       const monthlyData = new Map();
@@ -225,7 +234,11 @@ class AnalyticsService {
         const month = months[new Date(response.submitted_at).getMonth()];
         const data = monthlyData.get(month);
         if (data) {
-          data.satisfaction.push(response.response);
+          // Handle response_value which is JSONB
+          const responseValue = typeof response.response_value === 'object' ? response.response_value.value : response.response_value;
+          if (typeof responseValue === 'number') {
+            data.satisfaction.push(responseValue);
+          }
         }
       });
       
@@ -294,14 +307,25 @@ class AnalyticsService {
   private static async getKPIs(userRole: string, basicStats: DashboardStats) {
     try {
       // Get actual satisfaction data
-      const { data: satisfactionData } = await supabase
+      const { data: satisfactionData, error: satisfactionError } = await supabase
         .from('team_health_pulse_responses')
-        .select('response')
-        .eq('question_type', 'satisfaction');
+        .select(`
+          response_value,
+          pulse_questions!team_health_pulse_responses_question_id_fkey(category)
+        `)
+        .eq('pulse_questions.category', 'satisfaction');
+      
+      if (satisfactionError) {
+        console.warn('Satisfaction data query failed:', satisfactionError);
+      }
       
       let averageSatisfaction = null;
       if (satisfactionData && satisfactionData.length > 0) {
-        averageSatisfaction = satisfactionData.reduce((sum, item) => sum + item.response, 0) / satisfactionData.length;
+        averageSatisfaction = satisfactionData.reduce((sum, item) => {
+          // Handle response_value which is JSONB
+          const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
+          return sum + (typeof response === 'number' ? response : 0);
+        }, 0) / satisfactionData.length;
       }
       
       // Get overdue tasks count

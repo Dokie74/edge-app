@@ -549,13 +549,20 @@ class RoleBasedAnalyticsService {
       // Get real satisfaction score from team health responses
       const { data: satisfactionData } = await supabase
         .from('team_health_pulse_responses')
-        .select('response')
+        .select(`
+          response_value,
+          pulse_questions!team_health_pulse_responses_question_id_fkey(category)
+        `)
         .in('employee_id', departmentEmployeeIds)
-        .eq('question_type', 'satisfaction');
+        .eq('pulse_questions.category', 'satisfaction');
       
       let satisfactionScore = null;
       if (satisfactionData && satisfactionData.length > 0) {
-        const average = satisfactionData.reduce((sum, item) => sum + item.response, 0) / satisfactionData.length;
+        const average = satisfactionData.reduce((sum, item) => {
+          // Handle response_value which is JSONB
+          const response = typeof item.response_value === 'object' ? item.response_value.value : item.response_value;
+          return sum + (typeof response === 'number' ? response : 0);
+        }, 0) / satisfactionData.length;
         satisfactionScore = Math.round(average * 10) / 10;
       }
       

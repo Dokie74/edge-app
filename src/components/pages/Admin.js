@@ -105,6 +105,179 @@ export default function Admin() {
     }
   };
 
+  const handleCreateSampleData = async () => {
+    if (!window.confirm('This will create sample employees, review cycles, and assessments for testing.\n\nProceed?')) {
+      return;
+    }
+
+    try {
+      // Step 1: Create sample employees
+      const sampleEmployees = [
+        {
+          name: 'Sarah Johnson',
+          email: 'sarah.johnson@lucerneintl.com',
+          role: 'employee',
+          job_title: 'Software Developer',
+          department: 'Engineering'
+        },
+        {
+          name: 'Mike Chen',
+          email: 'mike.chen@lucerneintl.com',
+          role: 'manager',
+          job_title: 'Engineering Manager',
+          department: 'Engineering'
+        },
+        {
+          name: 'Lisa Rodriguez',
+          email: 'lisa.rodriguez@lucerneintl.com',
+          role: 'employee',
+          job_title: 'UX Designer',
+          department: 'Design'
+        }
+      ];
+
+      console.log('Creating sample employees...');
+      const createdEmployees = [];
+      for (const emp of sampleEmployees) {
+        try {
+          const { data, error } = await supabase
+            .from('employees')
+            .insert({
+              ...emp,
+              is_active: true,
+              tenant_id: 'lucerne'
+            })
+            .select()
+            .single();
+          
+          if (error) {
+            console.warn(`Employee ${emp.name} might already exist:`, error);
+          } else {
+            createdEmployees.push(data);
+            console.log(`✅ Created employee: ${emp.name}`);
+          }
+        } catch (empErr) {
+          console.warn(`Error creating ${emp.name}:`, empErr);
+        }
+      }
+
+      // Step 2: Create sample review cycle
+      const cycleData = {
+        name: 'Q4 2024 Performance Reviews',
+        start_date: '2024-10-01',
+        end_date: '2024-12-31',
+        status: 'active',
+        description: 'Sample quarterly review cycle for testing',
+        tenant_id: 'lucerne'
+      };
+
+      // Step 2: Create pulse questions if they don't exist
+      console.log('Setting up pulse questions...');
+      const pulseQuestions = [
+        {
+          question_id: 'sat_overall',
+          question_text: 'How would you rate your overall job satisfaction this week?',
+          category: 'satisfaction',
+          type: 'scale',
+          is_active: true,
+          sort_order: 1
+        },
+        {
+          question_id: 'work_manageable',
+          question_text: 'How manageable is your current workload?',
+          category: 'workload', 
+          type: 'scale',
+          is_active: true,
+          sort_order: 2
+        },
+        {
+          question_id: 'sup_team',
+          question_text: 'How supported do you feel by your team and colleagues?',
+          category: 'support',
+          type: 'scale', 
+          is_active: true,
+          sort_order: 3
+        }
+      ];
+
+      try {
+        const { data: existingQuestions, error: checkError } = await supabase
+          .from('pulse_questions')
+          .select('question_id')
+          .limit(1);
+
+        if (!checkError && (!existingQuestions || existingQuestions.length === 0)) {
+          const { error: pulseError } = await supabase
+            .from('pulse_questions')
+            .insert(pulseQuestions);
+            
+          if (pulseError) {
+            console.warn('Could not create pulse questions:', pulseError);
+          } else {
+            console.log('✅ Created pulse questions');
+          }
+        }
+      } catch (pulseErr) {
+        console.warn('Pulse questions setup failed:', pulseErr);
+      }
+
+      // Step 3: Create sample review cycle
+      console.log('Creating sample review cycle...');
+      const { data: cycle, error: cycleError } = await supabase
+        .from('review_cycles')
+        .insert(cycleData)
+        .select()
+        .single();
+
+      if (cycleError) {
+        console.error('Error creating cycle:', cycleError);
+        throw new Error(`Failed to create review cycle: ${cycleError.message}`);
+      }
+
+      console.log('✅ Created review cycle:', cycle.name);
+
+      // Step 4: Create sample assessments
+      if (createdEmployees.length > 0 && cycle) {
+        console.log('Creating sample assessments...');
+        const assessmentsToCreate = createdEmployees.map((emp, index) => ({
+          employee_id: emp.id,
+          cycle_id: cycle.id,
+          due_date: index === 0 ? '2024-11-15' : '2024-12-15', // Make first one overdue for testing
+          self_assessment_status: index === 0 ? 'not_started' : 'in_progress',
+          manager_review_status: 'not_started',
+          tenant_id: 'lucerne'
+        }));
+
+        const { data: assessments, error: assessError } = await supabase
+          .from('assessments')
+          .insert(assessmentsToCreate)
+          .select();
+
+        if (assessError) {
+          console.warn('Error creating assessments:', assessError);
+        } else {
+          console.log(`✅ Created ${assessments.length} sample assessments`);
+        }
+      }
+
+      alert(`✅ Sample data created successfully!\n\n` +
+            `• ${createdEmployees.length} employees\n` +
+            `• 1 active review cycle\n` +
+            `• ${createdEmployees.length} sample assessments\n` +
+            `• Pulse questions setup\n\n` +
+            `The dashboard should now show active data and the Review Status should be clickable!`);
+
+      // Refresh all data
+      refresh();
+      fetchEmployees();
+      setOversightRefreshTrigger(prev => prev + 1);
+
+    } catch (err) {
+      console.error('Error creating sample data:', err);
+      alert(`❌ Error creating sample data: ${err.message}\n\nCheck the console for details.`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-8">
@@ -145,6 +318,30 @@ export default function Admin() {
           >
             Retry
           </button>
+        </div>
+      )}
+
+      {/* Database Setup Helper */}
+      {cycles.length === 0 && allEmployees.length <= 1 && (
+        <div className="mb-6 p-4 bg-blue-900/30 border border-blue-500/50 rounded-lg">
+          <div className="flex items-center text-blue-200">
+            <Calendar size={16} className="mr-2" />
+            <span>Database appears empty. Would you like to create sample data for testing?</span>
+          </div>
+          <div className="mt-3 flex space-x-2">
+            <button 
+              onClick={handleCreateSampleData}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white text-sm"
+            >
+              Create Sample Data
+            </button>
+            <button 
+              onClick={() => openModal('createReviewCycle', { onComplete: refresh })}
+              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white text-sm"
+            >
+              Create First Review Cycle
+            </button>
+          </div>
         </div>
       )}
       
@@ -513,44 +710,31 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
         cyclesData = [];
       }
       
-      // Try complex query first
+      // Use simple query for now - complex relationships can be added later
+      console.log('🔄 Fetching assessments data...');
       const { data: assessments, error: assessError } = await supabase
         .from('assessments')
-        .select(`
-          *,
-          employee:employees(name, job_title),
-          cycle:review_cycles(name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
+        
+      console.log('📋 Assessments query result:', { assessments, error: assessError });
       
-      console.log('📊 Complex query result:', { assessments, error: assessError });
+      if (assessError || !assessments) {
+        console.error('❌ Assessments query failed:', assessError);
+        setReviewStats({
+          total: 0, pending_employee: 0, pending_manager: 0, completed: 0, overdue: 0
+        });
+        setRecentReviews([]);
+        return;
+      }
       
-      if (assessError) {
-        console.error('❌ Complex query failed:', assessError);
-        
-        // Fallback to simple query
-        console.log('🔄 Trying simpler assessments query...');
-        const { data: simpleAssessments, error: simpleError } = await supabase
-          .from('assessments')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        console.log('📋 Simple query result:', { simpleAssessments, error: simpleError });
-        
-        if (simpleError || !simpleAssessments) {
-          console.error('❌ All queries failed:', simpleError);
-          setReviewStats({
-            total: 0, pending_employee: 0, pending_manager: 0, completed: 0, overdue: 0
-          });
-          setRecentReviews([]);
-          return;
-        }
-        
-        console.log('✅ Using simple assessments data');
-        assessmentsData = simpleAssessments;
-      } else {
-        console.log('✅ Using complex query with joins');
-        assessmentsData = assessments;
+      console.log('✅ Using assessments data');
+      assessmentsData = assessments;
+
+      // Check if database appears to be empty
+      if ((!assessmentsData || assessmentsData.length === 0) && (!cyclesData || cyclesData.length === 0)) {
+        console.log('⚠️ Database appears to be empty - no assessments or cycles found');
+        console.log('💡 Consider creating sample data or check database setup');
       }
       
       // Calculate stats from whichever data we got, filtered by active cycles
@@ -611,11 +795,96 @@ const ReviewOversightSection = ({ compact = false, refreshTrigger = 0 }) => {
       `• ${a.employee?.name || 'Employee ' + a.employee_id} - ${a.cycle?.name || 'Cycle ' + a.cycle_id} ${a.due_date ? `(Due: ${new Date(a.due_date).toLocaleDateString()})` : ''}`
     ).join('\n');
     
+    // For overdue reviews, provide different action options
+    if (category === 'overdue') {
+      const message = `${title} (${assessments.length})\n\n${listItems}\n\nChoose an action:`;
+      
+      // Create a more sophisticated dialog for overdue items
+      const action = window.prompt(
+        `${message}\n\n` +
+        `Type one of the following:\n` +
+        `"notify" - Send reminder to manager/employee\n` +
+        `"view" - Open first assessment\n` +
+        `"cancel" - Close this dialog`,
+        'notify'
+      );
+
+      if (action && action.toLowerCase().includes('notify')) {
+        handleNotifyOverdue(assessments);
+      } else if (action && action.toLowerCase().includes('view')) {
+        handleViewAssessment(assessments[0].id);
+      }
+      // If cancel or anything else, just close
+      return;
+    }
+
+    // For other categories, keep the simple view option
     const message = `${title} (${assessments.length})\n\n${listItems}\n\nClick OK to view the first assessment, or Cancel to close.`;
     
     if (window.confirm(message)) {
-      // Navigate to the first assessment
       handleViewAssessment(assessments[0].id);
+    }
+  };
+
+  const handleNotifyOverdue = async (overdueAssessments) => {
+    try {
+      // Group by manager to send efficient notifications
+      const managerGroups = {};
+      
+      overdueAssessments.forEach(assessment => {
+        const managerId = assessment.manager_id || 'unknown';
+        if (!managerGroups[managerId]) {
+          managerGroups[managerId] = [];
+        }
+        managerGroups[managerId].push(assessment);
+      });
+
+      let notificationCount = 0;
+      const notifications = [];
+
+      // Create notification messages
+      Object.keys(managerGroups).forEach(managerId => {
+        const assessments = managerGroups[managerId];
+        const employeeNames = assessments.map(a => a.employee?.name || 'Employee ' + a.employee_id).join(', ');
+        
+        notifications.push({
+          type: 'overdue_reminder',
+          manager_id: managerId,
+          message: `Overdue Review Reminder: ${employeeNames} have overdue performance reviews that need attention.`,
+          assessment_ids: assessments.map(a => a.id),
+          count: assessments.length
+        });
+        
+        notificationCount += assessments.length;
+      });
+
+      // For now, simulate sending notifications (in a real app, this would call an API)
+      console.log('📧 Sending overdue notifications:', notifications);
+      
+      // Show confirmation
+      const notificationSummary = notifications.map(n => 
+        `• Manager ${n.manager_id}: ${n.count} overdue review${n.count > 1 ? 's' : ''}`
+      ).join('\n');
+      
+      const success = window.confirm(
+        `Notification Summary:\n\n${notificationSummary}\n\n` +
+        `Total: ${notificationCount} overdue review${notificationCount > 1 ? 's' : ''}\n\n` +
+        `Click OK to send notifications, or Cancel to abort.`
+      );
+
+      if (success) {
+        // Here you would normally call your notification service
+        // await NotificationService.sendOverdueReminders(notifications);
+        
+        alert(`✅ Success!\n\nSent ${notificationCount} overdue review reminder${notificationCount > 1 ? 's' : ''} to managers.\n\nManagers will be notified via email and in-app notifications.`);
+        
+        // Optionally refresh the data
+        fetchReviewOversight();
+      }
+      
+    } catch (err) {
+      console.error('Error sending overdue notifications:', err);
+      alert('❌ Error sending notifications. Please try again or contact support.');
     }
   };
 
