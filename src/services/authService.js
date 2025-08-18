@@ -21,11 +21,24 @@ export class AuthService {
       console.log('🔍 Looking up user role for:', userEmail);
       
       // First try to get role from employees table
-      const { data: employee, error } = await supabase
+      // Try with must_change_password first, fall back if column doesn't exist
+      let { data: employee, error } = await supabase
         .from('employees')
         .select('role, name, must_change_password')
         .eq('email', userEmail.toLowerCase())
         .single();
+        
+      // If query failed due to missing column, try without it
+      if (error && error.message?.includes('column') && error.message?.includes('must_change_password')) {
+        console.log('⚠️ must_change_password column not found, falling back to basic query');
+        const fallback = await supabase
+          .from('employees')
+          .select('role, name')
+          .eq('email', userEmail.toLowerCase())
+          .single();
+        employee = fallback.data;
+        error = fallback.error;
+      }
 
       if (employee && !error) {
         console.log('✅ Found user in employees table:', employee);
