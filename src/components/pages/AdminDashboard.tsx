@@ -790,10 +790,14 @@ export default function AdminDashboard() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* API Documentation */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#api')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-blue-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-blue-400 transition-colors">
               <Server className="mr-2 text-blue-400" size={16} />
               API Documentation
+              <ExternalLink className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• REST API endpoints and authentication</li>
@@ -801,13 +805,17 @@ export default function AdminDashboard() {
               <li>• Rate limiting and error handling</li>
               <li>• Webhook configuration</li>
             </ul>
-          </div>
+          </button>
 
           {/* Developer Guides */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#developer')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-green-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-green-400 transition-colors">
               <FileText className="mr-2 text-green-400" size={16} />
               Developer Guides
+              <ExternalLink className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• System architecture overview</li>
@@ -815,13 +823,17 @@ export default function AdminDashboard() {
               <li>• Component library documentation</li>
               <li>• Deployment and CI/CD guides</li>
             </ul>
-          </div>
+          </button>
 
           {/* Monitoring & Logs */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#monitoring')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-purple-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-purple-400 transition-colors">
               <Activity className="mr-2 text-purple-400" size={16} />
               Monitoring & Logs
+              <ExternalLink className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• System health monitoring dashboard</li>
@@ -829,13 +841,17 @@ export default function AdminDashboard() {
               <li>• Performance metrics and analytics</li>
               <li>• Log aggregation and search</li>
             </ul>
-          </div>
+          </button>
 
           {/* System Management */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#system')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-yellow-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-yellow-400 transition-colors">
               <Settings className="mr-2 text-yellow-400" size={16} />
               System Management
+              <ExternalLink className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• User management and permissions</li>
@@ -843,13 +859,17 @@ export default function AdminDashboard() {
               <li>• System settings and preferences</li>
               <li>• Data backup and recovery</li>
             </ul>
-          </div>
+          </button>
 
           {/* Security & Compliance */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#security')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-red-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-red-400 transition-colors">
               <Shield className="mr-2 text-red-400" size={16} />
               Security & Compliance
+              <ExternalLink className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Authentication and authorization</li>
@@ -857,13 +877,17 @@ export default function AdminDashboard() {
               <li>• Security audit logs</li>
               <li>• Penetration testing reports</li>
             </ul>
-          </div>
+          </button>
 
           {/* Troubleshooting */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#troubleshooting')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-orange-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-orange-400 transition-colors">
               <AlertTriangle className="mr-2 text-orange-400" size={16} />
               Troubleshooting
+              <ExternalLink className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Common issues and solutions</li>

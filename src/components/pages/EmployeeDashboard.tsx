@@ -409,10 +409,14 @@ export default function EmployeeDashboard() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Getting Started */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#getting-started')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-green-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-green-400 transition-colors">
               <CheckCircle className="mr-2 text-green-400" size={16} />
               Getting Started
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Complete your profile setup</li>
@@ -420,13 +424,17 @@ export default function EmployeeDashboard() {
               <li>• Set personal development goals</li>
               <li>• Familiarize yourself with the feedback system</li>
             </ul>
-          </div>
+          </button>
 
           {/* Assessment Tips */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#assessment-tips')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-blue-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-blue-400 transition-colors">
               <FileText className="mr-2 text-blue-400" size={16} />
               Assessment Tips
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Be specific with examples and metrics</li>
@@ -434,13 +442,17 @@ export default function EmployeeDashboard() {
               <li>• Save drafts frequently while working</li>
               <li>• Submit before the deadline</li>
             </ul>
-          </div>
+          </button>
 
           {/* Development Planning */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#development-planning')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-purple-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-purple-400 transition-colors">
               <Target className="mr-2 text-purple-400" size={16} />
               Development Planning
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Identify skill gaps and growth areas</li>
@@ -448,13 +460,17 @@ export default function EmployeeDashboard() {
               <li>• Request feedback from peers and manager</li>
               <li>• Track progress regularly</li>
             </ul>
-          </div>
+          </button>
 
           {/* Need Help? */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#need-help')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-yellow-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-yellow-400 transition-colors">
               <AlertCircle className="mr-2 text-yellow-400" size={16} />
               Need Help?
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Contact your manager for guidance</li>

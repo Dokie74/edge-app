@@ -256,13 +256,54 @@ class AnalyticsService {
   
   // Department distribution
   private static async getDepartmentDistribution() {
-    return [
-      { name: 'Engineering', value: 35, color: '#0891b2' },
-      { name: 'Sales', value: 25, color: '#10b981' },
-      { name: 'Marketing', value: 20, color: '#f59e0b' },
-      { name: 'HR', value: 12, color: '#ef4444' },
-      { name: 'Finance', value: 8, color: '#8b5cf6' }
-    ];
+    try {
+      console.log('📊 Fetching real department distribution from database...');
+      
+      // Get active employees grouped by department
+      const { data: employeesData, error } = await supabase
+        .from('employees')
+        .select('department')
+        .eq('is_active', true);
+
+      if (error) {
+        console.error('❌ Error fetching department data:', error);
+        throw error;
+      }
+
+      if (!employeesData || employeesData.length === 0) {
+        console.warn('⚠️ No active employees found');
+        return [];
+      }
+
+      // Count employees by department
+      const departmentCounts: { [key: string]: number } = {};
+      employeesData.forEach(emp => {
+        const dept = emp.department || 'Unassigned';
+        departmentCounts[dept] = (departmentCounts[dept] || 0) + 1;
+      });
+
+      console.log('📈 Department counts:', departmentCounts);
+
+      // Convert to chart format with colors
+      const colors = ['#0891b2', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#84cc16', '#f97316', '#ec4899', '#6366f1'];
+      let colorIndex = 0;
+
+      const departmentData = Object.entries(departmentCounts)
+        .map(([name, value]) => ({
+          name,
+          value,
+          color: colors[colorIndex++ % colors.length]
+        }))
+        .sort((a, b) => b.value - a.value); // Sort by employee count descending
+
+      console.log('📊 Department distribution data:', departmentData);
+      return departmentData;
+
+    } catch (error: any) {
+      console.error('❌ Error in getDepartmentDistribution:', error);
+      // Fallback to empty array instead of mock data
+      return [];
+    }
   }
   
   // Engagement metrics over time

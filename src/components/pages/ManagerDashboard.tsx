@@ -576,10 +576,14 @@ export default function ManagerDashboard() {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Team Management */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#team-management')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-blue-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-blue-400 transition-colors">
               <Users className="mr-2 text-blue-400" size={16} />
               Team Management
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Monitor team performance metrics</li>
@@ -587,13 +591,17 @@ export default function ManagerDashboard() {
               <li>• Address overdue assessments promptly</li>
               <li>• Schedule regular one-on-ones</li>
             </ul>
-          </div>
+          </button>
 
           {/* Review Process */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#review-process')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-green-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-green-400 transition-colors">
               <FileText className="mr-2 text-green-400" size={16} />
               Review Process
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Provide specific, actionable feedback</li>
@@ -601,13 +609,17 @@ export default function ManagerDashboard() {
               <li>• Focus on both strengths and growth areas</li>
               <li>• Complete reviews within deadline</li>
             </ul>
-          </div>
+          </button>
 
           {/* Development Planning */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#development-planning')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-purple-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-purple-400 transition-colors">
               <Target className="mr-2 text-purple-400" size={16} />
               Development Planning
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Identify growth opportunities for each team member</li>
@@ -615,13 +627,17 @@ export default function ManagerDashboard() {
               <li>• Provide resources and learning opportunities</li>
               <li>• Track progress and adjust as needed</li>
             </ul>
-          </div>
+          </button>
 
           {/* Best Practices */}
-          <div className="bg-gray-700/30 rounded-lg p-4 border border-gray-600">
-            <h3 className="text-white font-medium mb-3 flex items-center">
+          <button
+            onClick={() => navigate('/help#best-practices')}
+            className="bg-gray-700/30 rounded-lg p-4 border border-gray-600 hover:bg-gray-700/50 hover:border-yellow-500/50 transition-all duration-200 text-left group"
+          >
+            <h3 className="text-white font-medium mb-3 flex items-center group-hover:text-yellow-400 transition-colors">
               <Award className="mr-2 text-yellow-400" size={16} />
               Best Practices
+              <ArrowRight className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity" size={14} />
             </h3>
             <ul className="space-y-2 text-sm text-gray-300">
               <li>• Hold effective review meetings</li>
@@ -629,7 +645,7 @@ export default function ManagerDashboard() {
               <li>• Encourage peer feedback and collaboration</li>
               <li>• Document important conversations</li>
             </ul>
-          </div>
+          </button>
         </div>
       </div>
     </div>

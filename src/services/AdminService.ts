@@ -448,6 +448,15 @@ export class AdminService {
   // Generate invitation link/instructions
   static generateInvitationInstructions(employeeData: EmployeeFormData, credentials: any) {
     const appUrl = window.location.origin;
+    
+    // Handle different credential structures safely
+    let password = '[Contact admin for password]';
+    if (credentials?.login_credentials?.password) {
+      password = credentials.login_credentials.password;
+    } else if (credentials?.password) {
+      password = credentials.password;
+    }
+    
     return {
       subject: `Welcome to EDGE - Employee Development & Growth Engine`,
       body: `Hi ${employeeData.name},
@@ -459,7 +468,7 @@ To get started:
 2. Click "Sign In"
 3. Use these credentials:
    - Email: ${employeeData.email}
-   - Password: ${credentials.login_credentials?.password || '[Contact admin for password]'}
+   - Password: ${password}
 
 Your role: ${employeeData.role.charAt(0).toUpperCase() + employeeData.role.slice(1)}
 ${employeeData.managerId ? `Your manager will be available in the system once you log in.` : ''}

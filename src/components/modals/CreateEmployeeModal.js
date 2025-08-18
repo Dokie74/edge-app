@@ -194,7 +194,7 @@ const CreateEmployeeModal = ({ supabase, closeModal, modalProps }) => {
   if (success) {
     const instructions = AdminService.generateInvitationInstructions(
       { ...formData, role: formData.role },
-      success.next_steps
+      success.data?.next_steps
     );
 
     return (

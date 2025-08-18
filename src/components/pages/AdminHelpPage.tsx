@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TechnicalDocsPage from './TechnicalDocsPage';
 import './HelpPages.css';
 
@@ -10,12 +10,28 @@ const AdminHelpPage: React.FC = () => {
     { id: 'employee-management', title: 'Employee Management', icon: '👥' },
     { id: 'review-cycles', title: 'Review Cycle Management', icon: '📋' },
     { id: 'system-analytics', title: 'System Analytics', icon: '📊' },
-    { id: 'system-config', title: 'System Configuration', icon: '🔧' },
+    { id: 'api', title: 'API Documentation', icon: '🔌' },
+    { id: 'developer', title: 'Developer Guides', icon: '💻' },
+    { id: 'system', title: 'System Configuration', icon: '🔧' },
     { id: 'technical-docs', title: 'Technical Documentation', icon: '📚' },
     { id: 'monitoring', title: 'Monitoring & Logging', icon: '📈' },
     { id: 'security', title: 'Security & Compliance', icon: '🔒' },
     { id: 'troubleshooting', title: 'Troubleshooting', icon: '🚨' }
   ];
+
+  // Handle hash-based navigation
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove the # symbol
+    if (hash && sections.find(section => section.id === hash)) {
+      setActiveSection(hash);
+    }
+  }, []);
+
+  // Update hash when section changes
+  const handleSectionChange = (sectionId: string) => {
+    setActiveSection(sectionId);
+    window.history.replaceState(null, '', `#${sectionId}`);
+  };
 
   const renderContent = () => {
     switch (activeSection) {
@@ -244,6 +260,133 @@ const AdminHelpPage: React.FC = () => {
           </div>
         );
 
+      case 'api':
+        return (
+          <div className="help-content">
+            <h2>🔌 API Documentation</h2>
+            
+            <h3>EDGE API Overview</h3>
+            <p>The EDGE platform provides comprehensive REST APIs for integrating with external systems and building custom applications.</p>
+            
+            <h3>Authentication</h3>
+            <ul>
+              <li><strong>Bearer Token Authentication</strong>: Use JWT tokens for API access</li>
+              <li><strong>API Key Management</strong>: Generate and manage API keys</li>
+              <li><strong>Rate Limiting</strong>: API calls are limited to prevent abuse</li>
+              <li><strong>CORS Configuration</strong>: Cross-origin requests are supported</li>
+            </ul>
+
+            <h3>Core API Endpoints</h3>
+            
+            <h4>Employee Management</h4>
+            <ul>
+              <li><code>GET /api/employees</code>: List all employees</li>
+              <li><code>POST /api/employees</code>: Create new employee</li>
+              <li><code>PUT /api/employees/{id}</code>: Update employee information</li>
+              <li><code>DELETE /api/employees/{id}</code>: Deactivate employee</li>
+            </ul>
+
+            <h4>Assessment Data</h4>
+            <ul>
+              <li><code>GET /api/assessments</code>: Retrieve assessment data</li>
+              <li><code>POST /api/assessments</code>: Submit assessment responses</li>
+              <li><code>GET /api/review-cycles</code>: List review cycles</li>
+              <li><code>POST /api/review-cycles</code>: Create new review cycle</li>
+            </ul>
+
+            <h4>Analytics & Reporting</h4>
+            <ul>
+              <li><code>GET /api/analytics/performance</code>: Performance metrics</li>
+              <li><code>GET /api/analytics/completion-rates</code>: Completion statistics</li>
+              <li><code>GET /api/reports/{type}</code>: Generate reports</li>
+              <li><code>GET /api/dashboard/metrics</code>: Dashboard data</li>
+            </ul>
+
+            <div className="help-example">
+              <h4>📝 Example API Call:</h4>
+              <div className="example-box">
+                <pre><code>curl -X GET "https://api.edge.company.com/api/employees" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json"</code></pre>
+              </div>
+            </div>
+
+            <div className="help-tip">
+              <strong>💡 API Tip:</strong> Use the interactive API documentation at <code>/api/docs</code> to test endpoints and view detailed request/response schemas.
+            </div>
+          </div>
+        );
+
+      case 'developer':
+        return (
+          <div className="help-content">
+            <h2>💻 Developer Guides</h2>
+            
+            <h3>System Architecture</h3>
+            <p>EDGE is built on modern web technologies optimized for performance and scalability.</p>
+            
+            <h4>Frontend Architecture</h4>
+            <ul>
+              <li><strong>React 18</strong>: Component-based UI framework</li>
+              <li><strong>TypeScript</strong>: Type-safe JavaScript development</li>
+              <li><strong>Tailwind CSS</strong>: Utility-first styling framework</li>
+              <li><strong>React Router</strong>: Client-side routing</li>
+              <li><strong>Context API</strong>: State management</li>
+            </ul>
+
+            <h4>Backend Services</h4>
+            <ul>
+              <li><strong>Supabase</strong>: Backend-as-a-Service platform</li>
+              <li><strong>PostgreSQL</strong>: Relational database</li>
+              <li><strong>Edge Functions</strong>: Serverless API endpoints</li>
+              <li><strong>Row Level Security</strong>: Database-level access control</li>
+            </ul>
+
+            <h3>Database Schema</h3>
+            
+            <h4>Core Tables</h4>
+            <ul>
+              <li><strong>employees</strong>: User accounts and profile information</li>
+              <li><strong>review_cycles</strong>: Performance review periods</li>
+              <li><strong>assessments</strong>: Individual assessment records</li>
+              <li><strong>development_plans</strong>: Employee development goals</li>
+              <li><strong>feedback</strong>: Peer feedback and recognition</li>
+            </ul>
+
+            <h4>Key Relationships</h4>
+            <ul>
+              <li><strong>employees ↔ assessments</strong>: One-to-many (employee has multiple assessments)</li>
+              <li><strong>employees ↔ employees</strong>: Manager hierarchy (self-referencing)</li>
+              <li><strong>review_cycles ↔ assessments</strong>: One-to-many (cycle contains multiple assessments)</li>
+              <li><strong>employees ↔ development_plans</strong>: One-to-many (employee has multiple plans)</li>
+            </ul>
+
+            <h3>Development Setup</h3>
+            
+            <h4>Prerequisites</h4>
+            <ul>
+              <li>Node.js 18+ and npm/yarn</li>
+              <li>Supabase CLI</li>
+              <li>Git version control</li>
+              <li>Code editor (VS Code recommended)</li>
+            </ul>
+
+            <h4>Local Development</h4>
+            <ol>
+              <li>Clone the repository</li>
+              <li>Install dependencies: <code>npm install</code></li>
+              <li>Set up environment variables</li>
+              <li>Start development server: <code>npm start</code></li>
+              <li>Run tests: <code>npm test</code></li>
+            </ol>
+
+            <div className="help-warning">
+              <strong>⚠️ Development Note:</strong> Always use the staging environment for testing. Never run experimental code against production data.
+            </div>
+          </div>
+        );
+
+      case 'system':
       case 'system-config':
         return (
           <div className="help-content">
@@ -531,7 +674,7 @@ const AdminHelpPage: React.FC = () => {
               <li key={section.id}>
                 <button
                   className={`help-menu-item ${activeSection === section.id ? 'active' : ''}`}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => handleSectionChange(section.id)}
                 >
                   <span className="help-icon">{section.icon}</span>
                   {section.title}
@@ -543,7 +686,7 @@ const AdminHelpPage: React.FC = () => {
           <div className="quick-links">
             <h4>Quick Links</h4>
             <ul>
-              <li><button onClick={() => setActiveSection('technical-docs')} className="link-button">📚 Technical Documentation</button></li>
+              <li><button onClick={() => handleSectionChange('technical-docs')} className="link-button">📚 Technical Documentation</button></li>
               <li><a href="/docs/API_DOCUMENTATION.md" target="_blank">📄 API Documentation</a></li>
               <li><a href="/docs/DEVELOPER_SETUP_GUIDE.md" target="_blank">⚙️ Developer Guide</a></li>
               <li><a href="/docs/DEPLOYMENT_CICD_GUIDE.md" target="_blank">🚀 Deployment Guide</a></li>

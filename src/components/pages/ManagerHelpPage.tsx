@@ -1,8 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './HelpPages.css';
 
 const ManagerHelpPage: React.FC = () => {
   const [activeSection, setActiveSection] = useState('getting-started');
+
+  // Handle hash-based navigation  
+  useEffect(() => {
+    const hash = window.location.hash.slice(1); // Remove the # symbol
+    // Map dashboard widget links to internal section names
+    const sectionMap: { [key: string]: string } = {
+      'development-planning': 'development-plans', // Dashboard uses 'development-planning', we use 'development-plans'
+    };
+    
+    const mappedHash = sectionMap[hash] || hash;
+    const validSections = ['getting-started', 'team-management', 'review-process', 'development-plans', 'analytics', 'communication', 'best-practices', 'troubleshooting'];
+    if (mappedHash && validSections.includes(mappedHash)) {
+      setActiveSection(mappedHash);
+    }
+  }, []);
+
+  // Update hash when section changes
+  const handleSectionChange = (sectionId: string) => {
+    setActiveSection(sectionId);
+    window.history.replaceState(null, '', `#${sectionId}`);
+  };
 
   const sections = [
     { id: 'getting-started', title: 'Manager Overview', icon: '👔' },
@@ -446,7 +467,7 @@ const ManagerHelpPage: React.FC = () => {
               <li key={section.id}>
                 <button
                   className={`help-menu-item ${activeSection === section.id ? 'active' : ''}`}
-                  onClick={() => setActiveSection(section.id)}
+                  onClick={() => handleSectionChange(section.id)}
                 >
                   <span className="help-icon">{section.icon}</span>
                   {section.title}
