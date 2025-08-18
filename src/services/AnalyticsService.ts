@@ -228,7 +228,7 @@ class AnalyticsService {
       pulseResponses?.forEach((response: any) => {
         // Filter for satisfaction category only
         if (response.category === 'satisfaction') {
-          const month = months[new Date(response.submitted_at).getMonth()];
+          const month = months[new Date(response.created_at).getMonth()];
           const data = monthlyData.get(month);
           if (data) {
             // Handle response_value which is JSONB
