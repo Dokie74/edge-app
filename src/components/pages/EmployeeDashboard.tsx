@@ -42,11 +42,14 @@ export default function EmployeeDashboard() {
   const [dismissedFeedback, setDismissedFeedback] = useState<number[]>([]);
   const [assessmentTrends, setAssessmentTrends] = useState<any[]>([]);
   const [feedbackLoading, setFeedbackLoading] = useState(true);
+  const [adminResponses, setAdminResponses] = useState<any[]>([]);
+  const [adminResponsesLoading, setAdminResponsesLoading] = useState(true);
 
   useEffect(() => {
     if (user?.id) {
       fetchEmployeeDashboard();
       fetchRecentFeedback();
+      fetchAdminResponses();
     }
   }, [user?.id]);
 
@@ -92,10 +95,37 @@ export default function EmployeeDashboard() {
     }
   };
 
+  const fetchAdminResponses = async () => {
+    try {
+      setAdminResponsesLoading(true);
+      console.log('🔍 EmployeeDashboard: Fetching admin responses...');
+      const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
+      const data = await UATFeedbackService.getUserAdminResponses(user?.id, 5, false);
+      console.log('📥 EmployeeDashboard: Admin responses received:', data);
+      setAdminResponses(data || []);
+    } catch (err: any) {
+      console.error('❌ EmployeeDashboard: Error fetching admin responses:', err);
+    } finally {
+      setAdminResponsesLoading(false);
+    }
+  };
+
   const handleDismissFeedback = (feedbackId: number) => {
     setDismissedFeedback(prev => [...prev, feedbackId]);
     // Also remove from current display
     setFeedbackReceived(prev => prev.filter(f => f.feedback_id !== feedbackId));
+  };
+
+  const handleDismissAdminResponse = async (responseId: number) => {
+    try {
+      const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
+      await UATFeedbackService.dismissFeedbackItem(null, responseId, 'user');
+      // Remove from current display
+      setAdminResponses(prev => prev.filter(r => r.id !== responseId));
+    } catch (err: any) {
+      console.error('Error dismissing admin response:', err);
+      alert('Error dismissing response: ' + err.message);
+    }
   };
 
   const getVisibleFeedback = () => {
@@ -391,6 +421,40 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
+      {/* Admin Responses Section */}
+      {adminResponses.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-lg p-6 border-2 border-blue-500/50">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-white flex items-center">
+              <MessageSquare className="mr-2 text-blue-400" size={20} />
+              🔔 Admin Responses to Your Feedback
+            </h2>
+            <div className="flex space-x-2">
+              <button
+                onClick={fetchAdminResponses}
+                className="text-blue-400 hover:text-blue-300 transition-colors text-sm"
+                title="Refresh responses"
+              >
+                🔄
+              </button>
+              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                NEW
+              </span>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {adminResponses.map(response => (
+              <AdminResponseCard
+                key={response.id}
+                response={response}
+                onDismiss={handleDismissAdminResponse}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Employee Guide Section */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <div className="flex items-center justify-between mb-6">
@@ -478,7 +542,7 @@ export default function EmployeeDashboard() {
               <li>• Access the full help guide anytime</li>
               <li>• Check notification center for updates</li>
             </ul>
-          </div>
+          </button>
         </div>
       </div>
     </div>
@@ -542,6 +606,84 @@ const FeedbackCard = ({ feedback, onDismiss }: { feedback: any, onDismiss: (id: 
             </span>
             <span className="text-gray-500 text-xs">
               {formatDate(feedback.created_at)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Admin Response Card Component for Employee Dashboard
+const AdminResponseCard = ({ 
+  response, 
+  onDismiss 
+}: { 
+  response: any, 
+  onDismiss: (responseId: number) => void 
+}) => {
+  const getResponseTypeConfig = (type: string) => {
+    switch (type) {
+      case 'response': return { icon: MessageSquare, color: 'text-blue-400', bgColor: 'bg-blue-900/20', label: 'Response' };
+      case 'acknowledgment': return { icon: CheckCircle, color: 'text-green-400', bgColor: 'bg-green-900/20', label: 'Acknowledged' };
+      case 'resolution': return { icon: CheckCircle, color: 'text-purple-400', bgColor: 'bg-purple-900/20', label: 'Resolved' };
+      case 'update': return { icon: Activity, color: 'text-yellow-400', bgColor: 'bg-yellow-900/20', label: 'Update' };
+      default: return { icon: MessageSquare, color: 'text-blue-400', bgColor: 'bg-blue-900/20', label: 'Response' };
+    }
+  };
+
+  const typeConfig = getResponseTypeConfig(response.response_type);
+  const Icon = typeConfig.icon;
+  
+  return (
+    <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4 group hover:bg-blue-900/30 transition-colors">
+      <div className="flex items-start space-x-3">
+        <div className={`p-2 rounded-lg ${typeConfig.bgColor} flex-shrink-0`}>
+          <Icon size={16} className={typeConfig.color} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <span className="text-white font-medium text-sm">
+                {response.admin_name || 'Admin Team'}
+              </span>
+              <span className={`px-2 py-1 text-xs rounded ${typeConfig.bgColor} ${typeConfig.color}`}>
+                {typeConfig.label}
+              </span>
+            </div>
+            <button
+              onClick={() => onDismiss(response.id)}
+              className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-white transition-all duration-200"
+              title="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+          
+          <div className="mb-3">
+            <span className="text-xs text-gray-400">
+              Re: "{response.original_feedback_title}"
+            </span>
+            <span className={`ml-2 px-1.5 py-0.5 text-xs rounded ${
+              response.original_feedback_priority === 'critical' ? 'bg-red-600/20 text-red-300' :
+              response.original_feedback_priority === 'high' ? 'bg-red-500/20 text-red-400' :
+              response.original_feedback_priority === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+              'bg-gray-500/20 text-gray-400'
+            }`}>
+              {response.original_feedback_priority?.toUpperCase()}
+            </span>
+          </div>
+          
+          <div className="bg-gray-700/50 rounded-lg p-3 mb-3">
+            <p className="text-gray-200 text-sm leading-relaxed">{response.response_message}</p>
+          </div>
+          
+          <div className="flex justify-between items-center text-xs text-gray-500">
+            <span>
+              {response.original_feedback_category} • {formatDate(response.sent_at)}
+            </span>
+            <span>
+              {response.status === 'read' ? '✓ Read' : 'New'}
             </span>
           </div>
         </div>

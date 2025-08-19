@@ -235,7 +235,8 @@ class RoleBasedAnalyticsService {
       const teamSize = teamMembers?.length || 0;
       const pendingReviews = teamMembers?.reduce((acc, member) => 
         acc + (member.assessments?.filter((a: any) => 
-          a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
+          (a.self_assessment_status === 'submitted' || a.self_assessment_status === 'employee_complete') && 
+          a.manager_review_status === 'pending'
         ).length || 0), 0) || 0;
       
       const completedReviews = teamMembers?.reduce((acc, member) => 
@@ -248,7 +249,10 @@ class RoleBasedAnalyticsService {
         acc + (member.assessments?.filter((a: any) => {
           const dueDate = new Date(a.due_date);
           const now = new Date();
-          return dueDate < now && (a.self_assessment_status !== 'employee_complete' || a.manager_review_status !== 'completed');
+          return dueDate < now && (
+            (a.self_assessment_status !== 'submitted' && a.self_assessment_status !== 'employee_complete') || 
+            a.manager_review_status !== 'completed'
+          );
         }).length || 0), 0) || 0;
 
       // Calculate real team completion rate
@@ -329,11 +333,12 @@ class RoleBasedAnalyticsService {
       const totalAdmins = allEmployees?.filter(e => e.role === 'admin').length || 0;
       
       const completedAssessments = allAssessments?.filter(a => 
-        a.self_assessment_status === 'employee_complete'
+        a.self_assessment_status === 'submitted' || a.self_assessment_status === 'employee_complete'
       ).length || 0;
       
       const pendingReviews = allAssessments?.filter(a => 
-        a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
+        (a.self_assessment_status === 'submitted' || a.self_assessment_status === 'employee_complete') && 
+        a.manager_review_status === 'pending'
       ).length || 0;
       
       const activeReviewCycles = reviewCycles?.filter(c => c.status === 'active').length || 0;
@@ -342,7 +347,10 @@ class RoleBasedAnalyticsService {
       const overdueItems = allAssessments?.filter(a => {
         const dueDate = new Date(a.due_date);
         const now = new Date();
-        return dueDate < now && (a.self_assessment_status !== 'employee_complete' || a.manager_review_status !== 'completed');
+        return dueDate < now && (
+          (a.self_assessment_status !== 'submitted' && a.self_assessment_status !== 'employee_complete') || 
+          a.manager_review_status !== 'completed'
+        );
       }).length || 0;
 
       // Calculate active users (employees with recent activity)
@@ -492,7 +500,8 @@ class RoleBasedAnalyticsService {
     }> = [];
     teamMembers.forEach(member => {
       const pendingAssessments = member.assessments?.filter((a: any) => 
-        a.self_assessment_status === 'employee_complete' && a.manager_review_status === 'pending'
+        (a.self_assessment_status === 'submitted' || a.self_assessment_status === 'employee_complete') && 
+        a.manager_review_status === 'pending'
       ) || [];
       
       pendingAssessments.forEach((assessment: any) => {

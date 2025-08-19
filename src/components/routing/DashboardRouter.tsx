@@ -11,10 +11,11 @@ import AdminDashboard from '../pages/AdminDashboard';
 import SuperEnhancedDashboard from '../pages/SuperEnhancedDashboard';
 
 const DashboardRouter: React.FC = () => {
-  const { userRole, loading } = useApp();
+  const { userRole, loading, userDataLoading } = useApp();
 
   // Show loading state while user role is being determined
-  if (loading) {
+  // Check both general loading and user data loading states
+  if (loading || userDataLoading || userRole === null) {
     return (
       <div className="p-8 flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
@@ -35,7 +36,10 @@ const DashboardRouter: React.FC = () => {
       return <AdminDashboard />;
     
     default:
-      console.warn(`Unknown user role: ${userRole}, falling back to enhanced dashboard`);
+      // Only show warning for truly unknown roles (not null/undefined)
+      if (userRole && userRole !== 'null' && userRole !== 'undefined') {
+        console.warn(`Unknown user role: ${userRole}, falling back to enhanced dashboard`);
+      }
       return <SuperEnhancedDashboard />;
   }
 };

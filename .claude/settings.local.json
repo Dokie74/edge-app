@@ -59,13 +59,15 @@
       "Bash(git init:*)",
       "Bash(git remote add:*)",
       "Bash(set PGPASSWORD=NqXvtELelh0KezfZ)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(git tag:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "C:\\Users\\DavidOkonoski\\Documents\\edgeapp",
-      "C:\\Users\\DavidOkonoski\\Documents"
+      "C:\\Users\\DavidOkonoski\\Documents",
+      "C:\\d C:\\Users\\DavidOkonoski\\Documents"
     ]
   }
 }

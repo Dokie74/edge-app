@@ -203,72 +203,176 @@ export class TeamHealthService {
   // Calculate department satisfaction score 
   static async calculateDepartmentSatisfaction(department: string): Promise<number> {
     try {
-      // Try to get from Supabase database first
-      const { data: dbResults } = await supabase
-        .rpc('get_department_satisfaction', { 
-          dept_name: department,
-          days_back: 30 
-        });
+      console.log('🔍 TeamHealthService: Fetching satisfaction for department:', department);
+      
+      // Method 1: Try RPC function first
+      try {
+        const { data: rpcResults, error: rpcError } = await supabase
+          .rpc('get_department_satisfaction', { 
+            dept_name: department,
+            days_back: 30 
+          });
 
-      if (dbResults && dbResults.length > 0 && dbResults[0].avg_satisfaction) {
-        return parseFloat(dbResults[0].avg_satisfaction);
+        if (!rpcError && rpcResults && rpcResults.length > 0 && rpcResults[0].avg_satisfaction) {
+          const satisfaction = parseFloat(rpcResults[0].avg_satisfaction);
+          console.log('✅ Got department satisfaction from RPC:', satisfaction);
+          return satisfaction;
+        }
+      } catch (rpcError) {
+        console.warn('⚠️ RPC function not available for department, trying direct query:', rpcError);
       }
+
+      // Method 2: Direct table query as fallback
+      try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const { data: directResults, error: directError } = await supabase
+          .from('team_health_pulse_responses')
+          .select('response')
+          .eq('category', 'satisfaction')
+          .eq('department', department)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .not('response', 'is', null);
+
+        if (!directError && directResults && directResults.length > 0) {
+          console.log('📊 Found', directResults.length, 'satisfaction responses for department:', department);
+          
+          const numericResponses = directResults
+            .map(r => {
+              if (typeof r.response === 'number') return r.response;
+              if (typeof r.response === 'string' && !isNaN(parseFloat(r.response))) {
+                return parseFloat(r.response);
+              }
+              return null;
+            })
+            .filter((r): r is number => r !== null && r >= 1 && r <= 5);
+
+          if (numericResponses.length > 0) {
+            const average = numericResponses.reduce((sum, val) => sum + val, 0) / numericResponses.length;
+            const satisfaction = Math.round(average * 10) / 10;
+            console.log('✅ Calculated department satisfaction from direct query:', satisfaction);
+            return satisfaction;
+          }
+        }
+      } catch (directError) {
+        console.warn('⚠️ Direct query failed for department:', directError);
+      }
+
+      // Method 3: Fallback to localStorage
+      const responses = this.getAllResponses();
+      
+      // Filter for satisfaction responses from this department
+      const deptResponses = responses.filter(response => 
+        response.category === 'satisfaction' && 
+        typeof response.response === 'number' &&
+        response.response >= 1 && response.response <= 5 &&
+        (response as any).department === department
+      );
+
+      if (deptResponses.length > 0) {
+        const average = deptResponses.reduce((sum, response) => 
+          sum + response.response, 0) / deptResponses.length;
+        const satisfaction = Math.round(average * 10) / 10;
+        console.log('✅ Got department satisfaction from localStorage:', satisfaction);
+        return satisfaction;
+      }
+
+      // Method 4: Final fallback to overall company satisfaction
+      console.log('🔄 No department-specific data found, falling back to company average');
+      return await this.calculateCompanySatisfaction();
+      
     } catch (error) {
-      console.warn('Database query failed, falling back to localStorage:', error);
+      console.error('❌ Error calculating department satisfaction:', error);
+      return 0;
     }
-
-    // Fallback to localStorage
-    const responses = this.getAllResponses();
-    
-    // Filter for satisfaction responses from this department
-    const deptResponses = responses.filter(response => 
-      response.category === 'satisfaction' && 
-      typeof response.response === 'number' &&
-      response.response >= 1 && response.response <= 5 &&
-      (response as any).department === department
-    );
-
-    if (deptResponses.length === 0) {
-      return this.calculateTeamSatisfaction(); // Fallback to overall
-    }
-
-    const average = deptResponses.reduce((sum, response) => 
-      sum + response.response, 0) / deptResponses.length;
-    
-    return Math.round(average * 10) / 10;
   }
 
   // Calculate company-wide satisfaction score
   static async calculateCompanySatisfaction(): Promise<number> {
     try {
-      // Try to get from Supabase database first
-      const { data: dbResults } = await supabase
-        .rpc('get_company_satisfaction', { days_back: 30 });
+      console.log('🔍 TeamHealthService: Fetching company satisfaction...');
+      
+      // Method 1: Try RPC function first
+      try {
+        const { data: rpcResults, error: rpcError } = await supabase
+          .rpc('get_company_satisfaction', { days_back: 30 });
 
-      if (dbResults && dbResults.length > 0 && dbResults[0].avg_satisfaction) {
-        return parseFloat(dbResults[0].avg_satisfaction);
+        if (!rpcError && rpcResults && rpcResults.length > 0 && rpcResults[0].avg_satisfaction) {
+          const satisfaction = parseFloat(rpcResults[0].avg_satisfaction);
+          console.log('✅ Got satisfaction from RPC:', satisfaction);
+          return satisfaction;
+        }
+      } catch (rpcError) {
+        console.warn('⚠️ RPC function not available, trying direct query:', rpcError);
       }
+
+      // Method 2: Direct table query as fallback
+      try {
+        console.log('🔄 Trying direct database query...');
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const { data: directResults, error: directError } = await supabase
+          .from('team_health_pulse_responses')
+          .select('response')
+          .eq('category', 'satisfaction')
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .not('response', 'is', null);
+
+        if (!directError && directResults && directResults.length > 0) {
+          console.log('📊 Found', directResults.length, 'satisfaction responses in database');
+          
+          // Calculate average from numeric responses
+          const numericResponses = directResults
+            .map(r => {
+              // Handle both numeric and string responses
+              if (typeof r.response === 'number') return r.response;
+              if (typeof r.response === 'string' && !isNaN(parseFloat(r.response))) {
+                return parseFloat(r.response);
+              }
+              return null;
+            })
+            .filter((r): r is number => r !== null && r >= 1 && r <= 5);
+
+          if (numericResponses.length > 0) {
+            const average = numericResponses.reduce((sum, val) => sum + val, 0) / numericResponses.length;
+            const satisfaction = Math.round(average * 10) / 10;
+            console.log('✅ Calculated satisfaction from direct query:', satisfaction);
+            return satisfaction;
+          }
+        } else {
+          console.log('📊 No satisfaction responses found in database');
+        }
+      } catch (directError) {
+        console.warn('⚠️ Direct query failed:', directError);
+      }
+
+      // Method 3: Fallback to localStorage  
+      console.log('🔄 Falling back to localStorage...');
+      const responses = this.getAllResponses();
+      
+      const satisfactionResponses = responses.filter(response => 
+        response.category === 'satisfaction' && 
+        typeof response.response === 'number' &&
+        response.response >= 1 && response.response <= 5
+      );
+
+      if (satisfactionResponses.length > 0) {
+        const average = satisfactionResponses.reduce((sum, response) => 
+          sum + response.response, 0) / satisfactionResponses.length;
+        const satisfaction = Math.round(average * 10) / 10;
+        console.log('✅ Got satisfaction from localStorage:', satisfaction);
+        return satisfaction;
+      }
+
+      console.log('❌ No satisfaction data found anywhere, returning 0');
+      return 0;
+      
     } catch (error) {
-      console.warn('Database query failed, falling back to localStorage:', error);
+      console.error('❌ Error calculating company satisfaction:', error);
+      return 0;
     }
-
-    // Fallback to localStorage
-    const responses = this.getAllResponses();
-    
-    const satisfactionResponses = responses.filter(response => 
-      response.category === 'satisfaction' && 
-      typeof response.response === 'number' &&
-      response.response >= 1 && response.response <= 5
-    );
-
-    if (satisfactionResponses.length === 0) {
-      return 0; // No data available
-    }
-
-    const average = satisfactionResponses.reduce((sum, response) => 
-      sum + response.response, 0) / satisfactionResponses.length;
-    
-    return Math.round(average * 10) / 10;
   }
 
   // Get health insights for dashboard

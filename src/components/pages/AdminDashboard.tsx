@@ -209,7 +209,7 @@ export default function AdminDashboard() {
       setUatLoading(true);
       console.log('🔍 AdminDashboard: Fetching UAT feedback...');
       const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
-      const data = await UATFeedbackService.getUATFeedback(5, 'open' as any); // Get 5 most recent open UAT feedback items
+      const data = await UATFeedbackService.getUATFeedback(5, null as any); // Get 5 most recent UAT feedback items (any status)
       console.log('📋 AdminDashboard: UAT feedback:', data);
       setUatFeedback(data || []);
     } catch (err: any) {
@@ -230,6 +230,33 @@ export default function AdminDashboard() {
     } catch (err: any) {
       console.error('Error updating UAT feedback:', err);
       alert('Error updating feedback: ' + err.message);
+    }
+  };
+
+  const handleSendAdminResponse = async (feedbackId: number, responseMessage: string, responseType: string = 'response') => {
+    try {
+      const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
+      await UATFeedbackService.addAdminResponse(feedbackId, responseMessage, responseType);
+      
+      // Refresh UAT feedback list
+      await fetchUATFeedback();
+      alert('✅ Response sent to user! They will see it on their dashboard.');
+    } catch (err: any) {
+      console.error('Error sending admin response:', err);
+      alert('Error sending response: ' + err.message);
+    }
+  };
+
+  const handleDismissUATFeedback = async (feedbackId: number) => {
+    try {
+      const { default: UATFeedbackService } = await import('../../services/UATFeedbackService');
+      await UATFeedbackService.dismissFeedbackItem(feedbackId, null, 'admin');
+      
+      // Refresh UAT feedback list
+      await fetchUATFeedback();
+    } catch (err: any) {
+      console.error('Error dismissing UAT feedback:', err);
+      alert('Error dismissing feedback: ' + err.message);
     }
   };
 
@@ -698,7 +725,8 @@ export default function AdminDashboard() {
       </div>
 
       {/* UAT Feedback Alerts Section */}
-      {uatFeedback.length > 0 && (
+      {/* Always show this section for debugging - you have feedback! */}
+      {true && (
         <div className="bg-gray-800 rounded-lg p-6 border-2 border-red-500/50 shadow-lg">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold text-white flex items-center">
@@ -725,6 +753,8 @@ export default function AdminDashboard() {
                 key={feedback.id}
                 feedback={feedback}
                 onAction={handleUATFeedbackAction}
+                onSendResponse={handleSendAdminResponse}
+                onDismiss={handleDismissUATFeedback}
               />
             ))}
           </div>
@@ -895,7 +925,7 @@ export default function AdminDashboard() {
               <li>• Database maintenance procedures</li>
               <li>• Emergency response procedures</li>
             </ul>
-          </div>
+          </button>
         </div>
       </div>
     </div>
@@ -1372,13 +1402,19 @@ const SystemAlertCard = ({
 // UAT Feedback Card Component
 const UATFeedbackCard = ({ 
   feedback, 
-  onAction 
+  onAction,
+  onSendResponse,
+  onDismiss
 }: { 
   feedback: any, 
-  onAction: (feedbackId: number, action: string, notes?: string) => void 
+  onAction: (feedbackId: number, action: string, notes?: string) => void,
+  onSendResponse?: (feedbackId: number, response: string, type?: string) => void,
+  onDismiss?: (feedbackId: number) => void
 }) => {
   const [showActions, setShowActions] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState(false);
+  const [showResponseForm, setShowResponseForm] = useState(false);
+  const [responseMessage, setResponseMessage] = useState('');
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
@@ -1490,7 +1526,7 @@ const UATFeedbackCard = ({
       {/* Actions */}
       {showActions && (
         <div className="mt-4 pt-3 border-t border-red-500/30">
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2 mb-3">
             <button
               onClick={() => {
                 onAction(feedback.id, "in_progress");
@@ -1511,15 +1547,78 @@ const UATFeedbackCard = ({
               ✅ Mark Resolved
             </button>
             <button
+              onClick={() => setShowResponseForm(true)}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded"
+            >
+              💬 Send Response
+            </button>
+            {onDismiss && (
+              <button
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to dismiss this feedback from your dashboard?")) {
+                    onDismiss(feedback.id);
+                    setShowActions(false);
+                  }
+                }}
+                className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded"
+              >
+                ❌ Dismiss
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Response Form */}
+      {showResponseForm && onSendResponse && (
+        <div className="mt-4 pt-3 border-t border-blue-500/30 bg-blue-900/10 p-3 rounded">
+          <h4 className="text-sm font-medium text-blue-300 mb-3">Send Response to User</h4>
+          <textarea
+            value={responseMessage}
+            onChange={(e) => setResponseMessage(e.target.value)}
+            className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm resize-none"
+            rows={3}
+            placeholder="Your response will appear on the user's dashboard..."
+            maxLength={500}
+          />
+          <div className="text-xs text-gray-500 mb-3">{responseMessage.length}/500 characters</div>
+          <div className="flex space-x-2">
+            <button
               onClick={() => {
-                if (window.confirm("Are you sure you want to dismiss this feedback?")) {
-                  onAction(feedback.id, "dismissed");
+                if (responseMessage.trim()) {
+                  onSendResponse(feedback.id, responseMessage.trim(), 'response');
+                  setResponseMessage('');
+                  setShowResponseForm(false);
                   setShowActions(false);
                 }
               }}
+              className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded"
+              disabled={!responseMessage.trim()}
+            >
+              Send Response
+            </button>
+            <button
+              onClick={() => {
+                if (responseMessage.trim()) {
+                  onSendResponse(feedback.id, responseMessage.trim(), 'acknowledgment');
+                  setResponseMessage('');
+                  setShowResponseForm(false);
+                  setShowActions(false);
+                }
+              }}
+              className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded"
+              disabled={!responseMessage.trim()}
+            >
+              Send Acknowledgment
+            </button>
+            <button
+              onClick={() => {
+                setResponseMessage('');
+                setShowResponseForm(false);
+              }}
               className="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-xs rounded"
             >
-              ❌ Dismiss
+              Cancel
             </button>
           </div>
         </div>

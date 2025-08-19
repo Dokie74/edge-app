@@ -282,8 +282,8 @@ const AdminHelpPage: React.FC = () => {
             <ul>
               <li><code>GET /api/employees</code>: List all employees</li>
               <li><code>POST /api/employees</code>: Create new employee</li>
-              <li><code>PUT /api/employees/{id}</code>: Update employee information</li>
-              <li><code>DELETE /api/employees/{id}</code>: Deactivate employee</li>
+              <li><code>PUT /api/employees/&#123;id&#125;</code>: Update employee information</li>
+              <li><code>DELETE /api/employees/&#123;id&#125;</code>: Deactivate employee</li>
             </ul>
 
             <h4>Assessment Data</h4>
@@ -298,7 +298,7 @@ const AdminHelpPage: React.FC = () => {
             <ul>
               <li><code>GET /api/analytics/performance</code>: Performance metrics</li>
               <li><code>GET /api/analytics/completion-rates</code>: Completion statistics</li>
-              <li><code>GET /api/reports/{type}</code>: Generate reports</li>
+              <li><code>GET /api/reports/&#123;type&#125;</code>: Generate reports</li>
               <li><code>GET /api/dashboard/metrics</code>: Dashboard data</li>
             </ul>
 
